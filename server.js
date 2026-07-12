@@ -18,7 +18,7 @@ app.set("trust proxy", 1);
 // 🔒 2. CORS restrito (ajuste seu domínio)
 app.use(cors({
   origin: [
-    "https://telegrambot-mlfd.onrender.com",
+    "https://task-test-nrdn.onrender.com",
     "https://highpay-ads.com"
   ],
   methods: ["GET", "POST"],
