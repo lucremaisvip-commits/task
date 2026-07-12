@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Tarefas</title>
+  <style>
+    body { font-family: sans-serif; background: #f9f9f9; padding: 20px; max-width: 1000px; margin: auto; }
+    nav { margin-bottom: 20px; background: #2a8f43; padding: 10px; border-radius: 8px; text-align: center; }
+    nav a { color: white; text-decoration: none; margin: 10px; font-weight: bold; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+    th { background: #f0f0f0; }
+    button { background: #2a8f43; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 2px; }
+    textarea, input { width: 100%; padding: 8px; margin-top: 10px; box-sizing: border-box; }
+    .edit-inputs input { margin-bottom: 5px; }
+    .checkbox-container { text-align: left; margin-top: 10px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+    .checkbox-container input { width: auto; margin: 0; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
+
+  <div class="card">
+    <h3>🔑 Digite sua chave admin</h3>
+    <input id="adminKey" type="password" placeholder="••••••••••••••••••••" />
+    <button onclick="usarChave()">✅ Usar chave</button>
+    <button onclick="location.reload()">🔄 Atualizar</button>
+    <pre id="statusChave">Nenhuma chave usada.</pre>
+  </div>
+
+  <div class="card">
+    <h2>📋 Lista de Tarefas</h2>
+    <button onclick="carregarTarefas()">🔄 Atualizar</button>
+    <table id="tabelaTarefas">
+      <thead>
+        <tr>
+          <th>ID</th><th>Título</th><th>Pontos</th><th>Ativa</th><th>VIP</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>➕ Nova Tarefa</h3>
+    <form onsubmit="criarTarefa(); return false;">
+      <input type="text" id="titulo" placeholder="Título" required>
+      <input type="text" id="link" placeholder="Link" required>
+      <input type="number" id="pontos" placeholder="Pontos" required>
+      <input type="number" id="dia" placeholder="Dia (opcional)" min="1">
+      <div class="checkbox-container">
+        <input type="checkbox" id="is_vip"> <span>Marcar como Tarefa VIP ⭐</span>
+      </div>
+      <button type="submit" style="margin-top: 15px;">Criar</button>
+    </form>
+  </div>
+
+  <div class="card" style="display:none;" id="edicaoBox">
+    <h3>✏️ Editar Tarefa</h3>
+    <div class="edit-inputs">
+      <input type="hidden" id="edit_id">
+      <input type="text" id="edit_titulo" placeholder="Novo Título">
+      <input type="text" id="edit_link" placeholder="Novo Link">
+      <input type="number" id="edit_pontos" placeholder="Novo Pontos">
+      <div class="checkbox-container">
+        <label><input type="checkbox" id="edit_ativa"> Ativa</label>
+      </div>
+      <div class="checkbox-container">
+        <label><input type="checkbox" id="edit_vip"> Tarefa VIP ⭐</label>
+      </div>
+      <button onclick="salvarEdicao()" style="margin-top: 15px;">💾 Salvar</button>
+      <button onclick="cancelarEdicao()" style="background:#999; margin-top: 15px;">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>📌 Tabela de Referência de Pontos (Insta Mais)</h3>
+    <p>Use esta tabela para equilibrar as tarefas e verificar os valores aplicados em cada ação.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Ação</th>
+          <th>💰 Anunciante paga</th>
+          <th>🎯 Custo em pontos (Instagram)</th>
+          <th>🤖 Custo no Bot (usuário recebe)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Seguidor IG</td><td>R$ 0,20</td><td>4 pontos</td><td>2 pontos</td></tr>
+        <tr><td>Curtida IG</td><td>R$ 0,15</td><td>3 pontos</td><td>1,5 (~2) pontos</td></tr>
+        <tr><td>Comentário IG</td><td>R$ 0,25</td><td>5 pontos</td><td>2,5 (~3) pontos</td></tr>
+        <tr><td>Visitar site</td><td>R$ 0,07</td><td>1 ponto</td><td>0,5 (~1) ponto</td></tr>
+        <tr><td>Assistir vídeo</td><td>R$ 0,10</td><td>2 pontos</td><td>1 ponto</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size: 14px; margin-top: 10px; color: #666;">
+      💡 <strong>Regra de Ouro:</strong> O sistema sempre mantém <strong>50%</strong> dos pontos pagos para sustentabilidade e lucro.
+    </p>
+  </div>
+
+<script>
+let chaveAdmin = sessionStorage.getItem("adminKey") || "";
+
+if (chaveAdmin) {
+  document.getElementById("statusChave").textContent = "✅ Chave definida.";
+}
+
+function usarChave() {
+  const input = document.getElementById("adminKey");
+  chaveAdmin = input.value.trim();
+  if (chaveAdmin) {
+    sessionStorage.setItem("adminKey", chaveAdmin);
+    document.getElementById("statusChave").textContent = "✅ Chave definida.";
+    alert("🔑 Chave registrada!");
+    carregarTarefas();
+  } else {
+    alert("❌ Digite sua chave admin!");
+  }
+}
+
+async function secureFetch(url, options = {}) {
+  if (!chaveAdmin) {
+    alert("Por favor, configure sua chave admin primeiro!");
+    throw new Error("Chave admin não definida.");
+  }
+  options.headers = {
+    ...(options.headers || {}),
+    "Content-Type": "application/json",
+    "x-admin-key": chaveAdmin
+  };
+  return fetch(url, options);
+}
+
+async function carregarTarefas() {
+  try {
+    const sql = "SELECT * FROM tarefas ORDER BY id DESC";
+    const res = await secureFetch("/admin/sql", {
+      method: "POST",
+      body: JSON.stringify({ sql })
+    });
+    const data = await res.json();
+    const tbody = document.querySelector("#tabelaTarefas tbody");
+    tbody.innerHTML = "";
+    
+    if (!Array.isArray(data)) return;
+
+    data.forEach(t => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${t.id}</td>
+          <td>${t.titulo}</td>
+          <td>${t.pontos}</td>
+          <td>${t.ativa ? '✅' : '❌'}</td>
+          <td>${t.is_vip ? '⭐ <span style="color:#d4af37; font-weight:bold;">VIP</span>' : '❌'}</td>
+          <td>
+            <button onclick="editarTarefa(${t.id}, \`${t.titulo}\`, \`${t.link}\`, ${t.pontos}, ${t.ativa}, ${t.is_vip})">✏️ Editar</button>
+            <button onclick="desativarTarefa(${t.id})">❌ Desativar</button>
+            ${!t.ativa ? `<button onclick="ativarTarefa(${t.id})">✅ Ativar</button>` : ''}
+            <button onclick="excluirTarefa(${t.id})" style="background:#d9534f;">🗑️ Excluir</button>
+          </td>
+        </tr>
+      `;
+    });
+  } catch (err) {
+    console.error("Erro ao carregar tarefas:", err);
+  }
+}
+
+async function desativarTarefa(id) {
+  if (!confirm("Deseja realmente desativar essa tarefa?")) return;
+  const sql = `UPDATE tarefas SET ativa = false WHERE id = ${id}`;
+  await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
+  carregarTarefas();
+}
+
+async function activarTarefa(id) {
+  const sql = `UPDATE tarefas SET ativa = true WHERE id = ${id}`;
+  await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
+  carregarTarefas();
+}
+
+async function excluirTarefa(id) {
+  if (!confirm("Tem certeza que deseja excluir esta tarefa? Essa ação não pode ser desfeita.")) return;
+  const sql = `DELETE FROM tarefas WHERE id = ${id}`;
+  await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
+  alert("Tarefa excluída!");
+  carregarTarefas();
+}
+
+async function criarTarefa() {
+  const titulo = document.getElementById("titulo").value.trim();
+  const link = document.getElementById("link").value.trim();
+  const pontos = parseInt(document.getElementById("pontos").value, 10);
+  const is_vip = document.getElementById("is_vip").checked;
+
+  // Monta o objeto sincronizado com a rota /admin/tarefa incluindo a flag VIP
+  const dados = { titulo, link, pontos, is_vip };
+
+  try {
+    const res = await secureFetch("/admin/tarefa", {
+      method: "POST",
+      body: JSON.stringify(dados)
+    });
+
+    if (res.ok) {
+      alert("✅ Tarefa criada com sucesso!");
+      // Limpa os campos do formulário
+      document.getElementById("titulo").value = "";
+      document.getElementById("link").value = "";
+      document.getElementById("pontos").value = "";
+      document.getElementById("dia").value = "";
+      document.getElementById("is_vip").checked = false;
+      carregarTarefas();
+    } else {
+      alert("Erro ao criar tarefa via API. Tentando fallback via SQL direto...");
+      // Fallback em query direta caso sua rota interna não salve o is_vip diretamente de primeira
+      const sqlFallback = `INSERT INTO tarefas (titulo, link, pontos, is_vip, ativa) VALUES ('${titulo}', '${link}', ${pontos}, ${is_vip}, true)`;
+      await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql: sqlFallback }) });
+      alert("✅ Tarefa criada com sucesso (Fallback SQL)!");
+      carregarTarefas();
+    }
+  } catch (err) {
+    alert("Erro na requisição.");
+  }
+}
+
+function editarTarefa(id, titulo, link, pontos, ativa, is_vip) {
+  document.getElementById("edit_id").value = id;
+  document.getElementById("edit_titulo").value = titulo;
+  document.getElementById("edit_link").value = link;
+  document.getElementById("edit_pontos").value = pontos;
+  document.getElementById("edit_ativa").checked = ativa;
+  document.getElementById("edit_vip").checked = is_vip;
+  document.getElementById("edicaoBox").style.display = "block";
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function cancelarEdicao() {
+  document.getElementById("edicaoBox").style.display = "none";
+}
+
+async function salvarEdicao() {
+  const id = document.getElementById("edit_id").value;
+  const titulo = document.getElementById("edit_titulo").value;
+  const link = document.getElementById("edit_link").value;
+  const pontos = document.getElementById("edit_pontos").value;
+  const ativa = document.getElementById("edit_ativa").checked;
+  const is_vip = document.getElementById("edit_vip").checked;
+
+  const sql = `UPDATE tarefas SET titulo='${titulo}', link='${link}', pontos=${pontos}, ativa=${ativa}, is_vip=${is_vip} WHERE id=${id}`;
+  await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
+
+  alert("Tarefa atualizada!");
+  cancelarEdicao();
+  carregarTarefas();
+}
+
+// Inicializa a tabela se a chave já existir em sessão
+if (chaveAdmin) {
+  carregarTarefas();
+}
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+  
+</script>
+
+</body>
+</html>

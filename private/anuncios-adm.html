@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Anúncios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
+    h2 {
+      color: #2a8f43;
+    }
+    .card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    input, button, select {
+      padding: 8px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #2a8f43;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      margin-right: 5px;
+    }
+    .btn-danger { background:#d9534f; }
+    .btn-blue { background:#0275d8; }
+    .btn-secondary { background:#6c757d; }
+    button:hover { opacity: 0.9; }
+    .checks { margin-top:10px; }
+  </style>
+</head>
+<body>
+
+  <!-- 🔹 Menu -->
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
+
+  <!-- 🔑 Campo para chave -->
+  <h2>📢 Pedidos de Anúncio</h2>
+<label>Digite sua chave admin:</label>
+<input type="password" id="adminKey" placeholder="x-admin-key" />
+<button onclick="salvarChave()">✅ Usar chave</button>
+<button onclick="carregar()">🔄 Atualizar</button>
+
+<!-- 🔹 Lista de anúncios -->
+<div id="lista"></div>
+
+<h2>📢 Anúncios Ativos</h2>
+<label>Digite sua chave admin:</label>
+<input type="password" id="adminKeyAtivos" placeholder="x-admin-key" />
+<button onclick="salvarChaveAtivos()">✅ Usar chave</button>
+<button onclick="carregarAtivos()">🔄 Atualizar</button>
+
+<div id="listaAtivos"></div>
+
+<h1>📢 Métricas de Anúncios</h1>
+
+<label>Digite sua chave admin:</label>
+<input type="password" id="adminKey" placeholder="x-admin-key">
+<button onclick="carregarMetricas()">🔄 Atualizar</button>
+
+<div id="resultado"></div>
+
+  
+<script>
+let ADMIN_KEY = null;
+
+// 🔑 Guardar a chave digitada
+function salvarChave() {
+  const input = document.getElementById("adminKey");
+  ADMIN_KEY = input.value.trim();
+  if (ADMIN_KEY) {
+    sessionStorage.setItem("adminKey", ADMIN_KEY);
+    alert("🔑 Chave registrada!");
+  }
+}
+
+// 🔐 Auxiliar para requisições seguras
+async function secureFetch(url, options = {}) {
+  if (!ADMIN_KEY) {
+    alert("❌ Digite sua chave admin primeiro!");
+    throw new Error("Chave não definida");
+  }
+  options.headers = {
+    ...(options.headers || {}),
+    "x-admin-key": ADMIN_KEY,
+    "Content-Type": "application/json",
+  };
+  return fetch(url, options);
+}
+
+// 📥 Buscar e renderizar a lista de anúncios pendentes
+async function carregar() {
+  const res = await secureFetch("/admin/anuncios/pending");
+  const dados = await res.json();
+  const div = document.getElementById("lista");
+  div.innerHTML = "";
+
+  dados.forEach((a) => {
+    const el = document.createElement("div");
+    el.className = "card";
+
+    el.innerHTML = `
+      <b>#${a.id} - ${a.nome}</b><br>
+      <b>Tipo:</b> ${a.tipo}</br>
+      <b>Descrição:</b> ${a.descricao}</br>
+      <b>Link:</b> ${a.link}</br>
+      <b>Contato:</b> ${a.contato}</br>
+
+      <div class="checks">
+        <label><input type="checkbox" ${a.contato_feito ? "checked" : ""} 
+          onchange="checkContato(${a.id}, this.checked)"> Entrou em contato</label><br>
+        <label><input type="checkbox" ${a.pagou ? "checked" : ""} 
+          onchange="checkPagamento(${a.id}, this.checked)"> Pagou</label>
+      </div>
+
+      <!-- Selecionar pontos -->
+      <select id="pontos-${a.id}">
+        <option value="1">1 ponto</option>
+        <option value="2">2 pontos</option>
+        <option value="3">3 pontos</option>
+        <option value="4">4 pontos</option>
+        <option value="5">5 pontos</option>
+      </select>
+      <button onclick="aprovarTarefa(${a.id}, '${a.tipo}', '${a.link}')">✅ Aprovar como Tarefa</button>
+
+      <!-- Selecionar local -->
+      <select id="local-${a.id}">
+        <option value="index">index</option>
+        <option value="anuncie">anuncie</option>
+        <option value="ads panel">ads panel</option>
+        <option value="tarefas lucremais">tarefas lucremais</option>
+        <option value="indicacoes">indicações</option>
+        <option value="pontuacao">pontuações</option>
+        <option value="tarefas externas">tarefas externas</option>
+        <option value="saque">saque</option>
+        <option value="site metricas">site</option>
+        <option value="roleta">roleta</option>
+      </select>
+      
+      <input type="text" id="imagem-${a.id}" placeholder="nome-do-arquivo.jpg" />
+      
+      <button 
+  class="btn-approve"
+  data-id="${a.id}"
+  data-tipo="${a.tipo}"
+  data-link="${a.link}"
+  data-descricao="${a.descricao}"
+  data-contato="${a.contato}">
+  ✅ Aprovar como banner
+</button>
+
+      <button class="btn-danger" onclick="recusar(${a.id})">❌ Excluir</button>
+      
+      <button class="btn-blue" onclick="entrarContato('${a.contato}')">💬 Entrar em Contato</button>
+    `;
+    div.appendChild(el);
+  });
+}
+
+// ☑️ Marcar se entrou em contato
+async function checkContato(id, valor) {
+  await secureFetch(`/admin/anuncios/${id}/contato`, {
+    method: "PATCH",
+    body: JSON.stringify({ contato_feito: valor }),
+  });
+}
+
+// ☑️ Marcar se pagou
+async function checkPagamento(id, valor) {
+  await secureFetch(`/admin/anuncios/${id}/pagamento`, {
+    method: "PATCH",
+    body: JSON.stringify({ pagou: valor }),
+  });
+}
+
+// 🔹 Selecionar pontuação para tarefa
+function selecionarPontos(id){
+  const select = document.getElementById(`pontos-${id}`);
+  return parseInt(select.value, 10);
+}
+
+// 🔹 Aprovar como tarefa
+async function aprovarTarefa(id, tipo, link){
+  const pontos = selecionarPontos(id);
+  const dados = { titulo: tipo, link, pontos };
+
+  await secureFetch("/admin/tarefa", {
+    method: "POST",
+    body: JSON.stringify(dados)
+  });
+
+  await secureFetch(`/admin/anuncios/${id}`, { method: "DELETE" });
+
+  alert(`✅ Tarefa criada com ${pontos} pontos!`);
+  carregar();
+}
+
+// 🔹 Selecionar local
+function selecionarLocal(id){
+  const select = document.getElementById(`local-${id}`);
+  return select.value;
+}
+
+// 🔹 Selecionar imagem
+function selecionarImagem(id){
+  const input = document.getElementById(`imagem-${id}`);
+  return `/img/${input.value.trim()}`;
+}
+
+
+
+// 🔹 Aprovar como banner
+async function aprovarBanner(id, tipo, link, descricao, contato) {
+  const posicao = selecionarLocal(id);
+  const imagem_url = selecionarImagem(id);
+
+  const dados = {
+    pedido_id: id,
+    titulo: tipo,            // ou outro campo mais adequado
+    tipo,
+    descricao,
+    link_url: link,
+    imagem_url,
+    anunciante: contato,
+    posicao,
+    prioridade: 1,
+    data_inicio: new Date().toISOString(),
+    data_fim: new Date(Date.now() + 7*24*60*60*1000).toISOString() // 7 dias
+  };
+
+  try {
+    const res = await fetch("/admin/anuncio", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-admin-key": document.getElementById("adminKey").value
+      },
+      body: JSON.stringify(dados)
+    });
+
+    if (res.ok) {
+      alert("✅ Anúncio aprovado e ativado!");
+    } else {
+      alert("❌ Erro ao aprovar anúncio");
+    }
+  } catch (err) {
+    console.error("Erro:", err);
+    alert("❌ Falha na requisição");
+  }
+}
+
+
+
+// 🔹 Recusar pedido
+async function recusar(id){
+  if(!confirm("Excluir pedido?")) return;
+  await secureFetch(`/admin/anuncios/${id}`, { method: "DELETE" });
+  alert("❌ Pedido excluído!");
+  carregar();
+}
+
+// 🔹 Entrar em contato (WhatsApp)
+function entrarContato(contato){
+  const whatsapp = contato.replace(/\D/g, "");
+  const msg = encodeURIComponent("🔥 Seu anúncio foi aprovado!\nPodemos iniciar hoje 🚀");
+  window.open(`https://wa.me/${whatsapp}?text=${msg}`, "_blank");
+}
+
+  
+// 🔑 Guardar chave para seção de ativos
+function salvarChaveAtivos(){
+  const input = document.getElementById("adminKeyAtivos");
+  ADMIN_KEY = input.value.trim();
+  if(ADMIN_KEY){
+    sessionStorage.setItem("adminKey", ADMIN_KEY);
+    alert("🔑 Chave registrada para anúncios ativos!");
+  }
+}
+  
+// 📥 Buscar e renderizar anúncios ativos
+async function carregarAtivos(){
+  const res = await secureFetch("/admin/anuncios/ativos");
+  const dados = await res.json();
+  const div = document.getElementById("listaAtivos");
+  div.innerHTML = "";
+
+  dados.forEach(a => {
+    const el = document.createElement("div");
+    el.className = "card";
+
+    el.innerHTML = `
+      <b>#${a.id}</b><br>
+      <img src="${a.imagem_url}" alt="banner" style="max-width:200px"><br>
+      <b>Descrição:</b> ${a.descricao}<br>
+      <b>Link:</b> ${a.link_url}<br>
+      <b>Local:</b> ${a.posicao}<br>
+      <b>Data início:</b> ${new Date(a.data_inicio).toLocaleString()}<br>
+      <b>Data fim:</b> ${new Date(a.data_fim).toLocaleString()}<br>
+      <b>Contato:</b> ${a.anunciante || ""}<br>
+
+      <!-- Selecionar nova posição -->
+      <select id="posicao-${a.id}">
+        <option value="index">index</option>
+        <option value="anuncie">anuncie</option>
+        <option value="ads panel">ads panel</option>
+        <option value="tarefas lucremais">tarefas lucremais</option>
+        <option value="indicacoes">indicações</option>
+        <option value="pontuacao">pontuações</option>
+        <option value="tarefas externas">tarefas externas</option>
+        <option value="saque">saque</option>
+        <option value="site metricas">site</option>
+        <option value="roleta">roleta</option>
+      </select>
+      <button onclick="alterarBanner(${a.id})">✏️ Alterar Banner</button>
+
+      <button class="btn-danger" onclick="excluirBanner(${a.id})">❌ Excluir</button>
+      <button onclick="toggleBanner(${a.id}, ${a.ativo ? 'false' : 'true'})">
+        ${a.ativo ? "🚫 Desativar" : "✅ Ativar"}
+      </button>
+    `;
+    div.appendChild(el);
+  });
+}
+
+// 🔹 Alterar posição/local do banner
+async function alterarBanner(id){
+  const posicao = document.getElementById(`posicao-${id}`).value;
+  await secureFetch(`/admin/anuncio/${id}/posicao`, {
+    method: "PATCH",
+    body: JSON.stringify({ posicao })
+  });
+  alert(`📍 Banner #${id} movido para ${posicao}`);
+  carregarAtivos();
+}
+
+// 🔹 Excluir banner ativo
+async function excluirBanner(id){
+  if(!confirm("Excluir banner ativo?")) return;
+  await secureFetch(`/admin/anuncio/${id}`, { method: "DELETE" });
+  alert("❌ Banner excluído!");
+  carregarAtivos();
+}
+
+// 🔹 Ativar/Desativar banner
+async function toggleBanner(id, ativo){
+  await secureFetch(`/admin/anuncio/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ ativo })
+  });
+  alert(ativo ? "✅ Banner ativado!" : "🚫 Banner desativado!");
+  carregarAtivos();
+}
+
+
+
+async function carregarMetricas() {
+  const adminKey = document.getElementById("adminKey").value;
+
+  try {
+    const res = await fetch("/api/admin/anuncios-metricas", {
+      headers: { "x-admin-key": adminKey }
+    });
+
+    if (!res.ok) {
+      document.getElementById("resultado").innerHTML = "❌ Acesso negado ou erro";
+      return;
+    }
+
+    const dados = await res.json();
+
+    // Monta tabela
+    let html = `
+      <table border="1" cellpadding="6" style="border-collapse: collapse; margin-top: 10px;">
+        <tr>
+          <th>ID</th>
+          <th>Título</th>
+          <th>👀 Visitas</th>
+          <th>👉 Cliques</th>
+          <th>💬 Contatos</th>
+          <th>📈 Conversão (%)</th>
+        </tr>
+    `;
+
+    dados.forEach(d => {
+      const visitas = d.visitas || 0;
+      const cliques = d.cliques || 0;
+      const taxa = visitas > 0 ? ((cliques / visitas) * 100).toFixed(2) : "0.00";
+
+      html += `
+        <tr>
+          <td>${d.id}</td>
+          <td>${d.titulo}</td>
+          <td>${visitas}</td>
+          <td>${cliques}</td>
+          <td>${d.contatos || 0}</td>
+          <td>${taxa}%</td>
+        </tr>
+      `;
+    });
+
+    html += "</table>";
+    document.getElementById("resultado").innerHTML = html;
+
+  } catch (err) {
+    console.error("Erro ao carregar métricas:", err);
+    document.getElementById("resultado").innerHTML = "❌ Erro ao carregar métricas";
+  }
+}
+
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+  
+</script>
+
+</body>
+  
+</html>

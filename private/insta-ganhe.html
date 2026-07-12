@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Insta Mais – Ganhe Pontos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="//libtl.com/sdk.js" data-zone="9579151" data-sdk="show_9579151"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    nav {
+      background: #2a8f43;
+      padding: 12px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 10px;
+      color: #2a8f43;
+    }
+
+    .pontos {
+      font-size: 20px;
+      margin: 10px 0;
+      color: #222;
+    }
+
+    button {
+      background: #2a8f43;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+
+    .limite {
+      font-size: 14px;
+      color: #777;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 🔹 Menu de Navegação -->
+  <nav>
+    <a href="insta-ganhe.html">Ganhe Pontos</a>
+    <a href="insta-troque.html">Troque Pontos</a>
+    <a href="insta-compre.html">Compre Pontos</a>
+  </nav>
+
+  <div class="box">
+    <h1>🎥 Ganhe Pontos Assistindo</h1>
+    <div class="pontos">
+      Pontos ganhos hoje: <strong id="pontos">0</strong><br>
+      Anúncios restantes: <strong id="restantes">15</strong>
+    </div>
+    <button id="assistirBtn" onclick="assistirAnuncio()">🎬 Assistir e ganhar 1 ponto</button>
+    <div class="limite">Limite diário: 15 anúncios</div>
+  </div>
+
+  <script>
+    const telegram_id = window.Telegram.WebApp?.initDataUnsafe?.user?.id;
+    const LIMITE_DIARIO = 15;
+    const STORAGE_KEY = 'instaGanhos';
+
+    function getHoje() {
+      const hoje = new Date();
+      return hoje.toISOString().split('T')[0];
+    }
+
+    function getStatus() {
+      const data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      const hoje = getHoje();
+      if (!data[hoje]) data[hoje] = { pontos: 0 };
+      return data;
+    }
+
+    function salvarStatus(data) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function atualizarTela() {
+      const data = getStatus();
+      const hoje = getHoje();
+      const ganhos = data[hoje]?.pontos || 0;
+      document.getElementById("pontos").innerText = ganhos;
+      document.getElementById("restantes").innerText = LIMITE_DIARIO - ganhos;
+      document.getElementById("assistirBtn").disabled = ganhos >= LIMITE_DIARIO;
+    }
+
+    async function assistirAnuncio() {
+      const data = getStatus();
+      const hoje = getHoje();
+      const ganhos = data[hoje].pontos;
+
+      if (ganhos >= LIMITE_DIARIO) return alert("⚠️ Você atingiu o limite diário.");
+
+      show_9579151(); // <- função do SDK Monetag
+
+      setTimeout(async () => {
+        data[hoje].pontos++;
+        salvarStatus(data);
+        atualizarTela();
+
+        if (telegram_id) {
+          await fetch("/api/concluir-tarefa", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              telegram_id,
+              tarefa_id: 9999,
+              pontos: 1
+            })
+          });
+        }
+
+        alert("✅ 1 ponto adicionado!");
+      }, 10000);
+    }
+
+    atualizarTela();
+  </script>
+</body>
+</html>

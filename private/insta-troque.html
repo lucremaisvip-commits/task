@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Insta Mais – Troque Pontos</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    nav {
+      background: #2a8f43;
+      padding: 12px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    .box {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+      color: #2a8f43;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+
+    button {
+      background: #2a8f43;
+      color: white;
+      border: none;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 20px;
+      width: 100%;
+    }
+
+    .msg {
+      text-align: center;
+      margin-top: 15px;
+      color: #155724;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="insta-ganhe.html">Ganhe Pontos</a>
+    <a href="insta-troque.html">Troque Pontos</a>
+    <a href="insta-compre.html">Compre Pontos</a>
+  </nav>
+
+  <div class="box">
+    <h2>🔁 Troque seus pontos</h2>
+
+    <label for="tipo">Tipo de engajamento:</label>
+    <select id="tipo">
+      <option value="curtidas">Curtidas</option>
+      <option value="seguidores">Seguidores</option>
+      <option value="comentarios">Comentários</option>
+    </select>
+
+    <label for="link">Link da publicação ou perfil:</label>
+    <input type="url" id="link" placeholder="https://instagram.com/..." required>
+
+    <label for="quantidade">Quantidade desejada:</label>
+    <input type="number" id="quantidade" min="1" placeholder="Ex: 10" required>
+
+    <button onclick="enviarPedido()">Enviar Pedido</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script>
+    const telegram_id = window.Telegram.WebApp?.initDataUnsafe?.user?.id;
+    
+    async function enviarPedido() {
+      const tipo = document.getElementById("tipo").value;
+      const link = document.getElementById("link").value.trim();
+      const quantidade = parseInt(document.getElementById("quantidade").value);
+      const msg = document.getElementById("msg");
+
+      if (!link || !quantidade || quantidade < 1) {
+        msg.innerText = "⚠️ Preencha todos os campos corretamente.";
+        return;
+      }
+
+      const body = {
+        telegram_id,
+        tipo,
+        link,
+        quantidade
+      };
+
+      // Simulação de envio (adicione seu endpoint aqui)
+      await fetch("/api/insta/pedido", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      msg.innerText = "✅ Pedido enviado com sucesso!";
+      document.getElementById("link").value = "";
+      document.getElementById("quantidade").value = "";
+    }
+  </script>
+</body>
+</html>

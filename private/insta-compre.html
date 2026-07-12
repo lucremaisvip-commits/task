@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Insta Mais – Compre Pontos</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f0f0f0;
+      max-width: 700px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    nav {
+      background: #2a8f43;
+      padding: 12px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 15px;
+      font-weight: bold;
+      font-size: 16px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #2a8f43;
+      margin-bottom: 20px;
+    }
+
+    .planos {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+    }
+
+    .plano {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      width: 200px;
+      text-align: center;
+      border-left: 6px solid #2a8f43;
+    }
+
+    .plano h3 {
+      margin-bottom: 10px;
+      color: #2a8f43;
+    }
+
+    .plano p {
+      margin: 6px 0;
+    }
+
+    .plano button {
+      background: #2a8f43;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      font-size: 15px;
+      border-radius: 6px;
+      margin-top: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+
+    .plano button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+
+    .aviso {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="insta-ganhe.html">Ganhe Pontos</a>
+    <a href="insta-troque.html">Troque Pontos</a>
+    <a href="insta-compre.html">Compre Pontos</a>
+  </nav>
+
+  <h2>💰 Compre Pontos</h2>
+
+  <div class="planos">
+    <div class="plano">
+      <h3>+100 Pontos</h3>
+      <p>Ideal para testar</p>
+      <p><strong>R$ 4,90</strong></p>
+      <button disabled><!-- href="https://cakto.link/plano100" -->Comprar</button>
+    </div>
+    <div class="plano">
+      <h3>+250 Pontos</h3>
+      <p>Mais engajamento</p>
+      <p><strong>R$ 9,90</strong></p>
+      <button disabled><!-- href="https://cakto.link/plano250" -->Comprar</button>
+    </div>
+    <div class="plano">
+      <h3>+500 Pontos</h3>
+      <p>Popular entre usuários</p>
+      <p><strong>R$ 17,90</strong></p>
+      <button disabled><!-- href="https://cakto.link/plano500" -->Comprar</button>
+    </div>
+    <div class="plano">
+      <h3>+1000 Pontos</h3>
+      <p>Plano Pro</p>
+      <p><strong>R$ 29,90</strong></p>
+      <button disabled><!-- href="https://cakto.link/plano1000" -->Comprar</button>
+    </div>
+  </div>
+
+  <div class="aviso">
+    Os botões serão ativados assim que os links forem configurados com a Cakto.<br>
+    Os pontos serão adicionados automaticamente à sua conta após a compra.
+  </div>
+</body>
+</html>

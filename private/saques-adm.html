@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title id="pageTitle">Admin - Withdrawals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 20px; background: #f5f5f5; }
+    h1, h2 { color: #2a8f43; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #e0f2f1; }
+    button { padding: 6px 10px; margin-right: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .aprovar { background: #4caf50; color: white; }
+    .reprovar { background: #f44336; color: white; }
+    .checar { background: #2196f3; color: white; }
+    nav { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .nav-links a { margin-right: 15px; font-weight: bold; color: #2a8f43; text-decoration: none; }
+    .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    input[type="password"] { padding: 8px; width: 250px; margin-right: 10px; border-radius: 4px; border: 1px solid #ccc; }
+    code { background: #eee; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+    .lang-selector { padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-weight: bold; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-links">
+      <a href="tarefas-adm.html" id="navTasks">Tasks</a>
+      <a href="saques-adm.html" id="navWithdrawals">Withdrawals</a>
+      <a href="usuarios-adm.html" id="navUsers">Users</a>
+      <a href="indicacoes-adm.html" id="navInvites">Invites</a>
+      <a href="config-adm.html" id="navConfig">Config</a>
+      <a href="anuncios-adm.html" id="navAds">Ads</a>
+    </div>
+    <select id="langSelect" class="lang-selector" onchange="alternarIdioma(this.value)">
+      <option value="en">🇺🇸 EN</option>
+      <option value="pt">🇧🇷 PT</option>
+    </select>
+  </nav>
+
+  <div class="card">
+    <h3 id="titleKeyCard">🔑 Enter your admin key</h3>
+    <input id="adminKey" type="password" placeholder="••••••••••••••••••••" />
+    <button onclick="usarChave()" style="background: #2a8f43; color: white;" id="btnUseKey">✅ Use Key</button>
+    <button onclick="location.reload()" id="btnRefresh">🔄 Refresh</button>
+    <pre id="statusChave">No key used.</pre>
+  </div>
+
+  <h1 id="mainHeading">💰 Manage Pending Withdrawals</h1>
+  <table id="tabela-saques">
+    <thead>
+      <tr>
+        <th id="thId">Withdrawal ID</th>
+        <th id="thTelegram">Telegram ID</th>
+        <th id="thPix">Payment Gateway / Pix</th>
+        <th id="thCpf">Tax ID / CPF</th>
+        <th id="thAmount">Requested Amount</th>
+        <th id="thStatus">Status</th>
+        <th id="thActions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td colspan="7" id="tdLoading">Loading... Insert the admin key to load data.</td></tr>
+    </tbody>
+  </table>
+
+  <script>
+    let chaveAdmin = "";
+    let userLang = "en";
+
+    const linguagens = {
+      pt: {
+        pageTitle: "Admin - Saques",
+        navTasks: "Tarefas", navWithdrawals: "Saques", navUsers: "Usuários", navInvites: "Indicações", navConfig: "Config", navAds: "Anúncios",
+        titleKeyCard: "🔑 Digite sua chave admin",
+        btnUseKey: "✅ Usar chave",
+        btnRefresh: "🔄 Atualizar",
+        keyStatusDefined: "✅ Chave definida.",
+        keyStatusNone: "Nenhuma chave usada.",
+        mainHeading: "💰 Gerenciar Saques Pendentes",
+        thId: "ID Saque", thTelegram: "Telegram ID", thPix: "Pix / Carteira", thCpf: "CPF / ID Fiscal", thAmount: "Valor Solicitado", thStatus: "Status", thActions: "Ações",
+        loading: "Carregando... Insira a chave admin para carregar os dados.",
+        noWithdrawals: "Nenhum saque pendente encontrado no momento. 🎉",
+        notInformed: "Não informado(a)",
+        btnApprove: "Aprovar", btnReject: "Reprovar", btnCheck: "🔍 Checar tarefas",
+        alertNoKey: "Por favor, defina a chave de administrador primeiro!",
+        alertSuccessStatus: "Saque #{id} marcado como {status}!",
+        alertErrStatus: "Não foi possível salvar a alteração do saque.",
+        alertErrFetch: "Erro ao buscar dados do banco. Verifique sua chave de segurança.",
+        auditTitle: "📊 Relatório de Auditoria do Usuário\n",
+        auditTotal: "✅ Total de tarefas feitas: ",
+        auditRecent: "🕒 Últimas 5 tarefas enviadas:\n",
+        auditEmpty: "   Nenhuma tarefa recente encontrada.",
+        auditTip: "\n💡 Dica: Se o ID da tarefa se repetir muito nos mesmos minutos, pode ser burla."
+      },
+      en: {
+        pageTitle: "Admin - Withdrawals",
+        navTasks: "Tasks", navWithdrawals: "Withdrawals", navUsers: "Users", navInvites: "Invites", navConfig: "Config", navAds: "Ads",
+        titleKeyCard: "🔑 Enter your admin key",
+        btnUseKey: "✅ Use Key",
+        btnRefresh: "🔄 Refresh",
+        keyStatusDefined: "✅ Key defined.",
+        keyStatusNone: "No key used.",
+        mainHeading: "💰 Manage Pending Withdrawals",
+        thId: "Withdrawal ID", thTelegram: "Telegram ID", thPix: "Payment Gateway / Pix", thCpf: "Tax ID / ID Number", thAmount: "Requested Amount", thStatus: "Status", thActions: "Actions",
+        loading: "Loading... Insert the admin key to load data.",
+        noWithdrawals: "No pending withdrawals found at the moment. 🎉",
+        notInformed: "Not informed",
+        btnApprove: "Approve", btnReject: "Reject", btnCheck: "🔍 Check tasks",
+        alertNoKey: "Please define the administrator key first!",
+        alertSuccessStatus: "Withdrawal #{id} marked as {status}!",
+        alertErrStatus: "Could not save the withdrawal status update.",
+        alertErrFetch: "Error fetching data from the database. Check your security key.",
+        auditTitle: "📊 User Audit Report\n",
+        auditTotal: "✅ Total tasks completed: ",
+        auditRecent: "🕒 Last 5 tasks submitted:\n",
+        auditEmpty: "   No recent tasks found.",
+        auditTip: "\n💡 Tip: If the task ID repeats frequently within the same minutes, it might be an exploit."
+      }
+    };
+
+    const urlParams = new URLSearchParams(window.location.search);
+
+    document.addEventListener("DOMContentLoaded", () => {
+      userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+      document.getElementById("langSelect").value = userLang;
+      atualizarInterface();
+    });
+
+    function alternarIdioma(lang) {
+      userLang = lang;
+      atualizarInterface();
+      if (chaveAdmin) carregarSaques();
+    }
+
+    function atualizarInterface() {
+      document.documentElement.lang = userLang;
+      const t = linguagens[userLang];
+
+      document.getElementById("pageTitle").innerText = t.pageTitle;
+      document.getElementById("navTasks").innerText = t.navTasks;
+      document.getElementById("navWithdrawals").innerText = t.navWithdrawals;
+      document.getElementById("navUsers").innerText = t.navUsers;
+      document.getElementById("navInvites").innerText = t.navInvites;
+      document.getElementById("navConfig").innerText = t.navConfig;
+      document.getElementById("navAds").innerText = t.navAds;
+
+      document.getElementById("titleKeyCard").innerText = t.titleKeyCard;
+      document.getElementById("btnUseKey").innerText = t.btnUseKey;
+      document.getElementById("btnRefresh").innerText = t.btnRefresh;
+      document.getElementById("statusChave").innerText = chaveAdmin ? t.keyStatusDefined : t.keyStatusNone;
+      document.getElementById("mainHeading").innerText = t.mainHeading;
+
+      document.getElementById("thId").innerText = t.thId;
+      document.getElementById("thTelegram").innerText = t.thTelegram;
+      document.getElementById("thPix").innerText = t.thPix;
+      document.getElementById("thCpf").innerText = t.thCpf;
+      document.getElementById("thAmount").innerText = t.thAmount;
+      document.getElementById("thStatus").innerText = t.thStatus;
+      document.getElementById("thActions").innerText = t.thActions;
+
+      const tbody = document.querySelector("#tabela-saques tbody");
+      if (tbody.innerHTML.includes("Carregando...") || tbody.innerHTML.includes("Loading...")) {
+        tbody.innerHTML = `<tr><td colspan="7">${t.loading}</td></tr>`;
+      }
+    }
+
+    function usarChave() {
+      chaveAdmin = document.getElementById("adminKey").value;
+      document.getElementById("statusChave").textContent = linguagens[userLang].keyStatusDefined;
+      carregarSaques();
+    }
+
+    async function secureFetch(url, options = {}) {
+      const t = linguagens[userLang];
+      if (!chaveAdmin) {
+        alert(t.alertNoKey);
+        throw new Error("Admin key not defined.");
+      }
+      options.headers = {
+        ...(options.headers || {}),
+        "Content-Type": "application/json",
+        "x-admin-key": chaveAdmin
+      };
+      return fetch(url, options);
+    }
+
+    async function carregarSaques() {
+      const t = linguagens[userLang];
+      const sql = `SELECT id, telegram_id, chave_pix, cpf, valor_solicitado, status FROM saques WHERE status = 'pendente' ORDER BY data_solicitacao DESC`;
+      
+      try {
+        const res = await secureFetch('/admin/sql', {
+          method: 'POST',
+          body: JSON.stringify({ sql })
+        });
+        const data = await res.json();
+
+        const tbody = document.querySelector("#tabela-saques tbody");
+        tbody.innerHTML = "";
+
+        if (!Array.isArray(data) || data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan='7' style='text-align:center; font-weight:bold; color:#666;'>${t.noWithdrawals}</td></tr>`;
+          return;
+        }
+
+        data.forEach(saque => {
+          const tr = document.createElement("tr");
+          const currencyPrefix = userLang === "pt" ? "R$" : "$";
+          
+          tr.innerHTML = `
+            <td>#${saque.id}</td>
+            <td><code>${saque.telegram_id}</code></td>
+            <td>${saque.chave_pix || t.notInformed}</td>
+            <td>${saque.cpf || t.notInformed}</td>
+            <td><b>${currencyPrefix} ${Number(saque.valor_solicitado).toFixed(2)}</b></td>
+            <td><span style="color: #d97706; font-weight: bold; background: #fef3c7; padding: 2px 8px; border-radius: 12px;">${saque.status}</span></td>
+            <td>
+              <button class="aprovar" onclick="atualizarStatus(${saque.id}, 'aprovado')">${t.btnApprove}</button>
+              <button class="reprovar" onclick="atualizarStatus(${saque.id}, 'reprovado')">${t.btnReject}</button>
+              <button class="checar" onclick="checarTarefas('${saque.telegram_id}')">${t.btnCheck}</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Erro ao listar saques:", err);
+        alert(t.alertErrFetch);
+      }
+    }
+
+    async function atualizarStatus(id, status) {
+      const t = linguagens[userLang];
+      const sql = `UPDATE saques SET status = '${status}', data_aprovacao = NOW() WHERE id = ${id}`;
+      try {
+        await secureFetch('/admin/sql', {
+          method: 'POST',
+          body: JSON.stringify({ sql })
+        });
+        alert(t.alertSuccessStatus.replace("{id}", id).replace("{status}", status.toUpperCase()));
+        carregarSaques();
+      } catch (err) {
+        console.error("Erro ao atualizar status:", err);
+        alert(t.alertErrStatus);
+      }
+    }
+
+    async function checarTarefas(telegramId) {
+      const t = linguagens[userLang];
+      const sqlTotal = `SELECT COUNT(id) AS total FROM tarefas_concluidas WHERE telegram_id = '${telegramId}'`;
+      const sqlUltimas = `SELECT tarefa_id, pontos, data FROM tarefas_concluidas WHERE telegram_id = '${telegramId}' ORDER BY data DESC LIMIT 5`;
+
+      try {
+        const resTotal = await secureFetch('/admin/sql', {
+          method: 'POST',
+          body: JSON.stringify({ sql: sqlTotal })
+        });
+        const dataTotal = await resTotal.json();
+
+        const resUltimas = await secureFetch('/admin/sql', {
+          method: 'POST',
+          body: JSON.stringify({ sql: sqlUltimas })
+        });
+        const dataUltimas = await resUltimas.json();
+
+        const totalFeito = dataTotal[0]?.total || 0;
+        
+        let relatorioUltimas = "";
+        if (Array.isArray(dataUltimas) && dataUltimas.length > 0) {
+          dataUltimas.forEach((task, i) => {
+            const dataFmt = new Date(task.data).toLocaleTimeString(userLang === "pt" ? 'pt-BR' : 'en-US');
+            relatorioUltimas += `   ${i+1}º) ID: ${task.tarefa_id} | +${task.pontos} pts | ${dataFmt}\n`;
+          });
+        } else {
+          relatorioUltimas = t.auditEmpty;
+        }
+
+        alert(t.auditTitle +
+              `----------------------------------------\n` +
+              `📱 Telegram ID: ${telegramId}\n` +
+              t.auditTotal + `${totalFeito}\n\n` +
+              t.auditRecent +
+              `${relatorioUltimas}\n` +
+              t.auditTip);
+              
+      } catch (err) {
+        console.error("Erro ao auditar tarefas:", err);
+        alert("SQL Execution Error / Erro na checagem do banco.");
+      }
+    }
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+    
+  </script>
+</body>
+</html>

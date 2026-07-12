@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Indicações</title>
+  <style>
+    body { font-family: sans-serif; background: #f9f9f9; padding: 20px; max-width: 1000px; margin: auto; }
+    nav { margin-bottom: 20px; background: #2a8f43; padding: 10px; border-radius: 8px; text-align: center; }
+    nav a { color: white; text-decoration: none; margin: 10px; font-weight: bold; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; font-size: 14px; }
+    th { background: #f0f0f0; }
+    button { background: #2a8f43; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; margin: 2px; }
+    button:hover { background: #1e6e34; }
+    input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    ul { list-style: none; padding: 0; }
+    ul li { padding: 6px 0; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
+
+  <div class="card">
+    <h2>🔑 Chave Admin</h2>
+    <input id="adminKey" type="password" placeholder="••••••••••••••••••••" />
+    <button onclick="usarChave()">✅ Usar chave</button>
+    <pre id="statusChave">Nenhuma chave usada.</pre>
+  </div>
+
+  <div class="card">
+    <h2>🔎 Filtro por Indicador</h2>
+    <form id="formFiltro">
+      <input type="text" name="indicador_id" placeholder="ID do indicador" required />
+      <button type="submit">📄 Listar Indicações</button>
+    </form>
+
+    <table id="tabelaIndicados">
+      <thead>
+        <tr>
+          <th>ID Indicação</th>
+          <th>Indicado</th>
+          <th>Nome</th>
+          <th>IP</th>
+          <th>Tarefas feitas</th>
+          <th>Ativado?</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+<button onclick="carregarRanking()">🔄 Atualizar Ranking</button>
+  
+  <div class="card">
+    <h3>🏆 Top 5 por Tarefas</h3>
+    <ul id="rankingTarefas">
+      <li>Carregando...</li>
+    </ul>
+
+    <h3>👥 Top 5 por Indicações</h3>
+    <ul id="rankingIndicacoes">
+      <li>Carregando...</li>
+    </ul>
+  </div>
+
+  <script>
+  let chaveAdmin = "";
+
+  function usarChave() {
+    chaveAdmin = document.getElementById("adminKey").value;
+    document.getElementById("statusChave").textContent = "✅ Chave definida.";
+  }
+
+  async function secureFetch(url, options = {}) {
+    if (!chaveAdmin) throw new Error("Chave admin não definida.");
+    options.headers = {
+      ...(options.headers || {}),
+      "Content-Type": "application/json",
+      "x-admin-key": chaveAdmin
+    };
+    return fetch(url, options);
+  }
+
+  // Filtro por indicador
+document.getElementById("formFiltro").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const indicadorId = new FormData(e.target).get("indicador_id");
+
+const sql = `
+  SELECT i.id, i.id_indicador, i.id_indicado, u.nome, u.tarefas_feitas, u.pontos, i.ip, i.pontos_ativados, i.data
+  FROM indicacoes i
+  JOIN usuarios u ON u.telegram_id = i.id_indicado::text   -- converte bigint para text
+  WHERE i.id_indicador::text = '${indicadorId}'            -- converte bigint para text
+  ORDER BY i.data DESC
+`;
+
+  const res = await secureFetch("/admin/sql", {
+    method: "POST",
+    body: JSON.stringify({ sql })
+  });
+
+  // clonar resposta para poder ler como texto se der erro
+  const resClone = res.clone();
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    const text = await resClone.text();
+    alert("Erro do servidor:\n" + text);
+    return;
+  }
+
+  const tbody = document.querySelector("#tabelaIndicados tbody");
+  tbody.innerHTML = "";
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="8">Nenhuma indicação encontrada.</td></tr>`;
+    return;
+  }
+
+  data.forEach(i => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${i.id}</td>
+        <td>${i.id_indicado}</td>
+        <td>${i.nome || '-'}</td>
+        <td>${i.ip}</td>
+        <td>${i.tarefas_feitas}</td>
+        <td>${i.pontos}</td>
+        <td>${i.pontos_ativados ? '✅' : '❌'}</td>
+        <td>
+          <button onclick="excluirIndicacao(${i.id}, '${i.id_indicador}')">🗑️ Excluir</button>
+        </td>
+      </tr>
+    `;
+  });
+});
+
+
+  // Excluir indicação (retira pontos e apaga registro)
+  async function excluirIndicacao(indicacaoId, indicadorId) {
+    if (!confirm("Tem certeza que deseja excluir essa indicação?")) return;
+
+    // Retira pontos do indicador (ajuste conforme regra)
+    const sqlRetira = `
+      UPDATE usuarios
+      SET pontos = pontos - 10,
+          indicacoes = indicacoes - 1
+      WHERE telegram_id = '${indicadorId}'
+    `;
+    await secureFetch("/admin/sql", {
+      method: "POST",
+      body: JSON.stringify({ sql: sqlRetira })
+    });
+
+    // Exclui indicação
+    const sqlDelete = `DELETE FROM indicacoes WHERE id = ${indicacaoId}`;
+    await secureFetch("/admin/sql", {
+      method: "POST",
+      body: JSON.stringify({ sql: sqlDelete })
+    });
+
+    alert("Indicação excluída e pontos revertidos.");
+  }
+
+
+    // Ranking
+    async function carregarRanking() {
+  if (!chaveAdmin) {
+    alert("❌ Defina a chave admin antes de carregar o ranking.");
+    return;
+  }
+      const sqlTarefas = `
+        SELECT nome, telegram_id, pontos
+        FROM usuarios
+        ORDER BY tarefas_feitas DESC
+        LIMIT 5
+      `;
+      const sqlIndicacoes = `
+        SELECT u.nome, u.telegram_id, u.indicacoes
+        FROM usuarios u
+        ORDER BY u.indicacoes DESC
+        LIMIT 5
+      `;
+
+      const [resT, resI] = await Promise.all([
+        secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql: sqlTarefas }) }),
+        secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql: sqlIndicacoes }) })
+      ]);
+
+let tarefas, indicacoes;
+
+try {
+  tarefas = await resT.json();
+} catch {
+  const text = await resT.text();
+  alert("Erro ranking tarefas:\n" + text);
+  return;
+}
+
+try {
+  indicacoes = await resI.json();
+} catch {
+  const text = await resI.text();
+  alert("Erro ranking indicações:\n" + text);
+  return;
+}
+
+      const tarefasList = document.getElementById("rankingTarefas");
+      tarefasList.innerHTML = "";
+      tarefas.forEach((item, index) => {
+        tarefasList.innerHTML += `<li>${index + 1}. ${item.nome || 'Usuário'} (ID ${item.telegram_id}) — ${item.pontos} pontos</li>`;
+      });
+
+      const indicacoesList = document.getElementById("rankingIndicacoes");
+      indicacoesList.innerHTML = "";
+      indicacoes.forEach((item, index) => {
+        indicacoesList.innerHTML += `<li>${index + 1}. ${item.nome || 'Usuário'} (ID ${item.telegram_id}) — ${item.indicacoes} indicações</li>`;
+      });
+    }
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+   
+  </script>
+</body>
+</html>

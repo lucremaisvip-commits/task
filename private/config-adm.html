@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Configurações</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
+    h2 {
+      color: #2a8f43;
+      margin-top: 30px;
+    }
+    textarea, pre, input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-family: monospace;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    pre {
+      background: #eef;
+      min-height: 100px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    ul {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    ul li {
+      margin: 8px 0;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
+
+  <h2>📑 Cola de Comandos SQL</h2>
+  <ul>
+    <li>-- Query para saber qual campanha converte melhor:<br>SELECT 
+    utm_source, 
+    COUNT(*) as total_visitas, 
+    SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) as total_conversoes,
+    ROUND(100.0 * SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) / COUNT(*), 2) as taxa_conversao_pct
+FROM traffic_logs
+GROUP BY utm_source
+ORDER BY taxa_conversao_pct DESC;</li>
+    <li>-- Expirar tarefas vencidas<br>UPDATE tarefas_usuario SET expirada = true WHERE validade < CURRENT_DATE;</li>
+    <li>-- Zerar pontos de todos os usuários<br>UPDATE usuarios SET pontos = 0;</li>
+    <li>-- Limpar saques reprovados<br>DELETE FROM saques WHERE status = 'reprovado';</li>
+    <li>-- Remover VIP de todos<br>UPDATE usuarios SET vip = false;</li>
+    <li>-- Top 5 usuários por tarefas<br>SELECT nome, telegram_id, tarefas_feitas FROM usuarios ORDER BY tarefas_feitas DESC LIMIT 5;</li>
+    <li>-- Top 5 usuários por indicações<br>SELECT nome, telegram_id, indicacoes FROM usuarios ORDER BY indicacoes DESC LIMIT 5;</li>
+    <li>-- Buscar dados de uma tabela<br>SELECT * FROM usuarios WHERE telegram_id = '123456';</li>
+    <li>-- Listar todas as tabelas<br>SELECT table_name FROM information_schema.tables WHERE table_schema='public';</li>
+  </ul>
+
+  <h2>📝 Console SQL Manual</h2>
+  <form onsubmit="executarSQLManual(event)">
+    <input type="password" id="campoSenha" placeholder="Digite a senha de admin..." />
+    <textarea id="campoSQL" placeholder="Digite aqui seu comando SQL..."></textarea>
+    <button type="submit">▶️ Executar Comando</button>
+  </form>
+
+  <h2>📤 Resultado</h2>
+  <pre id="resposta">Aguardando comandos...</pre>
+
+<script>
+async function enviarSQL(sql) {
+  const senha = document.getElementById("campoSenha").value.trim();
+  if (!senha) return alert("Digite a senha de admin.");
+
+  const res = await fetch("/admin/sql", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-key": senha   // 🔐 envia a senha no cabeçalho
+    },
+    body: JSON.stringify({ sql })
+  });
+
+  const text = await res.text();
+  document.getElementById("resposta").textContent = text;
+}
+
+function executarSQLManual(event) {
+  event.preventDefault();
+  const sql = document.getElementById("campoSQL").value.trim();
+  if (!sql) return alert("Digite um comando SQL válido.");
+  enviarSQL(sql);
+}
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+  
+</script>
+
+</body>
+</html>

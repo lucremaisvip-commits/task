@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - LucreMaisTask</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: sans-serif;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+
+    h2 {
+      color: #2a8f43;
+      margin-bottom: 10px;
+    }
+
+    section {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 30px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    input, textarea, button {
+      display: block;
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      background: #2a8f43;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1c6e34;
+    }
+
+    pre {
+      background: #eee;
+      padding: 10px;
+      white-space: pre-wrap;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>🛠️ Painel Admin - LucreMaisTask</h2>
+
+  <section>
+    <h3>✅ Testar conexão com o banco</h3>
+    <button onclick="testarConexao()">Testar</button>
+    <pre id="resultadoConexao">Aguardando...</pre>
+  </section>
+
+  <section>
+    <h3>➕ Criar nova tarefa</h3>
+    <input id="titulo" type="text" placeholder="Título da tarefa" />
+    <input id="link" type="text" placeholder="Link da tarefa (https://...)" />
+    <input id="dia" type="number" placeholder="Dia (ex: 20)" />
+    <input id="pontos" type="number" placeholder="Pontos" value="1" />
+    <button onclick="criarTarefa()">Criar</button>
+    <pre id="respostaCriar">Aguardando envio...</pre>
+  </section>
+
+  <section>
+    <h3>📄 Executar comando SQL</h3>
+    <textarea id="sql" rows="4" placeholder="Escreva seu comando SQL aqui..."></textarea>
+    <button onclick="executarSQL()">Executar SQL</button>
+    <pre id="respostaSQL">Nenhum resultado ainda.</pre>
+  </section>
+
+  <script>
+    async function testarConexao() {
+      try {
+        const res = await fetch("/api/tarefas");
+        const data = await res.json();
+        document.getElementById("resultadoConexao").textContent =
+          "✅ Conectado com sucesso! Tarefas carregadas: " + data.length;
+      } catch (err) {
+        document.getElementById("resultadoConexao").textContent =
+          "❌ Erro ao conectar: " + err;
+      }
+    }
+
+    async function criarTarefa() {
+      const body = {
+        titulo: document.getElementById("titulo").value,
+        link: document.getElementById("link").value,
+        dia: parseInt(document.getElementById("dia").value),
+        pontos: parseInt(document.getElementById("pontos").value)
+      };
+
+      try {
+        const res = await fetch("/admin/tarefa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        const text = await res.text();
+        document.getElementById("respostaCriar").textContent = text;
+      } catch (err) {
+        document.getElementById("respostaCriar").textContent = "❌ Erro: " + err;
+      }
+    }
+
+    async function executarSQL() {
+      const sql = document.getElementById("sql").value;
+
+      try {
+        const res = await fetch("/admin/sql", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sql })
+        });
+
+        const text = await res.text();
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch {
+          document.getElementById("respostaSQL").innerHTML = "<pre>" + text + "</pre>";
+          return;
+        }
+
+        if (Array.isArray(result) && result.length > 0) {
+          const keys = Object.keys(result[0]);
+          let tabela = "<table border='1' cellpadding='8'><tr>";
+          keys.forEach(k => tabela += `<th>${k}</th>`);
+          tabela += "</tr>";
+
+          result.forEach(row => {
+            tabela += "<tr>";
+            keys.forEach(k => tabela += `<td>${row[k]}</td>`);
+            tabela += "</tr>";
+          });
+          tabela += "</table>";
+
+          document.getElementById("respostaSQL").innerHTML = tabela;
+        } else {
+          document.getElementById("respostaSQL").innerHTML = "<pre>" + JSON.stringify(result, null, 2) + "</pre>";
+        }
+      } catch (err) {
+        document.getElementById("respostaSQL").innerHTML = "<pre>❌ Erro: " + err + "</pre>";
+      }
+    }
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+    
+  </script>
+
+</body>
+</html>

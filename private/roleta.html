@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>🎰 Roleta da Sorte</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+  .top-menu {
+  background: #2a8f43;
+  padding: 6px 0; /* menos padding vertical */
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin-bottom: 16px;
+  border-radius: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 10px; /* menos espaço entre linhas e entre colunas */
+}
+
+.top-menu a {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 15px;
+  padding: 6px 10px; /* menos altura nos botões */
+  white-space: nowrap;
+  border-radius: 4px;
+}
+
+.top-menu a:hover {
+  text-decoration: underline;
+}
+
+    .descricao {
+      margin: 10px 20px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 15px;
+      margin: 20px;
+      display: inline-block;
+      text-align: left;
+    }
+
+    .roleta-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      margin: 20px auto;
+    }
+
+    #ponteiro {
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-bottom: 40px solid red;
+      position: absolute;
+      top: -40px;
+      left: 50%;
+
+      z-index: 10;
+    }
+
+    .roleta {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 8px solid #2c3e50;
+      background: conic-gradient(
+        #f54242 0deg 30deg,
+        #f1c40f 30deg 60deg,
+        #2ecc71 60deg 90deg,
+        #3498db 90deg 120deg,
+        #9b59b6 120deg 150deg,
+        #e67e22 150deg 180deg,
+        #1abc9c 180deg 210deg,
+        #8e44ad 210deg 240deg,
+        #e74c3c 240deg 270deg,
+        #2980b9 270deg 300deg,
+        #27ae60 300deg 330deg,
+        #f39c12 330deg 360deg
+      );
+      transition: transform 5s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    #botaoGirar {
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    #resultado {
+      margin-top: 15px;
+      font-weight: bold;
+    }
+
+    table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 90%;
+      max-width: 500px;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid #ccc;
+      text-align: center;
+    }
+
+    #confetti {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+     .banner-box {
+      background: white;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="top-menu">
+    <a href="index.html">🏠 Início</a>
+    <a href="indicacoes.html">👥 Indicações</a>
+    <a href="pontuacao.html">📊 Pontuação</a>
+    <a href="tarefas-externas.html">🧩 Tarefas Externas</a>
+    <a href="saque.html">💰 Saque</a>
+  </nav>
+
+<h1>🎰 Roleta da Sorte</h1>
+<p class="descricao">
+  Usuários VIP ganham <strong>1 giro grátis por dia</strong>!<br>
+  Quer mais? Use seus pontos para girar mais vezes e aumentar suas chances.<br>
+  Cada giro adicional custa <strong>10 pontos</strong>.<br>
+  Todos os usuários podem girar até <strong>5 vezes por dia</strong>.
+</p>
+
+  <div class="card" id="saldo">
+    <p><strong>🎟️ Tickets disponíveis:</strong> <span id="tickets">Carregando...</span></p>
+    <p><strong>⭐ Pontos:</strong> <span id="pontos">Carregando...</span></p>
+  </div>
+
+  <div class="roleta-container">
+    <div id="ponteiro"></div>
+    <div class="roleta" id="roleta"></div>
+  </div>
+
+  // button id="botaoGirar">Girar Roleta button
+  <div id="resultado"></div>
+
+  <table>
+    <thead>
+      <tr><th>Número</th><th>Prêmio</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>5 pontos</td></tr>
+      <tr><td>2</td><td>10 pontos</td></tr>
+      <tr><td>3</td><td>15 pontos</td></tr>
+      <tr><td>4</td><td>Tente outra vez</td></tr>
+      <tr><td>5</td><td>5 pontos</td></tr>
+      <tr><td>6</td><td>10 pontos</td></tr>
+      <tr><td>7</td><td>15 pontos</td></tr>
+      <tr><td>8</td><td>Gire denovo</td></tr>
+      <tr><td>9</td><td>20 pontos</td></tr>
+      <tr><td>10</td><td>25 pontos</td></tr>
+      <tr><td>11</td><td>30 pontos</td></tr>
+      <tr><td>12</td><td>40 pontos</td></tr>
+    </tbody>
+  </table>
+<a href="https://lucremaistask.netlify.app/ajuda.html#roleta" target="_blank" style="text-decoration: none;">
+  <button style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;">
+    ❓ Dúvidas sobre Roleta
+  </button>
+</a>
+<h2>  </h2>
+<div class="banner">
+  <a href="https://winzo.onelink.me/gu8K/qqt3lu9j" target="_blank">
+    <img src="img/winzo.png" alt="Banner Winzo" style="width:100%; max-width:600px; height:auto; border-radius:8px;margin: 20px 0;">
+  </a>
+</div>
+
+  <div class="card" id="historico">
+    <h3>📜 Histórico de Giros</h3>
+    <ul id="listaGiros">
+      <li>Carregando histórico...</li>
+    </ul>
+  </div>
+
+<div class="banner">
+  <a href="https://pa3333.com/?invite_code=CLWADUVK" target="_blank">
+    <img src="img/papajogo.png" alt="Banner Papa Jogo" style="width:100%; max-width:600px; height:auto; border-radius:8px;margin: 20px 0;">
+  </a>
+</div>
+
+
+  <canvas id="confetti"></canvas>
+
+<script>
+  const urlParams = new URLSearchParams(window.location.search);
+  const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null;
+
+  const roleta = document.getElementById("roleta");
+  const botaoGirar = document.getElementById("botaoGirar");
+  const resultado = document.getElementById("resultado");
+
+  let rotacaoAtual = 0;
+  const anguloPorFatia = 360 / 12;
+
+  async function carregarUsuario() {
+    if (!telegram_id) {
+      alert("ID do usuário não encontrado.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/usuarios/${telegram_id}`);
+      if (!res.ok) throw new Error("Usuário não encontrado");
+      const user = await res.json();
+
+      document.getElementById("pontos").textContent = user.pontos ?? 0;
+
+      const hoje = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
+      const { girou } = await hoje.json();
+      document.getElementById("tickets").textContent = girou ? "0" : "1";
+    } catch (err) {
+      alert("Erro ao carregar usuário: " + err.message);
+    }
+  }
+
+  async function carregarHistorico() {
+    if (!telegram_id) return;
+
+    try {
+      const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
+      const giros = await res.json();
+      const lista = document.getElementById("listaGiros");
+      lista.innerHTML = "";
+      giros.forEach(g => {
+        const li = document.createElement("li");
+       if (g.premio === "pontos") {
+  li.textContent = `🎁 ${g.pontos_ganhos} pontos - ${new Date(g.data).toLocaleString()}`;
+} else {
+  li.textContent = `😕 Nenhum prêmio - ${new Date(g.data).toLocaleString()}`;
+  }
+        
+        //li.textContent = `🎁 ${g.premio} - ${new Date(g.data).toLocaleString()}`;
+        lista.appendChild(li);
+      });
+    } catch (err) {
+      console.error("Erro ao carregar histórico:", err.message);
+    }
+  }
+
+  function dispararConfete() {
+    const duration = 1500;
+    const end = Date.now() + duration;
+    const colors = ['#bb0000', '#ffffff'];
+
+    (function frame() {
+      confetti({ particleCount: 2, angle: 60, spread: 55, origin: { x: 0 }, colors });
+      confetti({ particleCount: 2, angle: 120, spread: 55, origin: { x: 1 }, colors });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  }
+
+  botaoGirar.addEventListener("click", async () => {
+    if (!telegram_id) {
+      alert("ID do usuário não encontrado.");
+      return;
+    }
+
+    const resultadoIndex = Math.floor(Math.random() * 12); // 0 a 11
+    const giros = 5 + Math.floor(Math.random() * 3);
+    const anguloFinal = 360 * giros + (360 - resultadoIndex * anguloPorFatia - anguloPorFatia / 2);
+    rotacaoAtual += anguloFinal;
+    roleta.style.transform = `rotate(${rotacaoAtual}deg)`;
+
+    setTimeout(async () => {
+      const premio_id = resultadoIndex + 1;
+
+      try {
+        const res = await fetch("/api/roleta/girar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telegram_id, premio_id })
+        });
+
+        const data = await res.json();
+        if (data.erro) {
+          resultado.textContent = `❌ ${data.erro}`;
+         } else {
+          resultado.textContent = `🎁 Você ganhou: ${data.valor} ${data.tipo === 'pontos' ? 'pontos' : ''}`;
+}
+  
+        carregarUsuario();
+        carregarHistorico();
+        if (!data.erro) dispararConfete();
+      } catch (err) {
+        alert("Erro ao girar: " + err.message);
+      }
+    }, 5000);
+  });
+
+  carregarUsuario();
+  carregarHistorico();
+</script>
+
+  <!-- Confetti Library (via CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+</body>
+  </html>

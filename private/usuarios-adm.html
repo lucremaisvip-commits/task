@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Usuários</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f9f9;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
+    h2 {
+      color: #2a8f43;
+    }
+    form {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    input, button, select {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0 15px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #2a8f43;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button:hover {
+      background: #1e6e34;
+    }
+    pre {
+      background: #eef;
+      padding: 15px;
+      white-space: pre-wrap;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
+
+  <h2>🔎 Buscar Usuário</h2>
+
+<div class="card">
+  <h3>🔑 Digite sua chave admin</h3>
+  <input id="adminKey" type="password" placeholder="••••••••••••••••••••" />
+  <button onclick="usarChave()">✅ Usar chave</button>
+  <button onclick="location.reload()">🔄 Atualizar</button>
+  <pre id="statusChave">Nenhuma chave usada.</pre>
+</div>
+
+  
+  <form id="formBuscar">
+    <input type="text" name="telegram_id" placeholder="ID do usuário" required />
+    <button type="submit">🔍 Buscar</button>
+  </form>
+
+  <h2>✏️ Editar Dados</h2>
+  <form id="formEditar">
+    <input type="text" name="telegram_id" placeholder="ID do usuário" required />
+    <input type="text" name="nome" placeholder="Novo nome (opcional)" />
+    <input type="number" name="pontos" placeholder="Pontos (substitui)" />
+    <input type="number" name="indicacoes" placeholder="Indicacoes (substitui)" />
+    <select name="vip">
+      <option value="">VIP (sem alteração)</option>
+      <option value="true">Ativar VIP</option>
+      <option value="false">Remover VIP</option>
+    </select>
+    <button type="submit">💾 Atualizar</button>
+  </form>
+
+  <h2>❌ Deletar Usuário</h2>
+  <form id="formDeletar">
+    <input type="text" name="telegram_id" placeholder="ID do usuário" required />
+    <button type="submit">🗑️ Deletar Usuário</button>
+  </form>
+
+  <h2>👥 Ver Indicações Feitas</h2>
+  <form id="formIndicacoes">
+    <input type="text" name="telegram_id" placeholder="ID do usuário" required />
+    <button type="submit">📄 Ver Indicações</button>
+  </form>
+
+  <h2>📤 Resultado</h2>
+  <pre id="resposta">Aguardando ações...</pre>
+
+  <script>
+  let chaveAdmin = "";
+
+  function usarChave() {
+    chaveAdmin = document.getElementById("adminKey").value;
+    document.getElementById("statusChave").textContent = "✅ Chave definida.";
+  }
+
+  async function secureFetch(url, options = {}) {
+    if (!chaveAdmin) throw new Error("Chave admin não definida.");
+    options.headers = {
+      ...(options.headers || {}),
+      "Content-Type": "application/json",
+      "x-admin-key": chaveAdmin
+    };
+    return fetch(url, options);
+  }
+
+  async function enviarSQL(sql) {
+    const res = await secureFetch("/admin/sql", {
+      method: "POST",
+      body: JSON.stringify({ sql })
+    });
+    const texto = await res.text();
+    document.getElementById("resposta").textContent = texto;
+  }
+
+  // Buscar usuário
+  document.getElementById("formBuscar").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = new FormData(e.target).get("telegram_id");
+    const sql = `SELECT * FROM usuarios WHERE telegram_id = '${id}'`;
+    enviarSQL(sql);
+  });
+
+  // Editar usuário
+  document.getElementById("formEditar").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const dados = new FormData(e.target);
+    const id = dados.get("telegram_id");
+    const updates = [];
+
+    if (dados.get("nome")) updates.push(`nome = '${dados.get("nome")}'`);
+    if (dados.get("pontos")) updates.push(`pontos = ${dados.get("pontos")}`);
+    if (dados.get("indicacoes")) updates.push(`indicacoes = ${dados.get("indicacoes")}`);
+    if (dados.get("vip") !== "") updates.push(`vip = ${dados.get("vip")}`);
+
+    if (updates.length === 0) return alert("Nenhuma alteração fornecida.");
+
+    const sql = `UPDATE usuarios SET ${updates.join(", ")} WHERE telegram_id = '${id}'`;
+    enviarSQL(sql);
+  });
+
+  // Deletar usuário
+  document.getElementById("formDeletar").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = new FormData(e.target).get("telegram_id");
+    const sql = `DELETE FROM usuarios WHERE telegram_id = '${id}'`;
+    if (confirm("Tem certeza que deseja excluir este usuário?")) {
+      enviarSQL(sql);
+    }
+  });
+
+  // Ver indicações
+  document.getElementById("formIndicacoes").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = new FormData(e.target).get("telegram_id");
+    const sql = `SELECT * FROM indicacoes WHERE id_indicador = '${id}' ORDER BY data DESC`;
+    enviarSQL(sql);
+  });
+
+  // Auditoria: checar tarefas
+  async function checarTarefas(usuarioId) {
+    const sqlValidas = `
+      SELECT COUNT(tc.id) AS concluidas_validas
+      FROM tarefas_concluidas tc
+      JOIN tarefas_usuario tu 
+        ON tu.usuario_id = tc.usuario_id 
+       AND tu.tarefa_id = tc.tarefa_id 
+       AND tu.token = tc.token
+      WHERE tc.usuario_id = ${usuarioId};
+    `;
+    const resValidas = await secureFetch('/admin/sql', {
+      method: 'POST',
+      body: JSON.stringify({ sql: sqlValidas })
+    });
+    const dataValidas = await resValidas.json();
+
+    const sqlBurlas = `
+      SELECT COUNT(tc.id) AS burlas
+      FROM tarefas_concluidas tc
+      LEFT JOIN tarefas_usuario tu 
+        ON tu.usuario_id = tc.usuario_id 
+       AND tu.tarefa_id = tc.tarefa_id
+      WHERE tc.usuario_id = ${usuarioId}
+        AND (tu.token IS NULL OR tc.token <> tu.token);
+    `;
+    const resBurlas = await secureFetch('/admin/sql', {
+      method: 'POST',
+      body: JSON.stringify({ sql: sqlBurlas })
+    });
+    const dataBurlas = await resBurlas.json();
+
+    alert("Usuário " + usuarioId + 
+          " concluiu corretamente " + dataValidas[0].concluidas_validas + " tarefas.\n" +
+          "Possíveis burlas detectadas: " + dataBurlas[0].burlas);
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }
+    
+</script>
+
+</body>
+</html>
