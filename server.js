@@ -16,9 +16,21 @@ const PORT = process.env.PORT || 3000;
 app.set("trust proxy", 1);
 
 // 🔒 2. CORS restrito (ajuste seu domínio)
+const allowedOrigins = [
+  process.env.APP_DOMAIN, 
+  "https://highpay-ads.com"
+].filter(Boolean);
+
 app.use(cors({
-  origin: [APP_DOMAIN, "https://highpay-ads.com"],
-  methods: ["GET", "POST"],
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log("❌ CORS BLOCK:", origin);
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ["GET", "POST"]
 }));
 
 
@@ -1361,10 +1373,18 @@ app.get("/api/admin/anuncios-metricas", verificarAdmin, async (req, res) => {
 
 
 app.post("/admin/sql", async (req, res) => {
-  const senha = req.headers["x-admin-key"];
+  const senhaEnviada = req.headers["x-admin-key"];
+  const senhaCorreta = process.env.ADMIN_KEY;
+
+  // 🔍 LOGS PARA DESCOBRIR O ERRO
+  console.log("--- DEBUG SQL ---");
+  console.log("Senha Enviada pelo Front:", senhaEnviada);
+  console.log("Senha no process.env (Backend):", senhaCorreta);
+  console.log("-----------------");
 
   // 🔐 Verificação de acesso
-  if (!senha || senha !== process.env.ADMIN_KEY) {
+  if (!senhaEnviada || senhaEnviada !== senhaCorreta) {
+    console.log("❌ Falha na autenticação!");
     return res.status(403).send("❌ Acesso negado");
   }
 
@@ -1374,12 +1394,6 @@ app.post("/admin/sql", async (req, res) => {
   if (!sql || typeof sql !== "string") {
     return res.status(400).send("SQL inválido");
   }
-
-  // 🚫 Bloqueio de comandos perigosos
-//  const comandosPerigosos = /(drop|delete|truncate|alter)/i;
- // if (comandosPerigosos.test(sql)) {
-   // return res.status(403).send("❌ Comando SQL bloqueado por segurança");
- // }
 
   try {
     const { rows } = await pool.query(sql);
