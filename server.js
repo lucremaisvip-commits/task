@@ -89,6 +89,14 @@ app.use(
 // 📁 Servir arquivos públicos
 app.use(express.static("public"));
 
+
+// 🔹 Rota para o Front-end consultar o domínio atual
+app.get("/api/config", (req, res) => {
+  res.json({
+    app_domain: process.env.APP_DOMAIN || "https://task-test-nrdn.onrender.com"
+  });
+});
+
 // 🔹 2.WEBHOOK UNIFICADO (Stripe + Cakto Corrigido)
 // =========================================================================
 app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), async (req, res) => {
@@ -183,6 +191,10 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
     res.status(500).send("Erro");
   }
 });
+
+
+
+
 
 // 🔹 3. Rotas de Tarefas (Modificadas para suportar Tarefas VIP)
 
