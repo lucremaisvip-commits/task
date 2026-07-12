@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title id="pageTitle">Offerwalls - LucreMaisTask</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Earn points by completing external tasks with CPAlead and ZerAds. VIP system, withdrawals, and more!">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 90px;
+    }
+
+    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 9999;
+    }
+
+    .bottom-nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a.active, .bottom-nav a:hover {
+      color: #00ff88;
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    .btn-container {
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .btn-container button {
+      background: #2a8f43;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      width: auto;
+    }
+
+    .btn-container button:hover {
+      background: #1e6e34;
+    }
+
+    .iframe-container {
+      width: 100%;
+      min-height: 500px;
+      border: none;
+      display: none;
+      border-radius: 6px;
+    }
+
+    button {
+      padding: 12px;
+      margin-top: 10px;
+      background: #2a8f43;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+
+    button:hover {
+      background: #1e6e34;
+    }
+
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .banner {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" class="active" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+<div class="card">
+  <h2 id="mainWallTitle">🧩 Choose your External Task</h2>
+  <div class="btn-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <button onclick="mostrarWall('cpalead')">🎯 CPAlead</button>
+    <button onclick="mostrarWall('moneyrain')">💰 MoneyRain</button>
+    <button onclick="abrirZerAds()" style="grid-column: span 2;">⚡ ZerAds (PTC)</button>
+  </div>
+</div>
+
+<!-- Container único para os iframes -->
+<div class="card" id="offersCard" style="display: none; padding: 5px;">
+  <iframe class="iframe-container" id="cpalead-frame" src="" style="width:100%; height:500px;"></iframe>
+  <iframe class="iframe-container" id="moneyrain-frame" src="" style="width:100%; height:500px;"></iframe>
+</div>
+
+  <p style="text-align:center; font-size:14px; color:#555;" id="autoPayoutNote">
+    💰 Complete ads and receive points automatically within 5 minutes
+  </p>
+
+  <div class="card" style="text-align:center;">
+    <h3 id="txtSponsorship">📢 Sponsorship</h3>
+    <div id="adsterra-banner" style="margin:15px 0;">
+      <script type="text/javascript">
+        atOptions = {
+          'key' : 'c85343a2d64da08f92bed539a913497d',
+          'format' : 'iframe',
+          'height' : 300,
+          'width' : 160,
+          'params' : {}
+        };
+      </script>
+      <script type="text/javascript" src="//www.highperformanceformat.com/c85343a2d64da08f92bed539a913497d/invoke.js"></script>
+    </div>
+  </div>
+
+  <div class="card" style="text-align:center;">
+    <div id="anuncie" style="margin:15px 0;">
+      <h3 id="adsBlockTitle">📣 Want to advertise here?</h3>
+      <p id="adsBlockDesc">Promote your product, course, or service directly inside our bot!</p>
+      <a href="https://lucremaistask.netlify.app/anuncie.html" target="_blank" style="text-decoration: none;">
+        <button id="btnAdvertiseNow">📢 Advertise Now</button>
+      </a>
+    </div>
+
+    <div class="grid" id="gridExternas"></div>
+  </div>
+
+<script>
+  let telegramId = "";
+  let userLang = "en";
+
+  const linguagens = {
+    en: {
+      pageTitle: "Offerwalls - LucreMaisTask",
+      wallTitle: "🧩 Choose your External Task",
+      autoPayout: "💰 Complete ads and receive points automatically within 5 minutes",
+      sponsorship: "📢 Sponsorship",
+      adsTitle: "📣 Want to advertise here?",
+      adsDesc: "Promote your product, course, or service directly inside our bot!",
+      btnAdvertise: "📢 Advertise Now",
+      navHome: "Home",
+      navTasks: "Tasks",
+      navInvites: "Invites",
+      navOfferwalls: "Offerwalls",
+      navWithdraw: "Withdraw",
+      errorId: "Error: User ID not found.",
+      errorIdent: "User ID not identified.",
+      alertFeedback: "Redirecting to ZerAds..."
+    },
+    pt: {
+      pageTitle: "Ofertas - LucreMaisTask",
+      wallTitle: "🧩 Escolha sua Tarefa Externa",
+      autoPayout: "💰 Complete anúncios e receba pontos automaticamente em até 5 minutos",
+      sponsorship: "📢 Patrocínio",
+      adsTitle: "📣 Quer anunciar aqui?",
+      adsDesc: "Promova seu produto, curso ou serviço dentro do nosso bot!",
+      btnAdvertise: "📢 Anunciar Agora",
+      navHome: "Início",
+      navTasks: "Tarefas",
+      navInvites: "Convites",
+      navOfferwalls: "Ofertas",
+      navWithdraw: "Sacar",
+      errorId: "Erro: ID de usuário não encontrado.",
+      errorIdent: "ID de usuário não identificado.",
+      alertFeedback: "Redirecionando para ZerAds..."
+    }
+  };
+
+  // Função de segurança para evitar erros de "null"
+  function safeSetText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+    document.documentElement.lang = userLang;
+    const t = linguagens[userLang] || linguagens['en'];
+
+    // Tradução segura
+    safeSetText("pageTitle", t.pageTitle);
+    safeSetText("mainWallTitle", t.wallTitle);
+    safeSetText("autoPayoutNote", t.autoPayout);
+    safeSetText("txtSponsorship", t.sponsorship);
+    safeSetText("adsBlockTitle", t.adsTitle);
+    safeSetText("adsBlockDesc", t.adsDesc);
+    safeSetText("btnAdvertiseNow", t.btnAdvertise);
+
+    // Navegação segura
+    document.querySelectorAll(".bottom-nav a .txt-nav").forEach(span => {
+        const parentId = span.parentElement.id;
+        if(parentId === "navHome") span.innerText = t.navHome;
+        if(parentId === "navTasks") span.innerText = t.navTasks;
+        if(parentId === "navInvites") span.innerText = t.navInvites;
+        if(parentId === "navOfferwalls") span.innerText = t.navOfferwalls;
+        if(parentId === "navWithdraw") span.innerText = t.navWithdraw;
+    });
+
+    telegramId = (urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "").toString();
+
+    if (!telegramId) {
+      document.body.innerHTML = t.errorId;
+    } else {
+      localStorage.setItem("telegram_id", telegramId);
+      document.querySelectorAll(".bottom-nav a").forEach(link => {
+        let baseHref = link.getAttribute("href").split("?")[0];
+        link.href = `${baseHref}?id=${telegramId}&lang=${userLang}`;
+      });
+
+      const cpaleadFrame = document.getElementById("cpalead-frame");
+      const moneyrainFrame = document.getElementById("moneyrain-frame");
+      if(cpaleadFrame) cpaleadFrame.src = `https://www.akamaicdn.org/list/XrdSA?subid=telegram_${telegramId}`;
+      if(moneyrainFrame) moneyrainFrame.src = `https://offerwall.moneyrain.top/embed.php?pub=228&uid=${telegramId}`;
+    }
+
+    carregarExternas();
+  });
+
+  function mostrarWall(wall) {
+    const cpaleadFrame = document.getElementById("cpalead-frame");
+    const moneyrainFrame = document.getElementById("moneyrain-frame");
+    const offersCard = document.getElementById("offersCard");
+    
+    if (offersCard) offersCard.style.display = "block";
+    if (cpaleadFrame) cpaleadFrame.style.display = wall === "cpalead" ? "block" : "none";
+    if (moneyrainFrame) moneyrainFrame.style.display = wall === "moneyrain" ? "block" : "none";
+  }
+
+  function abrirZerAds() {
+    const t = linguagens[userLang];
+    if (!telegramId) { alert(t.errorIdent); return; }
+    window.open(`https://zerads.com/ptc.php?ref=11354&user=${telegramId}`, "_blank");
+    alert(t.alertFeedback);
+  }
+
+  async function carregarExternas() {
+    try {
+      const res = await fetch("/api/anuncios?posicao=tarefas externas");
+      const dados = await res.json();
+      const grid = document.getElementById("gridExternas");
+      if (!grid) return;
+      
+      grid.innerHTML = "";
+      dados.forEach(b => {
+        const el = document.createElement("div");
+        el.className = "banner";
+        el.innerHTML = `<a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})"><img src="${b.imagem_url}" alt="banner"></a>`;
+        grid.appendChild(el);
+      });
+    } catch (err) { console.error("Erro ao carregar banners:", err); }
+  }
+
+  function registrarClique(anuncioId) {
+    fetch("/api/anuncio-evento", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id: telegramId })
+    }).catch(e => console.error(e));
+  }
+</script>
+
+</body>
+</html>

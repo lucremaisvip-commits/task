@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title id="pageTitle">Leaderboard - CashTaskBot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://cdn.adsonar.io/sdk.js"></script>
+  <script src="https://static.sonartech.io/lib/1.0.0/sonar.js?appId=app_2c944cc4"></script>
+  <script src="//libtl.com/sdk.js" data-zone="9579151" data-sdk="show_9579151"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 80px;
+    }
+
+    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 9999;
+    }
+
+    .bottom-nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a.active, .bottom-nav a:hover {
+      color: #00ff88;
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    h3 {
+      margin-top: 10px;
+      font-size: 18px;
+      color: #2a8f43;
+    }
+
+    ul {
+      padding-left: 20px;
+    }
+
+    li {
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .status-box {
+      background: #eafbe7;
+      border: 1px solid #b7e4c7;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 15px;
+      color: #155724;
+    }
+
+    .ads-box {
+      background: white;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background: #2a8f43;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1e6e34;
+    }
+
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .banner {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+  
+  <h3 id="sectionPerformance">🏅 Your Performance</h3>
+  <div class="status-box" id="statusUsuario">
+    Loading user details...
+  </div>
+
+  <div class="card">
+    <h2 id="mainTitle">📊 Score Rankings</h2>
+
+    <h3 id="titleRankingTasks">🏆 Top 5 by Tasks</h3>
+    <ul id="rankingTarefas">
+      <li class="loading-text">Loading...</li>
+    </ul>
+
+    <h3 id="titleRankingInvites">👥 Top 5 by Invites</h3>
+    <ul id="rankingIndicacoes">
+      <li class="loading-text">Loading...</li>
+    </ul>
+  </div>
+  
+  <div class="card" style="background: #fff8e1; border-left: 6px solid #fbc02d;" id="prizesBox">
+    </div>
+  
+  <div class="ads-box">
+    <p id="txtSponsor"><strong>🔰 Sponsorship</strong><br>Want your brand here? Click to advertise</p>
+    <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" id="linkAnuncie" target="_blank" rel="noopener noreferrer">
+      <button id="btnAdvertise">📢 Advertise now</button>
+    </a>
+    <h2> </h2>
+
+    <div class="grid" id="gridPontuacao"></div>
+
+    <script>
+      atOptions = {
+        'key': 'f2047e9078f37ab78ad873ab52c5949e',
+        'format': 'iframe',
+        'height': 250,
+        'width': 300,
+        'params': {}
+      };
+    </script>
+    <script src="//www.highperformanceformat.com/f2047e9078f37ab78ad873ab52c5949e/invoke.js"></script>
+  </div>
+
+<script>
+let telegram_id = "";
+let userLang = "en";
+
+const linguagens = {
+  pt: {
+    title: "Pontuação",
+    navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+    performance: "🏅 Seu Desempenho",
+    loading: "Carregando informações do usuário...",
+    loadingRank: "Carregando...",
+    mainTitle: "📊 Ranking de Pontuação",
+    rankTasks: "🏆 Top 5 por Tarefas",
+    rankInvites: "👥 Top 5 por Indicações",
+    txtSponsor: "<strong>🔰 Patrocínio</strong><br>Quer sua marca aqui? Clique em anunciar",
+    btnAdvertise: "📢 Anunciar agora",
+    userNotFound: "⚠️ Usuário não encontrado.",
+    userError: "❌ Erro ao carregar dados.",
+    pointsWord: "pontos",
+    invitesWord: "indicações",
+    userWord: "Usuário",
+    prizesHtml: `
+      <h3>🎁 Prêmios Mensais para os Melhores!</h3>
+      <p>Todo final de mês, os <strong>Top 5 do ranking</strong> por tarefas e indicações vão concorrer a prêmios especiais e bônus em pontos! 💥</p>
+      <ul>
+        <li>🏅 Pontos extras direto na sua conta</li>
+        <li>🎫 Sorteio de Gift Cards, acesso VIP e muito mais</li>
+        <li>📈 Visibilidade no canal oficial como Destaque</li>
+      </ul>
+      <p>🕒 Fique ligado! A pontuação é atualizada frequentemente — você ainda pode entrar para o topo e faturar!</p>
+    `
+  },
+  en: {
+    title: "Leaderboard",
+    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+    performance: "🏅 Your Performance",
+    loading: "Loading user details...",
+    loadingRank: "Loading...",
+    mainTitle: "📊 Score Rankings",
+    rankTasks: "🏆 Top 5 by Tasks",
+    rankInvites: "👥 Top 5 by Invites",
+    txtSponsor: "<strong>🔰 Sponsorship</strong><br>Want your brand here? Click to advertise",
+    btnAdvertise: "📢 Advertise now",
+    userNotFound: "⚠️ User not found.",
+    userError: "❌ Error loading data.",
+    pointsWord: "points",
+    invitesWord: "invites",
+    userWord: "User",
+    prizesHtml: `
+      <h3>🎁 Monthly Prizes for the Best!</h3>
+      <p>At the end of every month, the <strong>Top 5 on the leaderboards</strong> for tasks and invites will compete for special prizes and score bonuses! 💥</p>
+      <ul>
+        <li>🏅 Extra points added directly into your account</li>
+        <li>🎫 Gift Card giveaways, VIP access, and much more</li>
+        <li>📈 Channel visibility spotlighting your achievement</li>
+      </ul>
+      <p>🕒 Stay tuned! The leaderboard updates frequently — you can still make it to the top and win big!</p>
+    `
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  // 🌍 Detecção de Idioma
+  userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+  document.documentElement.lang = userLang;
+  const t = linguagens[userLang];
+
+  // Tradução de Textos Básicos Estáticos
+  document.getElementById("pageTitle").innerText = t.title;
+  document.getElementById("sectionPerformance").innerText = t.performance;
+  document.getElementById("statusUsuario").innerText = t.loading;
+  document.getElementById("mainTitle").innerText = t.mainTitle;
+  document.getElementById("titleRankingTasks").innerText = t.rankTasks;
+  document.getElementById("titleRankingInvites").innerText = t.rankInvites;
+  document.getElementById("txtSponsor").innerHTML = t.txtSponsor;
+  document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
+  document.getElementById("prizesBox").innerHTML = t.prizesHtml;
+
+  document.querySelectorAll(".loading-text").forEach(el => el.innerText = t.loadingRank);
+
+  // Tradução do Menu Inferior
+  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+
+  // =============================
+  // 📌 TELEGRAM ID (com cache)
+  // =============================
+  telegram_id =
+    urlParams.get("id") ||
+    window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
+    localStorage.getItem("telegram_id") ||
+    "";
+
+  if (telegram_id) {
+    telegram_id = String(telegram_id);
+    localStorage.setItem("telegram_id", telegram_id);
+  }
+
+  // =============================
+  // 🔗 PROPAGAR ID & IDIOMA no menu
+  // =============================
+  document.querySelectorAll(".bottom-nav a").forEach(link => {
+    let hrefAttr = link.getAttribute("href");
+    
+    // Anexa ID e Idioma nos links do menu inferior
+    if (hrefAttr && !hrefAttr.includes("id=")) {
+      link.href += (hrefAttr.includes("?") ? "&" : "?") + `id=${telegram_id}&lang=${userLang}`;
+    }
+
+    // Gerencia classe .active para a aba corrente
+    if(hrefAttr && hrefAttr.startsWith("pontuacao.html")) {
+       link.classList.add("active");
+    } else {
+       link.classList.remove("active");
+    }
+  });
+
+  // Atualiza também o link do botão Anunciar para propagar o idioma escolhido
+  const linkAnuncie = document.getElementById("linkAnuncie");
+  if(linkAnuncie) {
+    linkAnuncie.href = `https://telegrambot-mlfd.onrender.com/anuncie.html?id=${telegram_id}&lang=${userLang}`;
+  }
+
+  // =============================
+  // 👤 STATUS DO USUÁRIO NATIVO
+  // =============================
+  async function carregarStatusUsuario() {
+    if (!telegram_id) return;
+
+    try {
+      const res = await fetch(`/api/usuarios/${telegram_id}`);
+      const user = await res.json();
+
+      if (user.error) {
+        document.getElementById("statusUsuario").innerText = t.userNotFound;
+        return;
+      }
+
+      // Renderiza conforme idioma selecionado
+      if (userLang === "pt") {
+        document.getElementById("statusUsuario").innerHTML = `
+          <strong>🔑 ID:</strong> ${user.telegram_id}<br>
+          <strong>⭐ Pontos:</strong> ${user.pontos}<br>
+          <strong>👥 Indicações:</strong> ${user.indicacoes || 0}
+        `;
+      } else {
+        document.getElementById("statusUsuario").innerHTML = `
+          <strong>🔑 ID:</strong> ${user.telegram_id}<br>
+          <strong>⭐ Points:</strong> ${user.pontos}<br>
+          <strong>👥 Invites:</strong> ${user.indicacoes || 0}
+        `;
+      }
+    } catch (err) {
+      console.error("Erro ao carregar status:", err);
+      document.getElementById("statusUsuario").innerText = t.userError;
+    }
+  }
+
+  carregarStatusUsuario();
+
+  // =============================
+  // 📊 RANKING REAL-TIME
+  // =============================
+  fetch("/api/ranking")
+    .then(res => res.json())
+    .then(data => {
+      const tarefas = data.tarefas || [];
+      const indicacoes = data.indicacoes || [];
+
+      const tarefasList = document.getElementById("rankingTarefas");
+      tarefasList.innerHTML = "";
+      tarefas.forEach((item, index) => {
+        tarefasList.innerHTML += `<li>${index + 1}. ${item.nome || t.userWord} (ID ${item.telegram_id}) — ${item.pontos} ${t.pointsWord}</li>`;
+      });
+
+      const indicacoesList = document.getElementById("rankingIndicacoes");
+      indicacoesList.innerHTML = "";
+      indicacoes.forEach((item, index) => {
+        indicacoesList.innerHTML += `<li>${index + 1}. ${item.nome || t.userWord} (ID ${item.telegram_id}) — ${item.indicacoes} ${t.invitesWord}</li>`;
+      });
+    })
+    .catch(err => {
+      console.error("Erro ao carregar ranking:", err);
+    });
+
+  carregarPontuacao();
+});
+
+async function carregarPontuacao() {
+  try {
+    const res = await fetch("/api/anuncios?posicao=pontuacao");
+    const dados = await res.json();
+
+    const grid = document.getElementById("gridPontuacao");
+    grid.innerHTML = "";
+
+    dados.forEach(b => {
+      const el = document.createElement("div");
+      el.className = "banner";
+      el.innerHTML = `
+        <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
+          <img src="${b.imagem_url}" alt="banner">
+        </a>
+      `;
+      grid.appendChild(el);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar banners pontuação:", err);
+  }
+}
+
+function registrarClique(anuncioId) {
+  fetch("/api/anuncio-evento", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anuncio_id: anuncioId,
+      tipo: "clique",
+      telegram_id: telegram_id
+    })
+  });
+}
+</script>
+
+</body>
+</html>

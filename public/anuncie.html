@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>(function(d,z,s){s.src='https://'+d+'/400/'+z;try{(document.body||document.documentElement).appendChild(s)}catch(e){}})('vemtoutcheeg.com',9605826,document.createElement('script'))</script>
+  <meta charset="UTF-8">
+  <title id="pageTitle">Advertise - CashTaskBot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --primary-color: #00ff88;
+      --bg-dark: #121214;
+      --card-bg: #1e1e24;
+      --text-main: #ffffff;
+      --text-muted: #a0a0b0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 100px;
+      background: var(--bg-dark);
+      color: var(--text-main);
+    }
+
+    /* 📱 MENU INFERIOR FIXO */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+      z-index: 9999;
+    }
+
+    .bottom-nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a:hover, .bottom-nav a.active {
+      color: var(--primary-color);
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    h1 {
+      color: var(--primary-color);
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 5px;
+    }
+
+    h2 {
+      color: var(--primary-color);
+      text-align: center;
+      font-size: 22px;
+      margin-top: 30px;
+      margin-bottom: 15px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 25px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .feature-item {
+      background: var(--card-bg);
+      padding: 12px;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary-color);
+      font-size: 14px;
+    }
+
+    .combos-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin: 25px 0;
+    }
+
+    .combo-card {
+      background: linear-gradient(135deg, #1e1e24 0%, #2a2a35 100%);
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .combo-card.destaque {
+      border: 2px solid var(--primary-color);
+    }
+
+    .combo-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: var(--primary-color);
+      color: #000;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    .combo-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 5px;
+    }
+
+    .combo-price {
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--primary-color);
+      margin: 10px 0;
+    }
+
+    .combo-features {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0 0;
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    .combo-features li {
+      margin-bottom: 5px;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+      margin-bottom: 30px;
+      border-radius: 8px;
+      border: 1px solid #333;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card-bg);
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+
+    th {
+      background: #25252b;
+      color: var(--primary-color);
+      font-weight: bold;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge-modalidade {
+      background: #34495e;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+
+    form {
+      background: var(--card-bg);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      border: 1px solid #333;
+    }
+
+    label {
+      display: block;
+      margin-top: 15px;
+      font-weight: bold;
+      color: var(--primary-color);
+      font-size: 14px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      background: #121214;
+      border: 1px solid #444;
+      border-radius: 6px;
+      font-size: 15px;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary-color);
+      outline: none;
+    }
+
+    button[type="submit"] {
+      background: var(--primary-color);
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      padding: 14px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    button[type="submit"]:hover {
+      background: #00cc6e;
+      transform: translateY(-2px);
+    }
+
+    .scarcity-box {
+      background: #2a1b1b;
+      border: 1px solid #5a2a2a;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      text-align: center;
+      color: #ff8888;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+  <h1 id="mainTitle">Advertise on CashTaskBot</h1>
+  <p class="subtitle" id="mainSubtitle">🔥 Get REAL, engaged followers, likes, and traffic immediately</p>
+
+  <div class="features-grid" id="featuresGrid">
+    </div>
+
+  <h2 id="sectionCombos">⚡ Recommended Promotional Combos</h2>
+  <div class="combos-container" id="combosContainer">
+    </div>
+
+  <h2 id="sectionTable">📊 General Services Pricing (A La Carte)</h2>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr id="tableHeader">
+          </tr>
+      </thead>
+      <tbody id="tableBody">
+        </tbody>
+    </table>
+  </div>
+
+  <div class="scarcity-box" id="scarcityBox">
+    </div>
+
+  <h2 id="sectionForm">📩 Send Campaign Request</h2>
+
+  <form id="formAnuncio">
+    <label id="lblService">Select Service or Combo:</label>
+    <select name="tipo" id="selectTipo" required>
+      </select>
+
+    <label id="lblDesc">Brief Description of your Goal / Rules:</label>
+    <textarea name="descricao" id="textareaDesc" rows="4" required></textarea>
+
+    <label id="lblLink">Link of the Page, Channel, or Profile:</label>
+    <input type="url" name="link" placeholder="https://your-link-here.com" required>
+
+    <label id="lblName">Your Name or Brand Name:</label>
+    <input type="text" name="nome" placeholder="Ex: John Doe / Store X" required>
+
+    <label id="lblContact">Your Commercial Contact (Telegram, WhatsApp, or E-mail):</label>
+    <input type="text" name="contato" placeholder="Ex: @your_telegram_user" required>
+
+    <button type="submit" id="btnSubmit">🚀 Request and Reserve My Spot</button>
+  </form>
+
+  <script>
+  let userLang = "en";
+
+  const linguagens = {
+    pt: {
+      title: "Anuncie no LucreMaisTask",
+      navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+      subtitle: "🔥 Consiga seguidores, curtidas e tráfego REAL e engajado imediatamente",
+      secCombos: "⚡ Combos Promocionais Recomendados",
+      secTable: "📊 Tabela Geral de Serviços (Avulso)",
+      secForm: "📩 Enviar Solicitação de Campanha",
+      scarcity: "⏳ <b>VAGAS LIMITADAS HOJE:</b> Para garantir a velocidade máxima de entrega e a qualidade das interações, aceitamos um número restrito de novas campanhas por dia. Garanta seu espaço abaixo.",
+      lblService: "Selecione o Serviço ou Combo:",
+      lblDesc: "Breve Descrição do seu Objetivo / Regras:",
+      phDesc: "Ex: Gostaria de enviar tráfego para minha página de vendas. O criativo foca no público masculino...",
+      lblLink: "Link da Página, Canal ou Perfil:",
+      lblName: "Seu Nome ou Nome da Marca:",
+      phName: "Ex: João da Silva / Loja Virtual X",
+      lblContact: "Seu Contato Comercial (Telegram, WhatsApp ou E-mail):",
+      phContact: "Ex: @seu_user_telegram ou (11) 99999-9999",
+      btnSubmit: "🚀 Solicitar e Reservar Minha Vaga",
+      alertOk: "✅ Solicitação registrada com sucesso! Nós analisaremos o material e entraremos em contato muito em breve para liberação do pagamento.",
+      alertError: "❌ Ocorreu um erro ao enviar seu pedido. Tente novamente.",
+      alertConn: "❌ Erro na conexão com o servidor. Verifique sua rede.",
+      th1: "Tipo de Anúncio", th2: "Modalidade", th3: "Preço Unitário", th4: "Pedido Mínimo",
+      badgeView: "Por View", badgeClique: "Por Clique", badgeAcao: "Por Ação", badgeLead: "Por Lead", badgeTempo: "Por Tempo", badgeDisp: "Disparo",
+      features: [
+        "🚀 <b>Cresça Redes Sociais:</b> Membros e seguidores que interagem de verdade.",
+        "🌐 <b>Tráfego Qualificado:</b> Cliques reais direcionados para o seu site ou link.",
+        "📈 <b>Resultados Rápidos:</b> Campanhas iniciadas e entregues em minutos.",
+        "💎 <b>Risco Zero:</b> Nas tarefas por ação, você só paga pelas interações validadas."
+      ],
+      combos: [
+        { title: "🎯 Combo Start Redes Sociais", price: "R$ 29,90", badge: "", items: ["✅ 150 Novos Seguidores (Instagram ou Telegram)", "✅ 100 Curtidas em publicações à sua escolha", "✅ Destaque na aba de tarefas por 24 horas"] },
+        { title: "🚀 Combo Alavancagem de Tráfego", price: "R$ 49,90", badge: "🔥 MAIS VENDIDO", destaque: true, items: ["✅ 500 Cliques/Visitas Reais no seu link ou site", "✅ Banner de anúncios ativo por 3 dias em todo o app", "✅ Prioridade alta de entrega para os usuários"] },
+        { title: "🥇 Combo Master Patrocinador", price: "R$ 99,90", badge: "👑 MAX LUCRO", items: ["✅ <b>Patrocinador do Dia:</b> Sua marca no comando /start", "✅ Notificação Push dedicada enviada para toda a base", "✅ Tarefa fixada no Topo por 3 dias completos"] }
+      ],
+      selectOptions: `
+        <option disabled selected value="">Escolha uma opção...</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Combo Start Redes Sociais (R$ 29,90)</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Combo Alavancagem de Tráfego (R$ 49,90)</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Combo Master Patrocinador (R$ 99,90)</option>
+        <option disabled>────────── SERVIÇOS AVULSOS ──────────</option>
+        <option>📺 Anúncio em vídeo (R$ 0,10/view)</option>
+        <option>🔗 Direcionamento para link (R$ 0,08/clique)</option>
+        <option>📸 Seguir Instagram (R$ 0,18/ação)</option>
+        <option>❤️ Curtir post Instagram (R$ 0,14/ação)</option>
+        <option>▶️ Curtir vídeo YouTube (R$ 0,18/ação)</option>
+        <option>💬 Deixar comentário (R$ 0,25/ação)</option>
+        <option>🤖 Divulgar bot Telegram (R$ 0,10/ação)</option>
+        <option>📱 Grupo WhatsApp (R$ 0,18/ação)</option>
+        <option>💬 Grupo Telegram (R$ 0,15/ação)</option>
+        <option>📥 Coleta de leads (R$ 0,30/lead)</option>
+        <option>📢 Banner rodapé (R$ 9,90)</option>
+        <option>⏱ Banner antes tarefas (R$ 14,90)</option>
+        <option>🧨 Tarefa no topo (R$ 12,90)</option>
+        <option>🧷 Push personalizado (R$ 19,90)</option>
+      `,
+      tableRows: `
+        <tr><td>📺 Anúncio em vídeo (Recompensa)</td><td><span class="badge-modalidade">Por View</span></td><td>R$ 0,10</td><td>100 views</td></tr>
+        <tr><td>🔗 Direcionamento para Link / Site</td><td><span class="badge-modalidade">Por Clique</span></td><td>R$ 0,08</td><td>100 cliques</td></tr>
+        <tr><td>📸 Seguir Perfil no Instagram</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,18</td><td>50 seg.</td></tr>
+        <tr><td>❤️ Curtir Post no Instagram</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,14</td><td>50 curtidas</td></tr>
+        <tr><td>▶️ Curtir Vídeo no YouTube</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,18</td><td>50 curtidas</td></tr>
+        <tr><td>💬 Deixar Comentário Personalizado</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,25</td><td>20 coment.</td></tr>
+        <tr><td>🤖 Divulgar Bot do Telegram</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,10</td><td>100 ações</td></tr>
+        <tr><td>📱 Entrar em Grupo de WhatsApp</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,18</td><td>50 membros</td></tr>
+        <tr><td>💬 Entrar em Canal/Grupo Telegram</td><td><span class="badge-modalidade">Por Ação</span></td><td>R$ 0,15</td><td>50 membros</td></tr>
+        <tr><td>📥 Coleta de Leads (E-mail/Whats)</td><td><span class="badge-modalidade">Por Lead</span></td><td>R$ 0,30</td><td>50 leads</td></tr>
+        <tr><td>📢 Banner fixo no Rodapé</td><td><span class="badge-modalidade">Por Tempo</span></td><td>R$ 9,90 / 3 dias</td><td>-</td></tr>
+        <tr><td>⏱ Banner dinâmico antes de tarefas</td><td><span class="badge-modalidade">Por Tempo</span></td><td>R$ 14,90 / 3 dias</td><td>-</td></tr>
+        <tr><td>🧨 Fixar Tarefa no Topo do App</td><td><span class="badge-modalidade">Por Tempo</span></td><td>R$ 12,90 / 3 dias</td><td>-</td></tr>
+        <tr><td>🧷 Mensagem Push (Notificação)</td><td><span class="badge-modalidade">Disparo</span></td><td>R$ 19,90 / envio</td><td>-</td></tr>
+      `
+    },
+    en: {
+      title: "Advertise on CashTaskBot",
+      navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+      subtitle: "🔥 Get REAL, engaged followers, likes, and traffic immediately",
+      secCombos: "⚡ Recommended Promotional Combos",
+      secTable: "📊 General Services Pricing (A La Carte)",
+      secForm: "📩 Send Campaign Request",
+      scarcity: "⏳ <b>LIMITED SLOTS TODAY:</b> To ensure maximum delivery speed and premium interaction quality, we accept a strict limit of new daily campaigns. Secure your slot below.",
+      lblService: "Select Service or Combo:",
+      lblDesc: "Brief Description of your Goal / Rules:",
+      phDesc: "Ex: I want to send high-quality traffic to my crypto landing page. Target audience is world-wide...",
+      lblLink: "Link of the Page, Channel, or Profile:",
+      lblName: "Your Name or Brand Name:",
+      phName: "Ex: John Doe / Crypto Project X",
+      lblContact: "Your Commercial Contact (Telegram, WhatsApp, or E-mail):",
+      phContact: "Ex: @your_telegram_user or contact@email.com",
+      btnSubmit: "🚀 Request and Reserve My Spot",
+      alertOk: "✅ Request submitted successfully! We will analyze your material and contact you shortly to provide the payment details.",
+      alertError: "❌ An error occurred while submitting your order. Please try again.",
+      alertConn: "❌ Connection error with the server. Please check your network.",
+      th1: "Ad Type", th2: "Model", th3: "Unit Price", th4: "Min Order",
+      badgeView: "Per View", badgeClique: "Per Click", badgeAcao: "Per Action", badgeLead: "Per Lead", badgeTempo: "Fixed Time", badgeDisp: "Blast",
+      features: [
+        "🚀 <b>Boost Social Media:</b> True targeted members and followers who actually engage.",
+        "🌐 <b>Qualified Traffic:</b> Real direct clicks natively targeted straight to your links.",
+        "📈 <b>Fast Results:</b> Ad campaigns deployed and active within just minutes.",
+        "💎 <b>Zero Risk:</b> For action-based tasks, you only pay for completed and verified data."
+      ],
+      combos: [
+        { title: "🎯 Social Media Start Combo", price: "$ 5.90", badge: "", items: ["✅ 150 New Followers (Instagram or Telegram)", "✅ 100 Likes on any publication of your choice", "✅ Featured section on tasks tab for 24 hours"] },
+        { title: "🚀 Traffic Boost Combo", price: "$ 9.90", badge: "🔥 BEST SELLER", destaque: true, items: ["✅ 500 Real Direct Clicks/Visits to your website", "✅ Active Ad Banner for 3 days across the app", "✅ High delivery priority queue for all active users"] },
+        { title: "🥇 Sponsor Master Combo", price: "$ 19.90", badge: "👑 MAX ROI", items: ["✅ <b>Sponsor of the Day:</b> Your brand on the /start command", "✅ Dedicated Push Notification broadcasted to entire base", "✅ Pinned task at the top for 3 complete days"] }
+      ],
+      selectOptions: `
+        <option disabled selected value="">Choose an option...</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Social Media Start Combo ($ 5.90)</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Traffic Boost Combo ($ 9.90)</option>
+        <option style="color: #00ff88; font-weight: bold;">📦 Sponsor Master Combo ($ 19.90)</option>
+        <option disabled>────────── INDIVIDUAL SERVICES ──────────</option>
+        <option>📺 Video Reward Ad ($ 0.02 / view)</option>
+        <option>🔗 Website Traffic ($ 0.015 / click)</option>
+        <option>📸 Instagram Follow ($ 0.03 / action)</option>
+        <option>❤️ Instagram Like ($ 0.02 / action)</option>
+        <option>▶️ YouTube Like ($ 0.03 / action)</option>
+        <option>💬 Custom Comment ($ 0.05 / action)</option>
+        <option>🤖 Telegram Bot Promote ($ 0.02 / action)</option>
+        <option>📱 WhatsApp Group Join ($ 0.03 / action)</option>
+        <option>💬 Telegram Channel/Group Join ($ 0.025 / action)</option>
+        <option>📥 Lead Generation ($ 0.06 / lead)</option>
+        <option>📢 Bottom Footer Banner ($ 1.90 / 3 days)</option>
+        <option>⏱ Pre-Task Overlay Banner ($ 2.90 / 3 days)</option>
+        <option>🧨 Top Pinned Task ($ 2.50 / 3 days)</option>
+        <option>🧷 Target Push Broadcast ($ 3.90 / blast)</option>
+      `,
+      tableRows: `
+        <tr><td>📺 Video Reward Ad</td><td><span class="badge-modalidade">Per View</span></td><td>$ 0.02</td><td>100 views</td></tr>
+        <tr><td>🔗 Website Traffic / Redirection</td><td><span class="badge-modalidade">Per Click</span></td><td>$ 0.015</td><td>100 clicks</td></tr>
+        <tr><td>📸 Instagram Profile Follow</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.03</td><td>50 followers</td></tr>
+        <tr><td>❤️ Instagram Post Like</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.02</td><td>50 likes</td></tr>
+        <tr><td>▶️ YouTube Video Like</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.03</td><td>50 likes</td></tr>
+        <tr><td>💬 Custom Personal Comment</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.05</td><td>20 comments</td></tr>
+        <tr><td>🤖 Telegram Bot Promotion</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.02</td><td>100 actions</td></tr>
+        <tr><td>📱 WhatsApp Group Member</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.03</td><td>50 members</td></tr>
+        <tr><td>💬 Telegram Channel/Group Member</td><td><span class="badge-modalidade">Per Action</span></td><td>$ 0.025</td><td>50 members</td></tr>
+        <tr><td>📥 Lead Generation (Email/WhatsApp)</td><td><span class="badge-modalidade">Per Lead</span></td><td>$ 0.06</td><td>50 leads</td></tr>
+        <tr><td>📢 Bottom Footer Banner</td><td><span class="badge-modalidade">Fixed Time</span></td><td>$ 1.90 / 3 days</td><td>-</td></tr>
+        <tr><td>⏱ Pre-Task Overlay Banner</td><td><span class="badge-modalidade">Fixed Time</span></td><td>$ 2.90 / 3 days</td><td>-</td></tr>
+        <tr><td>🧨 Top Pinned Task</td><td><span class="badge-modalidade">Fixed Time</span></td><td>$ 2.50 / 3 days</td><td>-</td></tr>
+        <tr><td>🧷 Targeted Push Broadcast</td><td><span class="badge-modalidade">Blast</span></td><td>$ 3.90 / blast</td><td>-</td></tr>
+      `
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 🌍 Captura o idioma (?lang=pt ou ?lang=en)
+    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+    document.documentElement.lang = userLang;
+
+    const t = linguagens[userLang];
+
+    // Atualiza Textos Básicos Estáticos
+    document.getElementById("pageTitle").innerText = t.title;
+    document.getElementById("mainTitle").innerText = t.title;
+    document.getElementById("mainSubtitle").innerText = t.subtitle;
+    document.getElementById("sectionCombos").innerText = t.secCombos;
+    document.getElementById("sectionTable").innerText = t.secTable;
+    document.getElementById("scarcityBox").innerHTML = t.scarcity;
+    document.getElementById("sectionForm").innerText = t.secForm;
+
+    // Atualiza Itens de Menu Inferior
+    document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+    document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+    document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+    document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+    document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+
+    // Atualiza os Labels do Formulário
+    document.getElementById("lblService").innerText = t.lblService;
+    document.getElementById("lblDesc").innerText = t.lblDesc;
+    document.getElementById("textareaDesc").placeholder = t.phDesc;
+    document.getElementById("lblLink").innerText = t.lblLink;
+    document.getElementById("lblName").innerText = t.lblName;
+    document.getElementById("formAnuncio").elements['nome'].placeholder = t.phName;
+    document.getElementById("lblContact").innerText = t.lblContact;
+    document.getElementById("formAnuncio").elements['contato'].placeholder = t.phContact;
+    document.getElementById("btnSubmit").innerText = t.btnSubmit;
+
+    // Injeta as Opções do Select e as Linhas da Tabela
+    document.getElementById("selectTipo").innerHTML = t.selectOptions;
+    document.getElementById("tableHeader").innerHTML = `<th>${t.th1}</th><th>${t.th2}</th><th>${t.th3}</th><th>${t.th4}</th>`;
+    document.getElementById("tableBody").innerHTML = t.tableRows;
+
+    // Renderiza a Grid de Benefícios
+    const featuresGrid = document.getElementById("featuresGrid");
+    featuresGrid.innerHTML = "";
+    t.features.forEach(feat => {
+      const div = document.createElement("div");
+      div.className = "feature-item";
+      div.innerHTML = feat;
+      featuresGrid.appendChild(div);
+    });
+
+    // Renderiza os Combos Promocionais
+    const combosContainer = document.getElementById("combosContainer");
+    combosContainer.innerHTML = "";
+    t.combos.forEach(combo => {
+      const card = document.createElement("div");
+      card.className = combo.destaque ? "combo-card destaque" : "combo-card";
+      
+      let badgeHtml = combo.badge ? `<div class="combo-badge">${combo.badge}</div>` : "";
+      let featuresHtml = combo.items.map(i => `<li>${i}</li>`).join("");
+
+      card.innerHTML = `
+        ${badgeHtml}
+        <div class="combo-title">${combo.title}</div>
+        <div class="combo-price">${combo.price}</div>
+        <ul class="combo-features">${featuresHtml}</ul>
+      `;
+      combosContainer.appendChild(card);
+    });
+
+    // =============================
+    // 📌 ID DO TELEGRAM & PROPAGAÇÃO
+    // =============================
+    const telegramId = (
+      urlParams.get("id") ||
+      window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
+      localStorage.getItem("telegram_id") ||
+      ""
+    ).toString();
+
+    if (telegramId && telegramId !== "") {
+      localStorage.setItem("telegram_id", telegramId);
+      document.querySelectorAll(".bottom-nav a").forEach(link => {
+        let currentHref = link.getAttribute("href");
+        if (currentHref && !currentHref.includes("id=")) {
+          link.href += (currentHref.includes("?") ? "&" : "?") + `id=${telegramId}&lang=${userLang}`;
+        }
+      });
+    }
+  });
+
+  // Envio do Formulário Traduzido
+  document.getElementById("formAnuncio").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const t = linguagens[userLang];
+
+    const dados = {
+      tipo: form.tipo.value,
+      descricao: form.descricao.value,
+      link: form.link.value,
+      nome: form.nome.value,
+      contato: form.contato.value,
+      lang: userLang // Envia também o idioma de origem para controle no backend
+    };
+
+    try {
+      const res = await fetch("https://telegrambot-mlfd.onrender.com/api/anuncios/pedidos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dados)
+      });
+
+      const json = await res.json();
+
+      if (json.ok) {
+        alert(t.alertOk);
+        form.reset();
+      } else {
+        alert(t.alertError);
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert(t.alertConn);
+    }
+  });
+  </script>
+
+</body>
+</html>

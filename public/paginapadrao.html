@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hidraliso Sem Formol</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f9f9f9;
+  max-width: 700px;
+  margin: auto;
+  padding: 20px;
+  text-align: center;
+}
+
+h1 {
+  color: #2a8f43;
+}
+
+.video-box iframe {
+  width: 100%;
+  height: 300px;
+  border-radius: 10px;
+}
+
+.copy {
+  background: #fff8e1;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 20px 0;
+  font-size: 16px;
+}
+
+.highlight {
+  background: #eaf7ec;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+
+button {
+  background: #2a8f43;
+  color: white;
+  border: none;
+  padding: 14px 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  margin: 10px 0;
+  width: 100%;
+}
+
+button:hover {
+  background: #1e6e34;
+}
+
+
+    .card, .ads-box, .banner-box {
+      background: white;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .ads-box button {
+  margin-bottom: 20px; /* espaço abaixo do botão */
+}
+  
+</style>
+</head>
+
+<body>
+
+<h1>✨ Hidraliso Sem Formol ✨</h1>
+
+<p><strong>💆‍♀️ Alise seu cabelo em casa, no chuveiro e sem danificar!</strong></p>
+
+<div class="video-box">
+  <iframe src="https://drive.google.com/file/d/11R9ENfl0ZPgF2SfXKxcPV2F_kXV3TZky/preview" allow="autoplay"></iframe>
+</div>
+
+<div class="copy">
+  <p>🔥 Resultado imediato e natural</p>
+  <p>🚿 Aplicação rápida no banho</p>
+  <p>💎 Sem formol (não agride o cabelo)</p>
+</div>
+
+<div class="highlight">
+  <p>💬 Mais de 1.000 mulheres já estão usando!</p>
+  <p>⏳ Promoção por tempo limitado</p>
+</div>
+
+<!-- BOTÃO COMPRA <a href="https://seu-link-de-afiliado.com" target="_blank" onclick="registrarClique()"><button>👉 Comprar Agora</button></a>-->
+
+
+<!-- WHATSAPP -->
+<a href="https://wa.me/5519991042038" target="_blank" onclick="registrarContato()">
+  <button class="whatsapp">💬 Falar no WhatsApp</button>
+</a>
+
+<p style="margin-top:20px; font-size:14px; color:#777;">
+Entrega para todo Brasil 🚚
+</p>
+<!-- Ads -->
+<div class="ads-box">
+  <p><strong>🔰 Patrocínio</strong><br>Quer sua marca aqui?</p>
+
+  <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" target="_blank">
+    <button>📢 Anunciar</button>
+  </a>
+
+  <div class="grid" id="gridIndex"></div>
+</div>
+<script>
+
+  
+// 🔹 Registrar VISITA ao abrir a página
+fetch("/api/anuncio-evento", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    anuncio_id: 20,   // ID do anúncio da Natasha
+    tipo: "visita",
+    telegram_id: telegram_id
+  })
+});
+
+// 🔹 Registrar CLIQUE no botão de compra
+function registrarClique() {
+  fetch("/api/anuncio-evento", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anuncio_id: 20,
+      tipo: "clique",
+      telegram_id: telegram_id
+    })
+  });
+}
+
+// 🔹 Registrar CONTATO no WhatsApp
+function registrarContato() {
+  fetch("/api/anuncio-evento", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anuncio_id: 20,
+      tipo: "contato",
+      telegram_id: telegram_id
+    })
+  });
+}
+</script>
+
+</body>
+</html>

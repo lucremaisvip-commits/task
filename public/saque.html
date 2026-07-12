@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title id="pageTitle">Withdraw</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 90px; /* Garante que o menu inferior não cubra o conteúdo */
+    }
+
+    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 9999;
+    }
+
+    .bottom-nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a.active, .bottom-nav a:hover {
+      color: #00ff88;
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #2a8f43;
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #1e6e34;
+    }
+
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .progress {
+      margin: 15px 0;
+      height: 15px;
+      background: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: #2a8f43;
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    .vip-box {
+      background: #eafbe7;
+      border: 1px solid #b7e4c7;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      font-size: 15px;
+      color: #155724;
+      text-align: left;
+    }
+    
+    .vip-box h2 {
+      text-align: center;
+      margin-top: 5px;
+    }
+    
+    .vip-box button {
+      margin-bottom: 10px;
+    }
+
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .banner {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #historico {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: left;
+      margin-bottom: 20px;
+    }
+
+    #historico p {
+      margin: 6px 0;
+      font-size: 14px;
+      border-bottom: 1px dashed #eee;
+      padding-bottom: 6px;
+    }
+
+    #historico p:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    #status {
+      font-weight: bold;
+      margin-top: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" class="active" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+  <div class="card">
+    <h2 id="titleWithdraw">💰 Request Withdrawal</h2>
+    <p style="margin-bottom: 5px; font-weight: bold;" id="txtMinRules">Minimum Rules:</p>
+    <ul style="margin-top: 5px; padding-left: 20px;" id="listRules">
+      </ul>
+
+    <p style="font-size: 16px;"><span id="txtYourPoints">Your points:</span> <strong id="pontos">0</strong> (<span id="reais" style="font-weight: bold; color: #2a8f43;">$ 0.00</span>)</p>
+    <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+
+    <form id="formSaque">
+      <input type="text" id="nome" placeholder="Your Full Name" required />
+      <input type="text" id="cpf" placeholder="Tax ID / CPF (numbers only)" required />
+      <input type="text" id="pix" placeholder="Payment Gateway Key (Email, Wallet Address...)" required />
+      <button type="submit" id="btnSaque" disabled>Request Withdrawal</button>
+    </form>
+    <button style="background-color: #4b5563;" id="btnHelp" onclick="window.Telegram.WebApp.openLink(this.dataset.url)">
+  ❓ Withdrawal Questions
+</button>
+    <p id="status"></p>
+  </div>
+
+  <h3 style="text-align: left; margin-left: 5px; color: #374151;" id="titleHistory">📜 Withdrawal History</h3>
+  <div id="historico">
+    <p id="txtLoadingHistory">Loading history...</p>
+  </div>
+
+<div class="vip-box">
+    <h2 id="titleVipBox">🎯 Become a VIP User</h2>
+    <p><strong id="descVipBox">Unlock exclusive advantages and scale your earnings!</strong></p>
+    
+    <ul style="padding-left: 20px;" id="listVip">
+      <li>💸 <b>Lower Minimum Payout</b></li>
+      <li>📊 <b>Priority Cashout</b></li>
+      <li>🚀 <b>Exclusive VIP Tasks</b></li>
+      <li>✨ <b>Crypto Airdrops</b></li>
+    </ul>
+
+    <p id="footerVipBox">Join the elite club of high earners! 😎</p>
+    <a id="linkVip" href="vip.html" style="text-decoration: none;">
+      <button style="padding: 12px 20px; font-weight: bold; background: #2a8f43; color: white; border: none; border-radius: 6px; margin-bottom: 10px; width: 100%;" id="btnBeVip">
+        🚀 I Want to be VIP
+      </button>
+    </a>
+  </div>
+
+  <div class="grid" id="gridSaque"></div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    let userLang = "en";
+    let pontos = 0;
+    let vip = false;
+
+    // PARÂMETROS ECONÔMICOS CRUCIAIS (Devem bater exatamente com o seu Back-end)
+    const VALOR_DO_PONTO_EM_BRL = 0.05;
+    const COTACAO_DOLAR = 5.50;
+
+    const telegram_id = (
+      urlParams.get("id") ||
+      window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
+      localStorage.getItem("telegram_id") ||
+      ""
+    ).toString();
+
+    const linguagens = {
+      pt: {
+        pageTitle: "Saque",
+        navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+        titleWithdraw: "💰 Solicitar Saque",
+        txtMinRules: "Regras mínimas:",
+        ruleVip: "<li>✨ <b>VIP:</b> mínimo de 200 pontos (R$ 10,00)</li>",
+        ruleNonVip: "<li>👥 <b>Não VIP:</b> mínimo de 400 pontos (R$ 20,00)</li>",
+        txtYourPoints: "Seus pontos:",
+        holderName: "Seu nome completo",
+        holderCpf: "CPF (apenas números)",
+        holderPix: "Chave PIX (email, tel, CPF...)",
+        btnSaque: "Solicitar Saque",
+        btnHelp: "❓ Dúvidas sobre Saques",
+        linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#saques",
+        titleHistory: "📜 Histórico de Saques",
+        loadingHistory: "Carregando histórico...",
+        titleVipBox: "🎯 Seja um Usuário VIP",
+        descVipBox: "Desbloqueie vantagens exclusivas e aumente seus lucros!",
+        vipList: `<li>💸 <b>Saque Mínimo Reduzido</b></li>
+                  <li>📊 <b>Aprovação Prioritária</b></li>
+                  <li>🚀 <b>Tarefas VIPs Exclusivas</b></li>
+                  <li>✨ <b>Airdrops de Cripto</b></li>`,
+        footerVipBox: "Faça parte do grupo seleto que já está faturando alto! 😎",
+        btnBeVip: "🚀 Quero ser VIP",
+        noHistory: "Nenhum saque encontrado.",
+        errHistory: "Nenhum histórico encontrado ou erro na rota.",
+        processing: "Processando solicitação...",
+        connError: "<span style='color: #dc2626;'>❌ Erro de conexão com o servidor.</span>"
+      },
+      en: {
+        pageTitle: "Withdrawal",
+        navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+        titleWithdraw: "💰 Request Withdrawal",
+        txtMinRules: "Minimum Rules:",
+        ruleVip: `<li>✨ <b>VIP:</b> minimum 200 points ($${(10.00 / COTACAO_DOLAR).toFixed(2)})</li>`,
+        ruleNonVip: `<li>👥 <b>Non-VIP:</b> minimum 400 points ($${(20.00 / COTACAO_DOLAR).toFixed(2)})</li>`,
+        txtYourPoints: "Your points:",
+        holderName: "Your Full Name",
+        holderCpf: "Tax ID / ID Number",
+        holderPix: "Payment Gateway Key (Email, Wallet...)",
+        btnSaque: "Request Withdrawal",
+        btnHelp: "❓ Withdrawal Questions",
+        linkAjuda: "https://lucremaistask.netlify.app/help.html#saques",
+        titleHistory: "📜 Withdrawal History",
+        loadingHistory: "Loading history...",
+        titleVipBox: "🎯 Become a VIP User",
+        descVipBox: "Unlock exclusive advantages and scale your earnings!",
+        vipList: `<li>💸 <b>Lower Minimum Payout</b></li>
+                  <li>📊 <b>Priority Cashout</b></li>
+                  <li>🚀 <b>Exclusive VIP Tasks</b></li>
+                  <li>✨ <b>Crypto Airdrops</b></li>`,
+        footerVipBox: "Join the elite club of high earners! 😎",
+        btnBeVip: "🚀 Upgrade to VIP",
+        noHistory: "No withdrawals found.",
+        errHistory: "No history found or route error.",
+        processing: "Processing request...",
+        connError: "<span style='color: #dc2626;'>❌ Connection error with server.</span>"
+      }
+    };
+
+    document.addEventListener("DOMContentLoaded", () => {
+      userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+      document.documentElement.lang = userLang;
+      const t = linguagens[userLang];
+
+      document.getElementById("pageTitle").innerText = t.pageTitle;
+      document.getElementById("titleWithdraw").innerText = t.titleWithdraw;
+      document.getElementById("txtMinRules").innerText = t.txtMinRules;
+      document.getElementById("listRules").innerHTML = t.ruleVip + t.ruleNonVip;
+      document.getElementById("txtYourPoints").innerText = t.txtYourPoints;
+      document.getElementById("nome").placeholder = t.holderName;
+      document.getElementById("cpf").placeholder = t.holderCpf;
+      document.getElementById("pix").placeholder = t.holderPix;
+      document.getElementById("btnSaque").innerText = t.btnSaque;
+      document.getElementById("btnHelp").innerText = t.btnHelp;
+      document.getElementById("btnHelp").dataset.url = t.linkAjuda;
+      document.getElementById("titleHistory").innerText = t.titleHistory;
+      document.getElementById("txtLoadingHistory").innerText = t.loadingHistory;
+      document.getElementById("titleVipBox").innerText = t.titleVipBox;
+      document.getElementById("descVipBox").innerText = t.descVipBox;
+      document.getElementById("listVip").innerHTML = t.vipList; // ID corrigido para listVip
+      document.getElementById("footerVipBox").innerText = t.footerVipBox;
+      document.getElementById("btnBeVip").innerText = t.btnBeVip;
+
+      // Força o link do VIP a apontar para o arquivo correto com parâmetros
+      document.getElementById("linkVip").href = `vip.html?id=${telegram_id}&lang=${userLang}`;
+
+      document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+      document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+      document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+      document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+      document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+
+      if (telegram_id) {
+        localStorage.setItem("telegram_id", telegram_id);
+        document.querySelectorAll(".bottom-nav a").forEach(link => {
+          let currentHref = link.getAttribute("href");
+          if (currentHref) {
+            let baseHref = currentHref.split("?")[0];
+            link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+          }
+        });
+      }
+
+      inicializarSistema();
+    });
+
+    // 🔹 Rota 1: Dados do Usuário
+    async function carregarDados() {
+      if (!telegram_id) return;
+
+      try {
+        const res = await fetch(`/api/usuarios/${telegram_id}`);
+        const dados = await res.json();
+
+        if (dados.success && dados.data) {
+          pontos = dados.data.pontos || 0;
+          vip = dados.data.vip || false;
+
+          document.getElementById("pontos").innerText = pontos;
+
+          // Conversão e formatação com a lógica cambial sustentável corrigida
+          let calculoBrutoReais = pontos * VALOR_DO_PONTO_EM_BRL;
+
+          if (userLang === "pt") {
+            document.getElementById("reais").innerText = `R$ ${calculoBrutoReais.toFixed(2).replace('.', ',')}`;
+          } else {
+            // Divide o saldo pela cotação do dólar para o gringo ver o valor correto em USD
+            let calculoDolar = calculoBrutoReais / COTACAO_DOLAR;
+            document.getElementById("reais").innerText = `$ ${calculoDolar.toFixed(2)}`;
+          }
+
+          // Barra de progresso baseada nas metas
+          const meta = vip ? 200 : 400;
+          const progresso = Math.min((pontos / meta) * 100, 100);
+          document.getElementById("progressBar").style.width = progresso + "%";
+
+          if (pontos >= meta) {
+            document.getElementById("btnSaque").removeAttribute("disabled");
+          } else {
+            document.getElementById("btnSaque").setAttribute("disabled", "true");
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao carregar dados do usuário:", err);
+      }
+    }
+
+    // 🔹 Rota 2: Histórico de Saques
+    async function carregarHistorico() {
+      if (!telegram_id) return;
+      const t = linguagens[userLang];
+
+      try {
+        const res = await fetch(`/api/saques?telegram_id=${telegram_id}`);
+        const historico = await res.json();
+
+        const container = document.getElementById("historico");
+        container.innerHTML = "";
+
+        if (!Array.isArray(historico) || historico.length === 0) {
+          container.innerHTML = `<p>${t.noHistory}</p>`;
+          return;
+        }
+
+        historico.forEach(saque => {
+          const item = document.createElement("p");
+          const dataFormatada = saque.data_solicitacao
+            ? new Date(saque.data_solicitacao).toLocaleString(userLang === "pt" ? "pt-BR" : "en-US")
+            : "Pending / Pendente";
+
+          // Exibição e formatação correta do valor no histórico
+          let valorExibido = parseFloat(saque.valor_solicitado).toFixed(2);
+          if (userLang === "pt") {
+            item.textContent = `💸 R$ ${valorExibido.replace('.', ',')} - ${saque.status.toUpperCase()} - ${dataFormatada}`;
+          } else {
+            item.textContent = `💸 $ ${valorExibido} - ${saque.status.toUpperCase()} - ${dataFormatada}`;
+          }
+          container.appendChild(item);
+        });
+
+      } catch (err) {
+        console.error("Erro histórico:", err);
+        document.getElementById("historico").innerHTML = `<p>${t.errHistory}</p>`;
+      }
+    }
+
+    // 🔹 Rota 3: Carregar Banners de Publicidade
+    async function carregarSaque() {
+      try {
+        const res = await fetch("/api/anuncios?posicao=saque");
+        const dados = await res.json();
+
+        const grid = document.getElementById("gridSaque");
+        grid.innerHTML = "";
+
+        dados.forEach(b => {
+          if (!b.link_url && b.titulo === "Anuncie aqui") {
+            const el = document.createElement("div");
+            el.className = "banner";
+            el.style.padding = "15px";
+            el.style.textAlign = "center";
+            el.innerHTML = `<strong style="color: #666;">📢 ${b.titulo} (Posição: ${b.posicao})</strong>`;
+            grid.appendChild(el);
+            return;
+          }
+
+          const el = document.createElement("div");
+          el.className = "banner";
+          el.innerHTML = `
+            <a href="${b.link_url || b.link}" target="_blank" onclick="registrarClique(${b.id})">
+              <img src="${b.imagem_url || 'https://placehold.co/300x250/fff/000?text=Patrocinador'}" alt="banner">
+            </a>
+          `;
+          grid.appendChild(el);
+
+          if (b.id) {
+            fetch("/api/anuncio-evento", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ anuncio_id: b.id, tipo: "visita", telegram_id: telegram_id })
+            }).catch(e => console.error("Erro visita:", e));
+          }
+        });
+      } catch (err) {
+        console.error("Erro ao carregar banners saque:", err);
+      }
+    }
+
+    function registrarClique(anuncioId) {
+      if (!anuncioId) return;
+      fetch("/api/anuncio-evento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id: telegram_id })
+      }).catch(e => console.error("Erro clique:", e));
+    }
+
+    // 🔹 Rota 4: Envio do Formulário de Saque
+    document.getElementById("formSaque").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const t = linguagens[userLang];
+
+      const btn = document.getElementById("btnSaque");
+      const statusEl = document.getElementById("status");
+
+      btn.disabled = true;
+      statusEl.innerText = t.processing;
+
+      try {
+        const res = await fetch("/api/solicitar-saque", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            telegram_id: telegram_id,
+            chave_pix: document.getElementById("pix").value,
+            cpf: document.getElementById("cpf").value
+          })
+        });
+
+        const resultado = await res.json();
+
+        if (res.ok && resultado.success) {
+          const valorDisplay = userLang === "pt" ? `R$ ${resultado.valor.replace('.', ',')}` : `$ ${resultado.valor}`;
+          statusEl.innerHTML = `<span style='color: #2a8f43;'>✅ ${resultado.message || 'Success!'} Total: ${valorDisplay}</span>`;
+          
+          // Limpa o formulário após o sucesso
+          document.getElementById("formSaque").reset();
+          
+          await carregarDados();
+          await carregarHistorico();
+        } else {
+          statusEl.innerHTML = `<span style='color: #dc2626;'>❌ Error: ${resultado.error || 'Check conversion rules.'}</span>`;
+          btn.disabled = false;
+        }
+      } catch (err) {
+        console.error("Erro ao solicitar saque:", err);
+        statusEl.innerHTML = t.connError;
+        btn.disabled = false;
+      }
+    });
+
+    async function inicializarSistema() {
+      await carregarDados();
+      await carregarHistorico();
+      await carregarSaque();
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title id="pageTitle">CashTaskBot</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="description" content="Earn rewards by completing simple tasks on Telegram.">
+
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+  <meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade">
+
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+
+  <meta name="meroads-verification" content="b4da05181ebf7532">
+  <script src="//libtl.com/sdk.js"
+          async
+          data-zone="9579151"
+          data-sdk="show_9579151"></script>
+
+  <link rel="preconnect" href="https://libtl.com" crossorigin>
+  <link rel="dns-prefetch" href="//libtl.com">
+
+  <link rel="preconnect" href="https://zerads.com" crossorigin>
+  <link rel="dns-prefetch" href="//zerads.com">
+
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      max-width: 600px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 80px;
+    }
+
+    /* 📱 MENU INFERIOR FIXO */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #111;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+      z-index: 9999;
+    }
+
+    .bottom-nav a {
+      color: #aaa;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a.active, .bottom-nav a:hover {
+      color: #00ff88;
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    /* 🎯 DASHBOARD DE STATUS */
+    .user-status-card {
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .lang-toggle-btn {
+      background: #334155;
+      color: #fff;
+      border: 1px solid #475569;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      width: auto;
+      margin-top: 0;
+      transition: background 0.2s;
+    }
+
+    .lang-toggle-btn:hover {
+      background: #475569;
+    }
+
+    .blur-points {
+      filter: blur(4px);
+      background: #334155;
+      color: transparent;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      user-select: none;
+      transition: filter 0.3s ease;
+    }
+
+    .blur-points:hover {
+      filter: blur(0px);
+      color: #00ff88;
+      background: transparent;
+    }
+
+    .card, .ads-box, .banner-box {
+      background: white;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+
+    .ads-box button {
+      margin-bottom: 20px;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      background: #2a8f43;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1e6e34;
+    }
+
+    .tarefa {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+
+    .tarefa button {
+      background-color: #FFD700;
+      color: #333;
+      font-weight: bold;
+    }
+
+    .tarefa button:hover {
+      background-color: #FFC107;
+    }
+
+    .vip-box {
+      background: #eafbe7;
+      border: 1px solid #b7e4c7;
+      padding: 15px;
+      border-radius: 8px;
+      color: #155724;
+    }
+
+    .grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .banner {
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .banner img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="bottom-nav">
+    <a href="index.html" class="active" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+  <div class="user-status-card">
+    <div>
+      <span id="txtActiveUser" style="color: #94a3b8; font-size: 11px; display: block; font-weight: bold;">ACTIVE USER</span>
+      <strong id="statusUsuario" style="color: #fff; font-size: 13px;">Loading ID...</strong>
+    </div>
+    
+    <div>
+      <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
+    </div>
+
+    <div style="text-align: right;" onclick="irParaPontuacao()">
+      <span id="txtYourBalance" style="color: #00ff88; font-size: 11px; display: block; font-weight: bold;">💰 YOUR BALANCE</span>
+      <span class="blur-points" id="saldoFalso">9999 pts</span>
+    </div>
+  </div>
+
+  <div class="card" style="text-align: left; background: #fff; border-left: 5px solid #2a8f43; padding: 15px; margin: 0 0 20px 0;">
+    <h4 id="txtDailyProgress" style="margin: 0 0 5px 0; color: #333;">📊 Daily Progress</h4>
+    <p id="txtDailyProgressDesc" style="margin: 0 0 10px 0; font-size: 13px; color: #666;">Complete your goals to keep your multiplier active.</p>
+    <div style="background: #e2e8f0; width: 100%; height: 8px; border-radius: 4px; overflow: hidden;">
+      <div style="background: #2a8f43; width: 35%; height: 100%;"></div>
+    </div>
+    <button onclick="irParaTarefas()" id="btnContinueTasks" style="background: #111; margin-top: 12px; font-size: 13px; padding: 8px;">🎯 Continue Pending Tasks</button>
+  </div>
+
+  <div class="card">
+    <a href="https://telegrambot-mlfd.onrender.com/next.html" target="_blank" rel="noopener noreferrer">
+      <img src="img/lucremaistask.png"
+           alt="Promo Banner"
+           style="width:100%; max-width:600px; height:auto; border-radius:8px;">
+    </a>
+  </div>
+
+  <div class="tarefa">
+    <h3 id="txtDailyMission">📢 Daily Mission!</h3>
+    <p id="txtDailyMissionDesc">🎯 Watch the ad below and earn points.</p>
+    <button onclick="shareReward()" id="btnDailyMission">🔗 Complete Daily Mission</button>
+  </div>
+
+  <div style="background:#fff;padding:20px;border-radius:12px;text-align:center;box-shadow:0 0 10px rgba(0,0,0,0.05);max-width:500px;margin:20px auto;">
+    <img src="img/roleta.png"
+         alt="Lucky Wheel"
+         style="width:100px;max-width:100%;margin:0 auto 15px;display:block;"
+         loading="lazy" />
+
+    <h2 id="txtLuckyWheel" style="color:#2a8f43;">🎡 Lucky Wheel</h2>
+
+    <p id="txtLuckyWheelDesc" style="font-size:16px;color:#333;margin:10px 0;">
+      Test your luck and turn your points into instant prizes!<br>
+      The more you spin, the higher your chances to win rewards!
+    </p>
+
+    <button onclick="abrirRoleta()" id="btnLuckyWheel" style="
+      padding:12px 20px;
+      background:#2a8f43;
+      color:#fff;
+      border:none;
+      border-radius:8px;
+      font-size:16px;
+      cursor:pointer;
+      font-weight:bold;
+      width:100%;
+      max-width:250px;">
+      🎰 Go to Lucky Wheel
+    </button>
+  </div>
+
+  <div class="vip-box">
+    <h2 id="txtVipTitle">🎯 Become a VIP User</h2>
+    <p id="txtVipDesc"><strong>Unlock exclusive advantages and boost your earnings!</strong></p>
+
+    <ul id="listVip">
+      <li>💸 <b>Priority Withdrawals</b></li>
+      <li>📊 <b>Crypto Airdrops</b></li>
+      <li>🌐 <b>High-Paying Apps</b></li>
+      <li>🕵️ <b>Exclusive VIP Tasks</b></li>
+      <li>🚀 <b>Premium Content</b></li>
+    </ul>
+
+    <a id="linkVip" href="vip.html" style="text-decoration: none;">
+      <button id="btnVip" style="padding:10px 20px;font-weight:bold;background:#2a8f43;color:white;border:none;border-radius:6px;">
+        🚀 Upgrade to VIP
+      </button>
+    </a>
+  </div>
+
+  <div class="ads-box">
+    <p id="txtSponsor"><strong>🔰 Sponsorship</strong><br>Want your brand here?</p>
+
+    <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" id="linkAdvertise" target="_blank">
+      <button id="btnAdvertise">📢 Advertise</button>
+    </a>
+
+    <div class="grid" id="gridIndex"></div>
+  </div>
+
+  <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354"
+          width="300"
+          height="250"
+          loading="lazy"
+          style="border:0;display:block;margin:20px auto;">
+  </iframe>
+   
+  <script>
+  let telegram_id = "";
+  let userLang = "en";
+
+  const linguagens = {
+    pt: {
+      title: "LucreMaisTask",
+      navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+      activeUser: "USUÁRIO ATIVO", yourBalance: "💰 SEU SALDO", loadingId: "Carregando ID...", noId: "❌ ID não encontrado",
+      dailyProgress: "📊 Progresso do Dia", dailyProgressDesc: "Complete suas metas para manter seu multiplicador ativo.", btnContinueTasks: "🎯 Continuar Tarefas Pendentes",
+      dailyMission: "📢 Missão do dia!", dailyMissionDesc: "🎯 Veja o anúncio abaixo e ganhe pontos.", btnDailyMission: "🔗 Realizar tarefa do dia",
+      luckyWheel: "🎡 Roleta da Sorte", luckyWheelDesc: "Teste sua sorte e transforme seus pontos em prêmios instantâneos<br>Quanto mais você gira, maiores as chances de conquistar recompensas!", btnLuckyWheel: "🎰 Ir para a Roleta",
+      vipTitle: "🎯 Seja um Usuário VIP", vipDesc: "<strong>Desbloqueie vantagens exclusivas e aumente seus lucros!</strong>",
+      vipList: `<li>💸 <b>Saque antecipado</b></li><li>📊 <b>Airdrops de Cripto</b></li><li>🌐 <b>Apps que pagam</b></li><li>🕵️ <b>Tarefas VIP</b></li><li>🚀 <b>Conteúdo premium</b></li>`,
+      btnVip: "🚀 Quero ser VIP", sponsor: "<strong>🔰 Patrocínio</strong><br>Quer sua marca aqui?", btnAdvertise: "📢 Anunciar",
+      errorLoadingAd: "❌ Anúncio ainda carregando...", invalidId: "ID inválido", connectionError: "Erro na tarefa diária"
+    },
+    en: {
+      title: "CashTaskBot",
+      navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+      activeUser: "ACTIVE USER", yourBalance: "💰 YOUR BALANCE", loadingId: "Loading ID...", noId: "❌ ID not found",
+      dailyProgress: "📊 Daily Progress", dailyProgressDesc: "Complete your goals to keep your multiplier active.", btnContinueTasks: "🎯 Continue Pending Tasks",
+      dailyMission: "📢 Daily Mission!", dailyMissionDesc: "🎯 Watch the ad below and earn points.", btnDailyMission: "🔗 Complete Daily Mission",
+      luckyWheel: "🎡 Lucky Wheel", luckyWheelDesc: "Test your luck and turn your points into instant prizes!<br>The more you spin, the higher your chances to win rewards!", btnLuckyWheel: "🎰 Go to Lucky Wheel",
+      vipTitle: "🎯 Become a VIP User", vipDesc: "<strong>Unlock exclusive advantages and boost your earnings!</strong>",
+      vipList: `<li>💸 <b>Priority Withdrawals</b></li><li>📊 <b>Crypto Airdrops</b></li><li>🌐 <b>High-Paying Apps</b></li><li>🕵️ <b>Exclusive VIP Tasks</b></li><li>🚀 <b>Premium Content</b></li>`,
+      btnVip: "🚀 Upgrade to VIP", sponsor: "<strong>🔰 Sponsorship</strong><br>Want your brand here?", btnAdvertise: "📢 Advertise",
+      errorLoadingAd: "❌ Ad still loading...", invalidId: "Invalid ID", connectionError: "Error on daily mission"
+    }
+  };
+
+  // Renderiza todas as strings traduzidas na tela
+  function aplicarTraducoes() {
+    document.documentElement.lang = userLang;
+    const t = linguagens[userLang];
+
+    document.getElementById("pageTitle").innerText = t.title;
+    document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+    document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+    document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+    document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+    document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+    document.getElementById("txtActiveUser").innerText = t.activeUser;
+    document.getElementById("txtYourBalance").innerText = t.yourBalance;
+    document.getElementById("txtDailyProgress").innerText = t.dailyProgress;
+    document.getElementById("txtDailyProgressDesc").innerText = t.dailyProgressDesc;
+    document.getElementById("btnContinueTasks").innerText = t.btnContinueTasks;
+    document.getElementById("txtDailyMission").innerText = t.dailyMission;
+    document.getElementById("txtDailyMissionDesc").innerText = t.dailyMissionDesc;
+    document.getElementById("btnDailyMission").innerText = t.btnDailyMission;
+    document.getElementById("txtLuckyWheel").innerText = t.luckyWheel;
+    document.getElementById("txtLuckyWheelDesc").innerHTML = t.luckyWheelDesc;
+    document.getElementById("btnLuckyWheel").innerText = t.btnLuckyWheel;
+    document.getElementById("txtVipTitle").innerText = t.vipTitle;
+    document.getElementById("txtVipDesc").innerHTML = t.vipDesc;
+    document.getElementById("listVip").innerHTML = t.vipList;
+    document.getElementById("btnVip").innerText = t.btnVip;
+    document.getElementById("txtSponsor").innerHTML = t.sponsor;
+    document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
+
+    // Atualiza o texto visual do botão alternador de idioma
+    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
+
+   document.getElementById("linkVip").href = `vip.html?id=${telegram_id}&lang=${userLang}`;
+
+    // Atualiza dinamicamente as URLs de todos os links ancorados para carregar a query correta
+    atualizarUrlsMenu();
+  }
+
+  // Reescreve os links para persistirem o ID e o idioma atual escolhido
+  function atualizarUrlsMenu() {
+    if (!telegram_id) return;
+    document.querySelectorAll(".bottom-nav a, .ads-box a").forEach(link => {
+      let currentHref = link.getAttribute("href");
+      if (currentHref) {
+        // Remove parâmetros antigos para não duplicar
+        let baseHref = currentHref.split("?")[0];
+        link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+      }
+    });
+  }
+
+  // 🔄 Executada no clique do botão físico do Dashboard
+  window.alternarIdioma = function() {
+    userLang = userLang === "pt" ? "en" : "pt";
+    aplicarTraducoes();
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Captura inicial do idioma
+    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+
+    // Captura do Telegram ID
+    telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "";
+    if (telegram_id) {
+      telegram_id = String(telegram_id);
+      localStorage.setItem("telegram_id", telegram_id);
+    }
+
+    // Aplica os textos dinâmicos na tela
+    aplicarTraducoes();
+
+    // Gerencia exibição do ID
+    const statusBox = document.getElementById("statusUsuario");
+    if (statusBox) {
+      statusBox.textContent = telegram_id ? `👤 ID: ${telegram_id}` : linguagens[userLang].noId;
+    }
+
+    carregarLucremais();
+  });
+
+  // Funções globais de navegação mantendo o estado atualizado
+  window.irParaTarefas = function() {
+    if (!telegram_id) return;
+    window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}`;
+  };
+
+  window.irParaPontuacao = function() {
+    if (!telegram_id) return;
+    window.location.href = `pontuacao.html?id=${telegram_id}&lang=${userLang}`;
+  };
+
+  window.abrirRoleta = function () {
+    if (!telegram_id) {
+      alert(linguagens[userLang].invalidId);
+      return;
+    }
+    window.location.href = `roleta.html?id=${telegram_id}&lang=${userLang}`;
+  };
+
+  window.shareReward = async function () {
+    const t = linguagens[userLang];
+    if (!telegram_id) { alert(t.invalidId); return; }
+    if (typeof show_9579151 !== "function") { alert(t.errorLoadingAd); return; }
+
+    try {
+      await show_9579151();
+      const res = await fetch("/api/concluir-diaria", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegram_id })
+      });
+      const data = await res.json();
+      alert(data.mensagem || data.erro || "Concluído");
+    } catch (err) {
+      console.error(err);
+      alert(t.connectionError);
+    }
+  };
+
+  async function carregarLucremais() {
+    try {
+      const posicao = encodeURIComponent("index");
+      const res = await fetch(`/api/anuncios?posicao=${posicao}`);
+      const dados = await res.json();
+      const grid = document.getElementById("gridIndex");
+      if (!grid || dados.length === 0) return;
+      
+      grid.innerHTML = "";
+      dados.forEach(b => {
+        const el = document.createElement("div");
+        el.className = "banner";
+        el.innerHTML = `
+          <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
+            <img src="${b.imagem_url}" alt="${b.titulo}">
+          </a>
+        `;
+        grid.appendChild(el);
+
+        fetch("/api/anuncio-evento", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ anuncio_id: b.id, tipo: "visita", telegram_id })
+        }).catch(e => console.error(e));
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function registrarClique(anuncioId) {
+    fetch("/api/anuncio-evento", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id })
+    }).catch(e => console.error(e));
+  }
+  </script>
+</body> 
+</html>

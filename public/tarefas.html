@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="pageTitle">✅ Tasks</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  text-align: center;
+  padding-bottom: 80px;
+  margin: 0;
+}
+
+/* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #111;
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+  z-index: 9999;
+}
+
+.bottom-nav a {
+  color: #aaa;
+  text-decoration: none;
+  font-size: 11px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 20%;
+}
+
+.bottom-nav a.active, .bottom-nav a:hover {
+  color: #00ff88;
+}
+
+.bottom-nav a span {
+  font-size: 18px;
+}
+
+/* 📋 ESTILIZAÇÃO DAS TAREFAS */
+.tarefa {
+  background: #fff;
+  padding: 15px;
+  margin: 10px auto;
+  border-radius: 10px;
+  max-width: 400px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  text-align: left;
+  border-left: 5px solid #2a8f43;
+  position: relative;
+}
+
+/* ⭐ DESTAQUE PARA TAREFAS VIP */
+.tarefa.vip-task {
+  background: #fffdf2;
+  border: 1.5px solid #ffd700;
+  border-left: 6px solid #ffd700;
+  box-shadow: 0 2px 8px rgba(255, 215, 0, 0.15);
+}
+
+.badge-vip {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  background: #ffd700;
+  color: #5d4300;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+button {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #2a8f43;
+  color: white;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #1e6e34;
+}
+
+/* Botão diferenciado nas Tarefas VIP */
+.tarefa.vip-task button {
+  background: #ffd700;
+  color: #5d4300;
+}
+
+.tarefa.vip-task button:hover {
+  background: #e6c200;
+}
+
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.banner {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.banner img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.card, .ads-box, .banner-box {
+  background: white;
+  padding: 15px;
+  margin: 20px auto;
+  max-width: 400px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.ads-box button {
+  margin-bottom: 20px;
+}
+</style>
+</head>
+
+<body>
+
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" class="active" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+  
+<h1 id="mainTitle">✅ Tasks</h1>
+<p id="info" style="font-weight: bold; font-size: 16px; margin: 5px 0 20px 0;">Loading...</p>
+
+<div id="tarefas">Loading tasks...</div>
+
+<div class="ads-box">
+  <div class="grid" id="gridLucremais"></div>
+</div>
+  
+<script>
+function formatarTitulo(tituloCompleto, lang) {
+    if (!tituloCompleto) return "";
+    const partes = tituloCompleto.split(' / ');
+    // Se o idioma for pt, pega a primeira parte, senão pega a segunda (en)
+    return (lang === 'pt') ? partes[0] : (partes[1] || partes[0]);
+}
+  
+let telegram_id = "";
+let userLang = "en";
+let usuarioVip = false;
+
+// Dicionário de Idiomas
+const linguagens = {
+  pt: {
+    title: "✅ Tarefas",
+    mainTitle: "✅ Tarefas",
+    navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+    loading: "Carregando tarefas...",
+    noId: "❌ ID não encontrado",
+    vipUser: "👑 Status: Usuário VIP",
+    regularUser: "👤 Status: Usuário Padrão",
+    apiError: "❌ Erro API ao carregar",
+    noTasks: "🎉 Sem tarefas pendentes no momento!",
+    pointsWord: "pontos",
+    btnVipTask: "🚀 Fazer Tarefa Direta",
+    btnRegularTask: "📺 Ver Anúncio + Link",
+    connError: "❌ Falha de conexão com o servidor",
+    initTaskError: "Erro ao iniciar tarefa",
+    execTaskError: "Erro ao executar tarefa",
+    vipBadge: "✨ VIP"
+  },
+  en: {
+    title: "✅ Tasks",
+    mainTitle: "✅ Tasks",
+    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+    loading: "Loading tasks...",
+    noId: "❌ ID not found",
+    vipUser: "👑 Status: VIP User",
+    regularUser: "👤 Status: Standard User",
+    apiError: "❌ API Loading Error",
+    noTasks: "🎉 No tasks available!",
+    pointsWord: "points",
+    btnVipTask: "🚀 Instant Complete",
+    btnRegularTask: "📺 Watch Ads + Link",
+    connError: "❌ Connection failure",
+    initTaskError: "Error starting task",
+    execTaskError: "Error executing task",
+    vipBadge: "✨ VIP"
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const urlParams = new URLSearchParams(window.location.search);
+
+  userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+  document.documentElement.lang = userLang;
+  const t = linguagens[userLang];
+
+  document.getElementById("pageTitle").innerText = t.title;
+  document.getElementById("mainTitle").innerText = t.mainTitle;
+  document.getElementById("info").innerText = t.loading;
+  document.getElementById("tarefas").innerText = t.loading;
+
+  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+
+  telegram_id =
+    urlParams.get("id") ||
+    window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
+    localStorage.getItem("telegram_id") ||
+    "";
+
+  if (telegram_id) {
+    telegram_id = String(telegram_id);
+    localStorage.setItem("telegram_id", telegram_id);
+  } else {
+    document.getElementById("tarefas").innerHTML = t.noId;
+  }
+
+  document.querySelectorAll(".bottom-nav a").forEach(link => {
+    let currentHref = link.getAttribute("href");
+    if (currentHref) {
+      let baseHref = currentHref.split("?")[0];
+      link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+    }
+    if (currentHref && currentHref.startsWith("tarefas.html")) {
+      link.classList.add("active");
+    } else {
+      link.classList.remove("active");
+    }
+  });
+
+  carregarTarefas();
+  carregarLucremais();
+});
+
+// 📥 CARREGAR TAREFAS DINÂMICAS (Ordenadas com VIPs em Destaque no Topo)
+async function carregarTarefas() {
+  const container = document.getElementById("tarefas");
+  const t = linguagens[userLang];
+
+  try {
+    const res = await fetch(`/api/tarefas?telegram_id=${telegram_id}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      container.innerHTML = t.apiError;
+      return;
+    }
+
+    usuarioVip = data.vip || false;
+    document.getElementById("info").innerText = usuarioVip ? t.vipUser : t.regularUser;
+
+    container.innerHTML = "";
+
+    // Filtra as não concluídas
+    let lista = data.tarefas.filter(task => !task.concluida);
+
+    if (lista.length === 0) {
+      container.innerHTML = t.noTasks;
+      return;
+    }
+
+    // 🔥 Ordena garantindo que tarefas VIP fiquem rigorosamente no topo
+    lista.sort((a, b) => {
+      const aVip = a.is_vip ? 1 : 0;
+      const bVip = b.is_vip ? 1 : 0;
+      return bVip - aVip; // Ordem decrescente (1 vem antes de 0)
+    });
+
+    // Limita às 6 primeiras após ordenar para manter o feed clean
+    lista = lista.slice(0, 6);
+
+    lista.forEach(task => {
+      const el = document.createElement("div");
+      
+      // Aplica classes de estilização com base na categoria da tarefa
+      if (task.is_vip) {
+        el.className = "tarefa vip-task";
+      } else {
+        el.className = "tarefa";
+      }
+
+      // Constrói o HTML injetando a tag VIP apenas se aplicável
+      el.innerHTML = `
+        ${task.is_vip ? `<span class="badge-vip">${t.vipBadge}</span>` : ''}
+        <strong>${formatarTitulo(task.titulo, userLang)}</strong><br>
+        ⭐ ${task.pontos} ${t.pointsWord}<br>
+        <button onclick="executarTarefa('${encodeURIComponent(task.link)}', ${task.id})">
+          ${usuarioVip ? t.btnVipTask : t.btnRegularTask}
+        </button>
+      `;
+
+      container.appendChild(el);
+    });
+
+  } catch (err) {
+    container.innerHTML = t.connError;
+  }
+}
+
+// 🎯 EXECUTAR TAREFA
+async function executarTarefa(link, tarefa_id) {
+  const fingerprint = navigator.userAgent;
+  const t = linguagens[userLang];
+
+  try {
+    const initRes = await fetch("/api/iniciar-tarefa", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ telegram_id, tarefa_id, fingerprint })
+    });
+
+    const initData = await initRes.json();
+
+    if (!initData.token) {
+      alert(t.initTaskError);
+      return;
+    }
+
+    const token = initData.token;
+
+    // 👑 FLUXO VIP (Sem painel de anúncios, contagem em segundo plano)
+    if (usuarioVip) {
+      window.open(decodeURIComponent(link), "_blank", "noopener,noreferrer");
+
+      setTimeout(() => {
+        concluirTarefa(tarefa_id, token, fingerprint);
+      }, 16000);
+
+      return;
+    }
+
+    // 👤 FLUXO COMUM (Redireciona para o painel de intermediação de anúncios)
+    const painel = `/ads-panel.html?tarefa_id=${tarefa_id}&token=${token}&link=${link}&id=${telegram_id}&lang=${userLang}&t=${Date.now()}`;
+
+    window.open(painel, "_blank", "noopener,noreferrer");
+
+  } catch (err) {
+    alert(t.execTaskError);
+  }
+}
+
+// ✅ CONCLUIR TAREFA
+async function concluirTarefa(tarefa_id, token, fingerprint) {
+  try {
+    const res = await fetch("/api/concluir-tarefa", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ telegram_id, tarefa_id, token, fingerprint })
+    });
+
+    const data = await res.json();
+    alert(data.mensagem || data.erro);
+
+    carregarTarefas();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// 🪟 ANÚNCIOS PATROCINADOS DO RODAPÉ
+async function carregarLucremais() {
+  try {
+    const posicao = encodeURIComponent("tarefas lucremais");
+    const res = await fetch(`/api/anuncios?posicao=${posicao}`);
+    const dados = await res.json();
+
+    const grid = document.getElementById("gridLucremais");
+    if (!grid) return;
+    
+    grid.innerHTML = "";
+
+    if (dados.length === 0) {
+      console.log("⚠️ No active ads for 'tarefas lucremais'.");
+      return;
+    }
+
+    dados.forEach(b => {
+      const el = document.createElement("div");
+      el.className = "banner";
+      el.innerHTML = `
+        <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
+          <img src="${b.imagem_url}" alt="${b.titulo}">
+        </a>
+      `;
+      grid.appendChild(el);
+
+      fetch("/api/anuncio-evento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          anuncio_id: b.id,
+          tipo: "visita",
+          telegram_id: telegram_id
+        })
+      }).catch(e => console.error(e));
+    });
+  } catch (err) {
+    console.error("Error loading 'tarefas lucremais' ads:", err);
+  }
+}
+
+function registrarClique(anuncioId) {
+  fetch("/api/anuncio-evento", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      anuncio_id: anuncioId,
+      tipo: "clique",
+      telegram_id: telegram_id
+    })
+  }).catch(e => console.error(e));
+}
+</script>  
+
+</body>
+</html>
