@@ -5,7 +5,7 @@ const express = require("express");
 const cors = require("cors");
 // ❌ removido helmet por enquanto
 const rateLimitLib = require("express-rate-limit"); // 🔥 renomeado para evitar conflito
-
+const APP_DOMAIN = process.env.APP_DOMAIN || "https://task-test-nrdn.onrender.com";
 const pool = require("./db");
 const TelegramBot = require("node-telegram-bot-api");
 
@@ -17,10 +17,7 @@ app.set("trust proxy", 1);
 
 // 🔒 2. CORS restrito (ajuste seu domínio)
 app.use(cors({
-  origin: [
-    "https://task-test-nrdn.onrender.com",
-    "https://highpay-ads.com"
-  ],
+  origin: [APP_DOMAIN, "https://highpay-ads.com"],
   methods: ["GET", "POST"],
 }));
 
@@ -1502,7 +1499,7 @@ bot.onText(/\/start(?:\s+(\d+))?/, async (msg, match) => {
         inline_keyboard: [[
           {
             text: msgsStart[userLang].btn_app,
-            web_app: { url: `https://telegrambot-mlfd.onrender.com/?id=${chatId}&lang=${userLang}` }
+            web_app: { url: `${APP_DOMAIN}/?id=${chatId}&lang=${userLang}` }
           }
         ]]
       }
@@ -1550,10 +1547,10 @@ cron.schedule("0 10 * * *", async () => {
             parse_mode: "Markdown",
             reply_markup: {
               inline_keyboard: [
-                [{ text: "🎰 Girar Roleta Grátis", web_app: { url: `https://telegrambot-mlfd.onrender.com/roleta.html?id=${u.telegram_id}&lang=pt` } }],
+                [{ text: "🎰 Girar Roleta Grátis", web_app: { url: `${APP_DOMAIN}/roleta.html?id=${u.telegram_id}&lang=pt` } }],
                 [
-                  { text: "🚀 Ver Tarefas LucreMais", web_app: { url: `https://telegrambot-mlfd.onrender.com/tarefas.html?id=${u.telegram_id}&lang=pt` } },
-                  { text: "🏠 Ir para o Início", web_app: { url: `https://telegrambot-mlfd.onrender.com/index.html?id=${u.telegram_id}&lang=pt` } }
+                  { text: "🚀 Ver Tarefas LucreMais", web_app: { url: `${APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=pt` } },
+                  { text: "🏠 Ir para o Início", web_app: { url: `${APP_DOMAIN}/index.html?id=${u.telegram_id}&lang=pt` } }
                 ]
               ]
             }
@@ -1572,10 +1569,10 @@ cron.schedule("0 10 * * *", async () => {
             parse_mode: "Markdown",
             reply_markup: {
               inline_keyboard: [
-                [{ text: "🎰 Spin Free Wheel", web_app: { url: `https://telegrambot-mlfd.onrender.com/roleta.html?id=${u.telegram_id}&lang=en` } }],
+                [{ text: "🎰 Spin Free Wheel", web_app: { url: `${APP_DOMAIN}/roleta.html?id=${u.telegram_id}&lang=en` } }],
                 [
-                  { text: "🚀 View CashTasks", web_app: { url: `https://telegrambot-mlfd.onrender.com/tarefas.html?id=${u.telegram_id}&lang=en` } },
-                  { text: "🏠 Go to Home", web_app: { url: `https://telegrambot-mlfd.onrender.com/index.html?id=${u.telegram_id}&lang=en` } }
+                  { text: "🚀 View CashTasks", web_app: { url: `${APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=en` } },
+                  { text: "🏠 Go to Home", web_app: { url: `${APP_DOMAIN}/index.html?id=${u.telegram_id}&lang=en` } }
                 ]
               ]
             }
