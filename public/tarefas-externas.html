@@ -269,7 +269,15 @@
       const cpaleadFrame = document.getElementById("cpalead-frame");
       const moneyrainFrame = document.getElementById("moneyrain-frame");
       if(cpaleadFrame) cpaleadFrame.src = `https://www.akamaicdn.org/list/XrdSA?subid=telegram_${telegramId}`;
-      if(moneyrainFrame) moneyrainFrame.src = `https://offerwall.moneyrain.top/embed.php?pub=228&uid=${telegramId}`;
+
+
+
+
+
+      
+      // MUDANÇA: Adicionado "&site=teste-bot" para direcionar ao nosso site de testes configurado no painel MoneyRain
+      
+      if(moneyrainFrame) moneyrainFrame.src = `https://offerwall.moneyrain.top/embed.php?pub=228&site=teste-bot&uid=${telegramId}`;
     }
 
     carregarExternas();
@@ -288,6 +296,15 @@
   function abrirZerAds() {
     const t = linguagens[userLang];
     if (!telegramId) { alert(t.errorIdent); return; }
+
+
+
+
+    
+    // ref=11571 é bot de teste e 11354 bot produção 
+
+
+    
     window.open(`https://zerads.com/ptc.php?ref=11571&user=${telegramId}`, "_blank");
     alert(t.alertFeedback);
   }
