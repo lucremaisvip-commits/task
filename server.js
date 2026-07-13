@@ -465,23 +465,27 @@ app.post("/api/concluir-diaria", async (req, res) => {
   }
 
   try {
-    // 🔍 Verifica se já fez hoje
+    await pool.query("BEGIN");
+
+    // 🔍 Verifica se já existe um ganho de 'diaria' hoje na tabela unificada
     const check = await pool.query(
-      `SELECT 1 FROM tarefas_diarias 
-       WHERE telegram_id = $1 AND data = CURRENT_DATE`,
+      `SELECT 1 FROM historico_ganhos 
+       WHERE telegram_id = $1 AND origem = 'diaria' 
+       AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
 
     if (check.rows.length > 0) {
+      await pool.query("ROLLBACK");
       return res.status(400).json({ erro: "❌ Você já fez a tarefa diária hoje." });
     }
 
-    const pontos = 1; // ajuste se quiser
+    const pontos = 1; 
 
-    // 💾 Registra
+    // 💾 Registra na tabela unificada (historico_ganhos)
     await pool.query(
-      `INSERT INTO tarefas_diarias (telegram_id, data, pontos)
-       VALUES ($1, CURRENT_DATE, $2)`,
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
+       VALUES ($1, 'diaria', $2, 'Tarefa Diária', NOW())`,
       [telegram_id, pontos]
     );
 
@@ -493,14 +497,13 @@ app.post("/api/concluir-diaria", async (req, res) => {
       [pontos, telegram_id]
     );
 
+    await pool.query("COMMIT");
     res.json({ mensagem: "✅ Tarefa diária concluída!" });
 
   } catch (err) {
+    await pool.query("ROLLBACK");
     console.error("Erro diária:", err.message);
-
-    res.status(500).json({
-      erro: "Erro ao concluir tarefa diária"
-    });
+    res.status(500).json({ erro: "Erro ao concluir tarefa diária" });
   }
 });
 
