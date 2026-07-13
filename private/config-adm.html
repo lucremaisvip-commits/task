@@ -84,6 +84,14 @@
 FROM traffic_logs
 GROUP BY utm_source
 ORDER BY taxa_conversao_pct DESC;</li>
+    <li>--ver açoes de um usuário<br> SELECT 
+  origem, 
+  COUNT(*) as total_acoes, 
+  SUM(pontos) as total_pontos
+FROM historico_ganhos
+WHERE telegram_id = '8513185549'  -- Substitua pelo ID desejado
+GROUP BY origem
+ORDER BY total_acoes DESC;</li>
     <li>-- Expirar tarefas vencidas<br>UPDATE tarefas_usuario SET expirada = true WHERE validade < CURRENT_DATE;</li>
     <li>-- Zerar pontos de todos os usuários<br>UPDATE usuarios SET pontos = 0;</li>
     <li>-- Limpar saques reprovados<br>DELETE FROM saques WHERE status = 'reprovado';</li>
