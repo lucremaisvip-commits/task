@@ -729,6 +729,8 @@ app.get("/zeradsptc.php", async (req, res) => {
 app.get("/cpalead-postback", async (req, res) => {
   const { subid, payout, offer_id, campaign_name } = req.query;
   const telegram_id = subid.replace("telegram_", "");
+  
+  // Garantimos que pontos seja tratado como NUMERIC no SQL
   const pontos = (parseFloat(payout) * 50) * 0.4;
 
   try {
@@ -736,22 +738,31 @@ app.get("/cpalead-postback", async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // 1. Idempotência
-      const check = await client.query("SELECT 1 FROM cpalead_concluidas WHERE offer_id = $1 AND telegram_id = $2", [offer_id, telegram_id]);
+      // 1. Idempotência: Checa na historico_ganhos em vez de tabela dedicada
+      const check = await client.query(
+        "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'cpalead'", 
+        [offer_id]
+      );
+      
       if (check.rowCount > 0) {
         await client.query("ROLLBACK");
         return res.status(200).send("✅ Tarefa já registrada.");
       }
 
-      // 2. Log na tabela nova
+      // 2. Log na tabela unificada (historico_ganhos)
       await client.query(
-        "INSERT INTO cpalead_concluidas (telegram_id, offer_id, pontos, nome_tarefa) VALUES ($1, $2, $3, $4)",
-        [telegram_id, offer_id, pontos, campaign_name]
+        `INSERT INTO historico_ganhos 
+        (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
+        VALUES ($1, 'cpalead', $2, $3, $4, NOW())`,
+        [telegram_id, pontos, campaign_name, offer_id]
       );
 
       // 3. Update saldo
       await client.query(
-        "UPDATE usuarios SET pontos = pontos + $1, tarefas_feitas = tarefas_feitas + 1 WHERE telegram_id = $2",
+        `UPDATE usuarios 
+         SET pontos = COALESCE(pontos, 0) + $1, 
+             tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
+         WHERE telegram_id = $2`,
         [pontos, telegram_id]
       );
 
@@ -764,18 +775,18 @@ app.get("/cpalead-postback", async (req, res) => {
       client.release();
     }
   } catch (err) {
+    console.error("Erro Postback:", err.message);
     res.status(500).send("❌ Erro interno.");
   }
 });
 
-
-const SECRET = '555406b2062d06a989af47844f99b39a265860bf9a237a54';
-
 app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), async (req, res) => {
     const signature = req.headers['x-moneyrain-signature'];
-    const percentualRepasse = 0.4; // 60% de margem de lucro para você
+    const percentualRepasse = 0.4;
 
-    // 1. Garantir que o body seja um Buffer para verificação de assinatura
+    // 1. Log para Percepção Extra (Debug completo de tudo que chega)
+    // O bodyBuffer ainda não foi convertido, então capturamos o log logo abaixo
+
     let bodyBuffer;
     if (Buffer.isBuffer(req.body)) {
         bodyBuffer = req.body;
@@ -783,7 +794,7 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         bodyBuffer = Buffer.from(JSON.stringify(req.body));
     }
 
-    // 2. Verificar Assinatura HMAC (Segurança contra falsificação)
+    // 2. Verificar Assinatura HMAC
     const hmac = crypto.createHmac('sha256', SECRET);
     hmac.update(bodyBuffer); 
     const hash = hmac.digest('hex');
@@ -794,47 +805,46 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         return res.status(403).send('Bad signature');
     }
 
-    // 3. Converter para objeto
     let data;
     try {
         data = JSON.parse(bodyBuffer.toString('utf8'));
+        // 🔥 LOG COMPLETO: Veja exatamente o que o MoneyRain envia
+        console.log("📥 MoneyRain Payload:", JSON.stringify(data, null, 2));
     } catch (e) {
         return res.status(400).send('Invalid JSON');
     }
     
     if (data.event === 'reward.completed') {
         const userId = data.external_uid;
-        // Aplicação da margem de lucro no cálculo dos pontos
         const pontos = parseFloat(data.reward_currency_amount) * percentualRepasse;
         const viewId = data.view_id;
 
-        if (!userId || !viewId) {
-            return res.status(400).send('Missing user or view ID');
-        }
+        if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
 
         try {
-            // 4. Verifica se esta view já foi processada (Idempotência)
+            // 3. Idempotência usando a tabela central historico_ganhos
             const check = await pool.query(
-                "SELECT id FROM moneyrain_concluidas WHERE view_id = $1", 
+                "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'moneyrain'", 
                 [viewId.toString()]
             );
 
             if (check.rowCount > 0) {
-                console.log(`ℹ️ Tarefa ${viewId} já creditada anteriormente.`);
+                console.log(`ℹ️ View ${viewId} já creditada anteriormente.`);
                 return res.status(200).send('Already credited');
             }
 
-            // 5. Registra no banco de dados com Transação (BEGIN/COMMIT/ROLLBACK)
             const client = await pool.connect();
             try {
                 await client.query('BEGIN');
 
+                // 4. Registro na tabela unificada historico_ganhos
                 await client.query(
-                    `INSERT INTO moneyrain_concluidas (telegram_id, view_id, pontos, data, origem, nome_tarefa) 
-                     VALUES ($1, $2, $3, NOW(), 'moneyrain', 'MoneyRain Ad')`,
-                    [userId, viewId.toString(), pontos]
+                    `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
+                     VALUES ($1, 'moneyrain', $2, 'MoneyRain Ad', $3, NOW())`,
+                    [userId, pontos, viewId.toString()]
                 );
 
+                // 5. Update saldo
                 await client.query(
                     `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2`,
                     [pontos, userId]
@@ -850,7 +860,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
             } finally {
                 client.release();
             }
-
         } catch (err) {
             console.error("🔥 Erro ao processar banco de dados:", err);
             return res.status(500).send('Database error');
@@ -859,7 +868,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     
     res.status(400).send('Invalid event');
 });
-
 
 // 🔹 4. Rotas de Usuário
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
