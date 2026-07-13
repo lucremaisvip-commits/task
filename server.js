@@ -777,11 +777,11 @@ app.get("/zeradsptc.php", async (req, res) => {
       }
 
       // 4. Registrar na tabela zerads_concluidas
-      await client.query(
-        "INSERT INTO zerads_concluidas (telegram_id, pontos, nome_tarefa) VALUES ($1, $2, $3)",
-        [user, pontos, 'ZerAds PTC']
-      );
-
+  await client.query(
+  `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa) 
+   VALUES ($1, $2, $3, $4)`,
+  [user, 'zerads', pontos, 'ZerAds PTC']
+  );
       await client.query("COMMIT");
       
       console.log(`✅ Pontos creditados e log registrado para o usuário ${user}`);
