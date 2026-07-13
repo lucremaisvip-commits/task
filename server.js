@@ -532,7 +532,6 @@ app.post("/api/roleta/girar", async (req, res) => {
   function sortearPremio() {
     const rand = Math.random() * 100;
     let acumulado = 0;
-
     for (const p of premios) {
       acumulado += p.chance;
       if (rand <= acumulado) return p;
@@ -545,7 +544,6 @@ app.post("/api/roleta/girar", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // 👤 Buscar usuário e bloquear para evitar Race Condition de saldo
     const userRes = await client.query(
       "SELECT pontos, vip FROM usuarios WHERE telegram_id = $1 FOR UPDATE",
       [telegram_id]
@@ -558,12 +556,10 @@ app.post("/api/roleta/girar", async (req, res) => {
 
     const user = userRes.rows[0];
 
-    // 📊 Limite diário geral de giros (Evita abuso mesmo se tiver infinitos tickets)
     const limiteGiros = 5;
     const girosHoje = await client.query(
       `SELECT COUNT(*) FROM roleta_giros 
-       WHERE telegram_id = $1 
-       AND DATE(created_at) = CURRENT_DATE`,
+       WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
 
@@ -572,7 +568,6 @@ app.post("/api/roleta/girar", async (req, res) => {
       return res.status(400).json({ erro: "Limite diário de 5 giros atingido" });
     }
 
-    // 🎟️ VALIDAÇÃO DE TICKETS DISPONÍVEIS
     const ticketCheck = await client.query(
       `SELECT id FROM roleta_tickets 
        WHERE telegram_id = $1 AND usado = false 
@@ -588,56 +583,44 @@ app.post("/api/roleta/girar", async (req, res) => {
       ticketIdUsado = ticketCheck.rows[0].id;
     }
 
-    // 💰 Processamento de Cobrança (Paga ou consome Ticket)
     if (gratis) {
-      // Consome o ticket alterando para usado
       await client.query(
-        "UPDATE roleta_tickets SET usado = true, data = CURRENT_DATE WHERE id = $1",
+        "UPDATE roleta_tickets SET usado = true, data_registro = NOW() WHERE id = $1",
         [ticketIdUsado]
       );
     } else {
-      // Se não tem ticket disponível, desconta 10 pontos do saldo
       if (user.pontos < 10) {
         await client.query("ROLLBACK");
-        return res.status(400).json({ erro: "Pontos insuficientes (Você precisa de 10 pontos ou 1 Ticket)" });
+        return res.status(400).json({ erro: "Pontos insuficientes" });
       }
-
-      await client.query(
-        "UPDATE usuarios SET pontos = pontos - 10 WHERE telegram_id = $1",
-        [telegram_id]
-      );
+      await client.query("UPDATE usuarios SET pontos = pontos - 10 WHERE telegram_id = $1", [telegram_id]);
     }
 
-    // 🎯 Executa Sorteio
     const premio = sortearPremio();
-
     if (premio.tipo === "pontos") {
-      await client.query(
-        "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
-        [premio.valor, telegram_id]
-      );
+      await client.query("UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2", [premio.valor, telegram_id]);
     }
 
-    // 🔥 Nome amigável para o front-end
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
-    // 📝 Salva o histórico de giros
-    await client.query(
-      `INSERT INTO roleta_giros 
-      (telegram_id, premio, pontos_ganhos, gratis) 
-      VALUES ($1, $2, $3, $4)`,
+    // 📝 Salva histórico visual
+    const giroRes = await client.query(
+      `INSERT INTO roleta_giros (telegram_id, premio, pontos_ganhos, gratis, data_registro) 
+       VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
       [telegram_id, nomePremio, premio.valor, gratis]
     );
 
-    await client.query("COMMIT");
+    // 💰 Salva auditoria na historico_ganhos (apenas se ganhou algo)
+    if (premio.valor > 0) {
+      await client.query(
+        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+         VALUES ($1, 'roleta', $2, $3, $4, NOW())`,
+        [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
+      );
+    }
 
-    res.json({
-      success: true,
-      premio: nomePremio,
-      valor: premio.valor,
-      tipo: premio.tipo,
-      gratis
-    });
+    await client.query("COMMIT");
+    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
 
   } catch (err) {
     await client.query("ROLLBACK");
@@ -648,65 +631,35 @@ app.post("/api/roleta/girar", async (req, res) => {
   }
 });
 
-
 // 📊 GIROS E TICKETS DISPONÍVEIS HOJE
 app.get("/api/roleta/hoje", async (req, res) => {
   const { telegram_id } = req.query;
-
-  if (!telegram_id) {
-    return res.status(400).json({ erro: "telegram_id obrigatório" });
-  }
-
   try {
-    // Quantidade de giros que ele já realizou hoje
     const giros = await pool.query(
-      `SELECT COUNT(*) FROM roleta_giros 
-       WHERE telegram_id = $1 
-       AND DATE(created_at) = CURRENT_DATE`,
+      `SELECT COUNT(*) FROM roleta_giros WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
-
-    // Conta quantos tickets válidos (não usados) o usuário tem guardados na carteira
     const ticketsDisponiveis = await pool.query(
-      `SELECT COUNT(*) FROM roleta_tickets 
-       WHERE telegram_id = $1 AND usado = false`,
+      `SELECT COUNT(*) FROM roleta_tickets WHERE telegram_id = $1 AND usado = false`,
       [telegram_id]
     );
-
-    res.json({
-      giros: parseInt(giros.rows[0].count),
-      tickets: parseInt(ticketsDisponiveis.rows[0].count) // Retorna a contagem exata para atualizar a interface do Mini App
-    });
-
+    res.json({ giros: parseInt(giros.rows[0].count), tickets: parseInt(ticketsDisponiveis.rows[0].count) });
   } catch (err) {
-    console.error("Erro roleta hoje:", err.message);
     res.status(500).json({ erro: "Erro interno" });
   }
 });
 
-
 // 📜 HISTÓRICO DE GIROS
 app.get("/api/roleta/historico", async (req, res) => {
   const { telegram_id } = req.query;
-
-  if (!telegram_id) {
-    return res.status(400).json({ erro: "telegram_id obrigatório" });
-  }
-
   try {
     const { rows } = await pool.query(
-      `SELECT premio, pontos_ganhos, created_at, gratis
-       FROM roleta_giros 
-       WHERE telegram_id = $1 
-       ORDER BY id DESC 
-       LIMIT 10`,
+      `SELECT premio, pontos_ganhos, data_registro, gratis FROM roleta_giros 
+       WHERE telegram_id = $1 ORDER BY id DESC LIMIT 10`,
       [telegram_id]
     );
-
     res.json(rows);
-
   } catch (err) {
-    console.error("Erro histórico:", err.message);
     res.status(500).json({ erro: "Erro interno" });
   }
 });
