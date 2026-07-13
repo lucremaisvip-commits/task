@@ -780,6 +780,9 @@ app.get("/cpalead-postback", async (req, res) => {
   }
 });
 
+// moneyrain verificar secret
+
+const SECRET = '555406b2062d06a989af47844f99b39a265860bf9a237a54';
 app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), async (req, res) => {
     const signature = req.headers['x-moneyrain-signature'];
     const percentualRepasse = 0.4;
