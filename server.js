@@ -275,20 +275,21 @@ app.get("/api/tarefas", async (req, res) => {
 
     const isVip = usuario.rows[0]?.vip === true;
 
-    // 🔥 O filtro traz todas as comuns + as tarefas VIP se o usuário for VIP. 
-    // Se não for VIP, traz apenas tarefas comuns (onde is_vip = false).
+    // 🔥 Query otimizada: Consulta a tabela centralizada historico_ganhos
+    // t.id::text = hg.referencia_id garante a conexão com a tarefa específica
     const tarefasQuery = `
       SELECT 
         t.*, 
         CASE 
-          WHEN tc.telegram_id IS NOT NULL THEN true 
+          WHEN hg.telegram_id IS NOT NULL THEN true 
           ELSE false 
         END AS concluida
       FROM tarefas t
-      LEFT JOIN tarefas_concluidas tc 
-        ON t.id = tc.tarefa_id
-        AND tc.telegram_id = $1
-        AND DATE(tc.data) = CURRENT_DATE
+      LEFT JOIN historico_ganhos hg 
+        ON hg.referencia_id = t.id::text
+        AND hg.telegram_id = $1
+        AND hg.origem = 'tarefa'
+        AND hg.data_registro::date = CURRENT_DATE
       WHERE t.ativa = true 
         AND (t.is_vip = false OR $2 = true)
       ORDER BY t.is_vip DESC, t.id DESC
@@ -312,7 +313,6 @@ app.get("/api/tarefas", async (req, res) => {
   }
 });
 
-
 app.post("/api/concluir-tarefa", async (req, res) => {
   let { telegram_id, tarefa_id, token, fingerprint } = req.body;
 
@@ -328,7 +328,6 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     return res.status(429).json({ erro: "Muitas requisições" });
   }
 
-  // 🔒 captura IP corretamente no Render
   const ipHeader = req.headers["x-forwarded-for"];
   const ip = ipHeader ? ipHeader.split(",")[0].trim() : req.socket.remoteAddress;
 
@@ -337,41 +336,18 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     // 🔒 sessão
     const sessaoRes = await pool.query(
-      `SELECT * FROM tarefas_sessoes 
-       WHERE token = $1 FOR UPDATE`,
+      `SELECT * FROM tarefas_sessoes WHERE token = $1 FOR UPDATE`,
       [token]
     );
 
-    if (sessaoRes.rows.length === 0) {
+    if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id || 
+        sessaoRes.rows[0].status !== "aberto" || sessaoRes.rows[0].ip !== ip || 
+        sessaoRes.rows[0].fingerprint !== fingerprint) {
       await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Sessão inválida" });
+      return res.status(400).json({ erro: "Sessão inválida ou manipulada" });
     }
 
     const sessao = sessaoRes.rows[0];
-
-    // 🔒 dono correto
-    if (sessao.telegram_id !== telegram_id) {
-      await pool.query("ROLLBACK");
-      return res.status(403).json({ erro: "Acesso inválido" });
-    }
-
-    // 🔒 já usado
-    if (sessao.status !== "aberto") {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Token já usado" });
-    }
-
-    // 🔒 IP
-    if (sessao.ip !== ip) {
-      await pool.query("ROLLBACK");
-      return res.status(403).json({ erro: "IP inválido" });
-    }
-
-    // 🔒 fingerprint
-    if (sessao.fingerprint !== fingerprint) {
-      await pool.query("ROLLBACK");
-      return res.status(403).json({ erro: "Dispositivo inválido" });
-    }
 
     // 🔒 tempo mínimo (15s)
     const tempo = Date.now() - new Date(sessao.criado_em).getTime();
@@ -391,12 +367,8 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       return res.status(400).json({ erro: "Tarefa inválida" });
     }
 
-    // 🔒 Proteção Extra Backend: Se a tarefa for VIP, valida se o usuário possui o VIP ativo
     if (tarefa.rows[0].is_vip) {
-      const userCheck = await pool.query(
-        "SELECT vip FROM usuarios WHERE telegram_id = $1",
-        [telegram_id]
-      );
+      const userCheck = await pool.query("SELECT vip FROM usuarios WHERE telegram_id = $1", [telegram_id]);
       if (!userCheck.rows[0]?.vip) {
         await pool.query("ROLLBACK");
         return res.status(403).json({ erro: "Essa é uma tarefa VIP" });
@@ -405,11 +377,12 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     const pontos = tarefa.rows[0].pontos;
 
-    // 🔒 duplicação
+    // 🔒 Bloqueio de duplicação: Verifica se já existe ganho de 'tarefa' para este ID hoje
     const check = await pool.query(
-      `SELECT 1 FROM tarefas_concluidas 
-       WHERE telegram_id = $1 AND tarefa_id = $2 AND DATE(data) = CURRENT_DATE`,
-      [telegram_id, tarefaId]
+      `SELECT 1 FROM historico_ganhos 
+       WHERE telegram_id = $1 AND referencia_id = $2 AND origem = 'tarefa' 
+       AND data_registro::date = CURRENT_DATE`,
+      [telegram_id, String(tarefaId)]
     );
 
     if (check.rows.length > 0) {
@@ -417,11 +390,11 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       return res.status(400).json({ erro: "Já concluída hoje" });
     }
 
-    // 💰 recompensa do indicado
+    // 💰 Registro na tabela unificada (Historico de Ganhos)
     await pool.query(
-      `INSERT INTO tarefas_concluidas (telegram_id, tarefa_id, pontos, data)
-       VALUES ($1, $2, $3, NOW())`,
-      [telegram_id, tarefaId, pontos]
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+       VALUES ($1, 'tarefa', $2, $3, $4, NOW())`,
+      [telegram_id, pontos, "Tarefa ID: " + tarefaId, String(tarefaId)]
     );
 
     await pool.query(
@@ -441,48 +414,43 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     if (indicacaoRes.rows.length > 0) {
       const indicacao = indicacaoRes.rows[0];
 
-      // 🔥 conta direto das tarefas reais
+      // 🔥 Conta o progresso na tabela unificada (historico_ganhos)
       const tarefasRes = await pool.query(
-        "SELECT COUNT(*) FROM tarefas_concluidas WHERE telegram_id = $1",
+        "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
       );
 
       const tarefasFeitas = parseInt(tarefasRes.rows[0].count);
 
-      console.log("📊 Tarefas feitas:", tarefasFeitas);
-
       if (tarefasFeitas >= 3) {
-        // Marca a indicação como ativada
-        await pool.query(
-          "UPDATE indicacoes SET pontos_ativados = true WHERE id = $1",
-          [indicacao.id]
-        );
+        await pool.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
 
-        // Atualiza pontos e contador de indicações
         await pool.query(
-          "UPDATE usuarios SET pontos = COALESCE(pontos,0) + 10, indicacoes = COALESCE(indicacoes,0) + 1 WHERE telegram_id = $1",
+          `UPDATE usuarios SET pontos = COALESCE(pontos,0) + 10, indicacoes = COALESCE(indicacoes,0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
 
-        console.log(`🎉 Indicador ${indicacao.id_indicador} ganhou +10 pontos e +1 indicação!`);
+        // 📝 Registro de ganho por indicação na historico_ganhos
+        await pool.query(
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+           VALUES ($1, 'indicacao', 10, $2, $3, NOW())`,
+          [indicacao.id_indicador, "Bônus por indicação", String(telegram_id)]
+        );
       }
     }
 
     // 🔒 fecha sessão
     await pool.query(
-      `UPDATE tarefas_sessoes 
-       SET status = 'concluido', concluido_em = NOW()
-       WHERE token = $1`,
+      "UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1",
       [token]
     );
 
     await pool.query("COMMIT");
-
     res.json({ mensagem: "✅ Concluído com segurança!" });
 
   } catch (err) {
     await pool.query("ROLLBACK");
-    console.error("Erro:", err.message);
+    console.error("Erro na conclusão:", err.message);
     res.status(500).json({ erro: "Erro interno" });
   }
 });
