@@ -783,12 +783,10 @@ app.get("/cpalead-postback", async (req, res) => {
 // moneyrain verificar secret
 
 const SECRET = '555406b2062d06a989af47844f99b39a265860bf9a237a54';
+
 app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), async (req, res) => {
     const signature = req.headers['x-moneyrain-signature'];
     const percentualRepasse = 0.4;
-
-    // 1. Log para Percepção Extra (Debug completo de tudo que chega)
-    // O bodyBuffer ainda não foi convertido, então capturamos o log logo abaixo
 
     let bodyBuffer;
     if (Buffer.isBuffer(req.body)) {
@@ -811,7 +809,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     let data;
     try {
         data = JSON.parse(bodyBuffer.toString('utf8'));
-        // 🔥 LOG COMPLETO: Veja exatamente o que o MoneyRain envia
         console.log("📥 MoneyRain Payload:", JSON.stringify(data, null, 2));
     } catch (e) {
         return res.status(400).send('Invalid JSON');
@@ -821,6 +818,11 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         const userId = data.external_uid;
         const pontos = parseFloat(data.reward_currency_amount) * percentualRepasse;
         const viewId = data.view_id;
+        
+        // Determina o nome da tarefa dinamicamente
+        // Se ad_type existir, coloca em maiúsculas (ex: PTC, AUTOSURF), senão mantém padrão
+        const adType = data.ad_type ? data.ad_type.toUpperCase() : "Ad";
+        const nomeTarefa = `MoneyRain ${adType}`;
 
         if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
 
@@ -840,11 +842,11 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
             try {
                 await client.query('BEGIN');
 
-                // 4. Registro na tabela unificada historico_ganhos
+                // 4. Registro na tabela unificada historico_ganhos com nome_tarefa dinâmico
                 await client.query(
                     `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
-                     VALUES ($1, 'moneyrain', $2, 'MoneyRain Ad', $3, NOW())`,
-                    [userId, pontos, viewId.toString()]
+                     VALUES ($1, 'moneyrain', $2, $3, $4, NOW())`,
+                    [userId, pontos, nomeTarefa, viewId.toString()]
                 );
 
                 // 5. Update saldo
@@ -854,7 +856,7 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                 );
 
                 await client.query('COMMIT');
-                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pontos (View: ${viewId})`);
+                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pontos (${nomeTarefa}, View: ${viewId})`);
                 return res.status(200).send('OK');
 
             } catch (dbErr) {
