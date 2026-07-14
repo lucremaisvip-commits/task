@@ -1575,7 +1575,47 @@ cron.schedule("0 10 * * *", async () => {
 }, { timezone: "America/New_York" });
 
 
-// 🔹 12. Inicializar servidor
+
+//🔹 12. cron bonus ticket para vip 
+
+cron.schedule("0 12 * * *", async () => {
+  try {
+    // Busca compradores de 10 dias atrás + o idioma dele
+    const query = `
+      SELECT h.telegram_id, u.lang 
+      FROM historico_compras h
+      JOIN usuarios u ON h.telegram_id = u.telegram_id
+      WHERE u.vip = true 
+      AND h.data_registro::date = (CURRENT_DATE - INTERVAL '10 days')
+      AND NOT EXISTS (
+        SELECT 1 FROM roleta_tickets rt 
+        WHERE rt.telegram_id = h.telegram_id 
+        AND rt.data_registro = CURRENT_DATE
+      )
+    `;
+
+    const { rows } = await pool.query(query);
+
+    for (const row of rows) {
+      const tickets = 5; 
+      // Mensagem regionalizada
+      const mensagem = row.lang === 'pt' 
+        ? `🎁 Parabéns! Você é um VIP fiel e completou 10 dias conosco. Ganhou ${tickets} tickets para a roleta!`
+        : `🎁 Congrats! You've been a loyal VIP for 10 days. Enjoy ${tickets} free spins on the wheel!`;
+
+      await pool.query(
+        "INSERT INTO roleta_tickets (telegram_id, data_registro, usado) VALUES ($1, CURRENT_DATE, false)",
+        [row.telegram_id]
+      );
+
+      await bot.sendMessage(row.telegram_id, mensagem);
+    }
+  } catch (err) {
+    console.error("Erro no cron de fidelidade:", err);
+  }
+});
+
+// 🔹 13. Inicializar servidor
 app.listen(PORT, () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
