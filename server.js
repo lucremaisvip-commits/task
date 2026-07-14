@@ -51,30 +51,33 @@ const crypto = require("crypto");
 
 // 🔒 5. funções de segurança para tarefas:
 
-// 🔐 gerar token seguro
+// 🔐 gerar token seguro (CORRIGIDO)
 function gerarToken(telegram_id, tarefa_id) {
+  // Garantimos que o telegram_id seja tratado como texto na concatenação
   return crypto
     .createHash("sha256")
-    .update(telegram_id + tarefa_id + Date.now() + Math.random())
+    .update(telegram_id.toString() + tarefa_id.toString() + Date.now() + Math.random())
     .digest("hex");
 }
 
-// 🚫 rate limit simples (memória)
+// 🚫 rate limit simples (memória) (CORRIGIDO)
 const rateLimitMemory = {};
 
 function checkRateLimit(user) {
   const now = Date.now();
+  // Forçamos o uso do ID como string para que a chave no objeto seja sempre consistente
+  const userId = user.toString(); 
 
-  if (!rateLimitMemory[user]) {
-    rateLimitMemory[user] = now;
+  if (!rateLimitMemory[userId]) {
+    rateLimitMemory[userId] = now;
     return true;
   }
 
-  if (now - rateLimitMemory[user] < 2000) {
+  if (now - rateLimitMemory[userId] < 2000) {
     return false;
   }
 
-  rateLimitMemory[user] = now;
+  rateLimitMemory[userId] = now;
   return true;
 }
 
@@ -110,7 +113,6 @@ app.get("/api/config", (req, res) => {
 });
 
 // 🔹 2.WEBHOOK UNIFICADO (Stripe + Cakto Corrigido)
-// =========================================================================
 app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), async (req, res) => {
   let plataforma = "";
   let evento = "";
@@ -128,10 +130,8 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
       let stripeEvent;
       
       try {
-        // Usa o req.body bruto graças ao express.raw definido ali em cima
         stripeEvent = stripe.webhooks.constructEvent(req.body, stripeSignature, process.env.STRIPE_WEBHOOK_SECRET);
       } catch (err) {
-        console.error("Erro na assinatura do Stripe:", err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
@@ -143,7 +143,6 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
     // 🥝 FLUXO CAKTO
     } else if (caktoToken && caktoToken === process.env.CAKTO_SECRET_TOKEN) {
       plataforma = "Cakto";
-      // Como usamos express.raw, convertemos o body da Cakto em objeto manual aqui
       const body = JSON.parse(req.body.toString());
       
       evento = body.event; 
@@ -154,47 +153,39 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
       return res.status(401).send("Não autorizado");
     }
 
-    // Validação de segurança básica para o ID do usuário
-    if (!telegramId) {
-      console.log(`[Webhook ${plataforma}] Evento ${evento} recebido, mas sem ID de usuário (utm_source/client_reference_id vazio).`);
-      return res.status(200).send("Sem ID de usuário associado.");
-    }
+    if (!telegramId) return res.status(200).send("Sem ID de usuário.");
 
-    // 💰 1. PROCESSAMENTO DE PAGAMENTOS APROVADOS (Aprova VIP)
+    // Convertendo para BigInt para coincidir com a coluna da tabela 'usuarios'
+    const tgId = BigInt(telegramId);
+
+    // 💰 1. PROCESSAMENTO DE PAGAMENTOS APROVADOS
     if (evento === "checkout.session.completed" || evento === "purchase_approved") {
       const jaProcessado = await pool.query("SELECT 1 FROM historico_compras WHERE transacao_id = $1", [idTransacao]);
-      if (jaProcessado.rows.length > 0) {
-        return res.status(200).send("Já processado");
-      }
+      if (jaProcessado.rows.length > 0) return res.status(200).send("Já processado");
 
-      // Ativa o VIP e define falsos os bônus para o script de cron rodar depois
+      // Atualiza VIP na tabela usuarios (data_vip removido pois não existe na sua tabela)
       await pool.query(
-        "UPDATE usuarios SET vip = true, data_vip = NOW(), bonus_liberado = false WHERE telegram_id = $1",
-        [telegramId]
+        "UPDATE usuarios SET vip = true WHERE telegram_id = $1",
+        [tgId]
       );
 
+      // Insere no histórico com o padrão data_registro
       await pool.query(
-        "INSERT INTO historico_compras (transacao_id, telegram_id, plataforma, status, data_evento) VALUES ($1, $2, $3, $4, NOW())",
-        [idTransacao, telegramId, plataforma, "approved"]
+        "INSERT INTO historico_compras (transacao_id, telegram_id, plataforma, status, data_registro) VALUES ($1, $2, $3, $4, NOW())",
+        [idTransacao, tgId, plataforma, "approved"]
       );
       
-      console.log(`[VIP ATIVADO] ${telegramId} via ${plataforma}`);
+      console.log(`[VIP ATIVADO] ${tgId} via ${plataforma}`);
     }
 
-    // 🚨 2. PROCESSAMENTO DE ESTORNOS/REEMBOLSOS (Remove VIP)
-    const eventosReembolso = [
-      "charge.refunded",       // Stripe
-      "purchase_refunded",     // Cakto
-      "purchase_chargedback"   // Cakto
-    ];
+    // 🚨 2. PROCESSAMENTO DE ESTORNOS/REEMBOLSOS
+    const eventosReembolso = ["charge.refunded", "purchase_refunded", "purchase_chargedback"];
 
     if (eventosReembolso.includes(evento)) {
-      await pool.query("UPDATE usuarios SET vip = false WHERE telegram_id = $1", [telegramId]);
-      
-      // Atualiza o status no histórico para sabermos do reembolso
+      await pool.query("UPDATE usuarios SET vip = false WHERE telegram_id = $1", [tgId]);
       await pool.query("UPDATE historico_compras SET status = 'refunded' WHERE transacao_id = $1", [idTransacao]);
       
-      console.log(`[VIP REMOVIDO] ${telegramId} devido a reembolso na ${plataforma}`);
+      console.log(`[VIP REMOVIDO] ${tgId} devido a reembolso na ${plataforma}`);
     }
 
     res.status(200).send("OK");
@@ -875,11 +866,12 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
 });
 
 // 🔹 4. Rotas de Usuário
+// Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
   try {
     const { telegram_id } = req.params;
 
-    // validação básica
+    // Validação básica: garante que o ID seja tratado como string para a query
     if (!telegram_id) {
       return res.status(400).json({
         success: false,
@@ -887,8 +879,9 @@ app.get("/api/usuarios/:telegram_id", async (req, res) => {
       });
     }
 
+    // A busca utiliza o índice B-Tree criado para telegram_id (performance otimizada)
     const result = await pool.query(
-      "SELECT * FROM usuarios WHERE telegram_id = $1",
+      "SELECT telegram_id, nome, pontos, vip, lang, indicacoes FROM usuarios WHERE telegram_id = $1",
       [telegram_id]
     );
 
@@ -915,19 +908,32 @@ app.get("/api/usuarios/:telegram_id", async (req, res) => {
 });
 
 
-// 🔹 5. Ranking
+// 🔹 5. Ranking Otimizado com critérios de desempate
 app.get("/api/ranking", async (req, res) => {
   try {
+    // Ranking de Tarefas (Baseado na soma de pontos ganhos)
+    // Desempate: VIP primeiro (true vem antes de false no DESC), depois Total Gerado (Soma de pontos)
     const rankingTarefas = await pool.query(`
-      SELECT telegram_id, nome, pontos
-      FROM usuarios
-      ORDER BY pontos DESC
+      SELECT 
+        u.telegram_id, 
+        u.nome, 
+        u.pontos,
+        COALESCE(SUM(h.pontos), 0) as total_gerado
+      FROM usuarios u
+      LEFT JOIN historico_ganhos h ON u.telegram_id = h.telegram_id
+      GROUP BY u.telegram_id, u.nome, u.pontos, u.vip
+      ORDER BY 
+        u.pontos DESC, 
+        u.vip DESC, 
+        total_gerado DESC
       LIMIT 5
     `);
 
+    // Ranking de Indicações
     const rankingIndicacoes = await pool.query(`
       SELECT telegram_id, nome, indicacoes
       FROM usuarios
+      WHERE indicacoes > 0
       ORDER BY indicacoes DESC
       LIMIT 5
     `);
@@ -942,29 +948,23 @@ app.get("/api/ranking", async (req, res) => {
   }
 });
 
-// validado até aqui niveis de segurança
 
-
-// 🔹 6. Saques (Versão Global com Retenção de Pontos Quebrados)
+// 🔹 6. Saques (Versão Global Integrada ao historico_ganhos)
 app.post("/api/solicitar-saque", async (req, res) => {
   const { telegram_id, chave_pix, cpf } = req.body;
 
-  // Validação básica universal
   if (!telegram_id) {
     return res.status(400).json({ error: "O campo telegram_id é obrigatório." });
   }
 
-  // REGRAS ECONÔMICAS DO SEU BOT
-  const VALOR_DO_PONTO_EM_BRL = 0.05; // Cada ponto vale R$ 0,05
-  const COTACAO_DOLAR = 5.50;         // Cotação fixa para evitar prejuízos
+  const VALOR_DO_PONTO_EM_BRL = 0.05;
+  const COTACAO_DOLAR = 5.50;
 
   const client = await pool.connect();
 
   try {
-    // Inicia uma transação para garantir segurança total contra fraudes de cliques rápidos
     await client.query("BEGIN");
 
-    // 👤 Busca os dados do usuário travando a linha para alteração (FOR UPDATE)
     const userResult = await client.query(
       "SELECT pontos, vip, lang FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
       [telegram_id]
@@ -977,24 +977,20 @@ app.post("/api/solicitar-saque", async (req, res) => {
 
     const { pontos, vip, lang } = userResult.rows[0];
     
-    // 🌍 VALIDAÇÃO CONDICIONAL POR IDIOMA: Exige Pix e CPF apenas se for brasileiro
     if (lang === "pt" && (!chave_pix || !cpf)) {
       await client.query("ROLLBACK");
       return res.status(400).json({ error: "Chave PIX e CPF são obrigatórios para usuários do Brasil." });
     }
 
-    // 🔢 LOGICA DE ARREDONDAMENTO (Justa e Antifraude de tabelas)
-    const pontosParaSacar = Math.floor(pontos); // Pega apenas a parte inteira (Ex: 400 de 400.0003)
-    const pontosQueFicam = pontos - pontosParaSacar; // Guarda o resto decimal (Ex: 0.0003)
-
+    const pontosParaSacar = Math.floor(pontos);
+    const pontosQueFicam = pontos - pontosParaSacar;
     const pontosMinimos = vip ? 200 : 400;
 
     if (pontosParaSacar < pontosMinimos) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: `Pontos inteiros insuficientes para realizar o saque. Mínimo: ${pontosMinimos}` });
+      return res.status(400).json({ error: `Pontos insuficientes. Mínimo: ${pontosMinimos}` });
     }
 
-    // 📊 Validação de limite diário (Apenas 1 saque por dia)
     const saqueHoje = await client.query(`
       SELECT 1 FROM saques
       WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
@@ -1002,32 +998,32 @@ app.post("/api/solicitar-saque", async (req, res) => {
 
     if (saqueHoje.rows.length > 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Você já solicitou um saque hoje. Aguarde a análise do pagamento." });
+      return res.status(400).json({ error: "Você já solicitou um saque hoje." });
     }
 
-    // 💰 CONVERSÃO DE VALOR SUSTENTÁVEL baseado nos pontos inteiros sacados
-    let valorCalculado = pontosParaSacar * VALOR_DO_PONTO_EM_BRL;
-
-    // Se o usuário NÃO for brasileiro, aplica a taxa cambial dividindo pelo Dólar
-    if (lang !== "pt") {
-      valorCalculado = valorCalculado / COTACAO_DOLAR;
-    }
-
+    let valorCalculado = (lang === "pt") ? (pontosParaSacar * VALOR_DO_PONTO_EM_BRL) : (pontosParaSacar * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
     const valorFinalFormatado = valorCalculado.toFixed(2);
 
-    // 📝 Salva a solicitação de saque no banco (Envia null se chave_pix ou cpf não existirem)
-    await client.query(`
+    // 1. Registra no histórico de saques
+    const saqueInsert = await client.query(`
       INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
       VALUES ($1, $2, $3, $4, $5, 'pendente', NOW())
+      RETURNING id
     `, [telegram_id, pontosParaSacar, valorFinalFormatado, chave_pix || null, cpf || null]);
 
-    // 🔄 Atualiza o usuário retendo apenas os pontos fracionados/quebrados na conta dele
+    // 2. REGISTRO NO HISTÓRICO UNIFICADO (Saída de pontos)
+    // Usamos pontos negativos para representar a saída do saldo
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
+    `, [telegram_id, -Math.abs(pontosParaSacar), saqueInsert.rows[0].id.toString()]);
+
+    // 3. Atualiza usuário
     await client.query(
       "UPDATE usuarios SET pontos = $1 WHERE telegram_id = $2", 
       [pontosQueFicam, telegram_id]
     );
 
-    // Aplica as alterações no banco de dados definitivamente
     await client.query("COMMIT");
 
     res.json({ 
@@ -1047,6 +1043,7 @@ app.post("/api/solicitar-saque", async (req, res) => {
   }
 });
 
+// 🔹 6. Busca de Histórico de Saques (Padronizada com Comprovante)
 app.get("/api/saques", async (req, res) => {
   const { telegram_id } = req.query;
 
@@ -1055,10 +1052,15 @@ app.get("/api/saques", async (req, res) => {
   }
 
   try {
+    // Adicionada a coluna 'comprovante' para auditoria e transparência com o usuário
     const { rows } = await pool.query(
-      "SELECT * FROM saques WHERE telegram_id = $1 ORDER BY data_solicitacao DESC",
+      `SELECT id, pontos_solicitados, valor_solicitado, status, data_solicitacao, comprovante 
+       FROM saques 
+       WHERE telegram_id = $1 
+       ORDER BY data_solicitacao DESC`,
       [telegram_id]
     );
+
     res.json(rows);
   } catch (err) {
     console.error("Erro ao buscar histórico de saques:", err.message);
@@ -1067,17 +1069,17 @@ app.get("/api/saques", async (req, res) => {
 });
 
 // 🔹 7. trafico e mensurização
-
 app.post('/api/log-traffic', async (req, res) => {
-    const { utm_source, utm_medium, utm_campaign, is_converted } = req.body;
+    // Adicionamos o telegram_id para fechar o ciclo de rastreio
+    const { utm_source, utm_medium, utm_campaign, is_converted, telegram_id } = req.body;
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     
-    // Usando o seu objeto 'pool' (que já está configurado no seu server.js)
     try {
         const query = `
-            INSERT INTO traffic_logs (utm_source, utm_medium, utm_campaign, is_converted, created_at)
-            VALUES ($1, $2, $3, $4, NOW())
+            INSERT INTO traffic_logs (telegram_id, utm_source, utm_medium, utm_campaign, is_converted, ip, data_registro)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
         `;
-        const values = [utm_source, utm_medium, utm_campaign, is_converted];
+        const values = [telegram_id || null, utm_source, utm_medium, utm_campaign, !!is_converted, ip];
         
         await pool.query(query, values);
         
@@ -1088,7 +1090,8 @@ app.post('/api/log-traffic', async (req, res) => {
     }
 });
 
-// 🔹 8. Anuncios
+
+// 🔹 8. Anúncios
 
 // Usuário envia pedido de anúncio (salva em anuncios_pedidos)
 app.post("/api/anuncios/pedidos", async (req, res) => {
@@ -1096,31 +1099,34 @@ app.post("/api/anuncios/pedidos", async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO anuncios_pedidos (tipo, descricao, link, nome, contato, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')`,
+      `INSERT INTO anuncios_pedidos (tipo, descricao, link, nome, contato, status, data_registro)
+       VALUES ($1, $2, $3, $4, $5, 'pending', NOW())`,
       [tipo, descricao, link, nome, contato]
     );
     res.json({ ok: true });
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao salvar pedido de anúncio:", err);
     res.status(500).json({ erro: "Erro ao salvar pedido" });
   }
 });
 
-// Frontend consulta anúncios ativos por posição (exibição em rodapé, painel, etc.)
+// Frontend consulta anúncios ativos por posição
 app.get("/api/anuncios", async (req, res) => {
   const { posicao } = req.query;
   try {
+    // Corrigido: Substituído created_at por data_registro
     const { rows } = await pool.query(
-      `SELECT * FROM anuncios 
-       WHERE ativo = true AND posicao = $1 
+      `SELECT id, titulo, tipo, descricao, link_url, imagem_url, posicao, prioridade
+       FROM anuncios 
+       WHERE ativo = true 
+       AND posicao = $1 
        AND NOW() BETWEEN data_inicio AND data_fim
-       ORDER BY prioridade DESC, created_at DESC`,
+       ORDER BY prioridade DESC, data_registro DESC`,
       [posicao]
     );
     res.json(rows.length ? rows : [{ titulo: "Anuncie aqui", posicao }]);
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao buscar anúncios:", err);
     res.status(500).json({ erro: "Erro ao buscar anúncios" });
   }
 });
@@ -1129,16 +1135,14 @@ app.get("/api/anuncios", async (req, res) => {
 app.post("/api/anuncio-evento", async (req, res) => {
   const { anuncio_id, tipo } = req.body;
 
-  const ip =
-    req.headers["x-forwarded-for"] ||
-    req.socket.remoteAddress;
-
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
   const userAgent = req.headers["user-agent"];
 
   try {
+    // Adicionado data_registro conforme padrão do dossiê
     await pool.query(
-      `INSERT INTO anuncios_eventos (anuncio_id, tipo, ip, user_agent)
-       VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO anuncios_eventos (anuncio_id, tipo, ip, user_agent, data_registro)
+       VALUES ($1, $2, $3, $4, NOW())`,
       [anuncio_id, tipo, ip, userAgent]
     );
     res.sendStatus(200);
@@ -1147,9 +1151,6 @@ app.post("/api/anuncio-evento", async (req, res) => {
     res.status(500).send("erro");
   }
 });
-
-
-
 
 // 🔹 9. Admin
 // Middleware de segurança (protege todas as rotas admin)
@@ -1161,15 +1162,18 @@ function verificarAdmin(req, res, next) {
   next();
 }
 
+// 🔹 9. Admin - Gestão de Pedidos e Aprovações
+
 // Admin lista pedidos pendentes (anuncios_pedidos)
 app.get("/admin/anuncios/pending", verificarAdmin, async (req, res) => {
   try {
+    // Agora ordenado por data_registro para mostrar os mais recentes primeiro
     const { rows } = await pool.query(
-      "SELECT * FROM anuncios_pedidos WHERE status = 'pending' ORDER BY id DESC"
+      "SELECT id, tipo, descricao, link, nome, contato, status, data_registro FROM anuncios_pedidos WHERE status = 'pending' ORDER BY data_registro DESC"
     );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao listar pedidos:", err);
     res.status(500).send("Erro ao listar pedidos.");
   }
 });
@@ -1178,8 +1182,9 @@ app.get("/admin/anuncios/pending", verificarAdmin, async (req, res) => {
 app.post("/admin/tarefa", verificarAdmin, async (req, res) => {
   const { titulo, link, pontos } = req.body;
   try {
+    // Inserido data_registro
     await pool.query(
-      "INSERT INTO tarefas (titulo, link, pontos, ativa, status) VALUES ($1, $2, $3, true, 'ativo')",
+      "INSERT INTO tarefas (titulo, link, pontos, ativa, status, data_registro) VALUES ($1, $2, $3, true, 'ativo', NOW())",
       [titulo, link, pontos]
     );
     res.send("✅ Tarefa criada com sucesso!");
@@ -1193,9 +1198,10 @@ app.post("/admin/tarefa", verificarAdmin, async (req, res) => {
 app.post("/admin/anuncio", verificarAdmin, async (req, res) => {
   const { pedido_id, titulo, tipo, descricao, link_url, imagem_url, anunciante, posicao, prioridade, data_inicio, data_fim } = req.body;
   try {
+    // Inserido data_registro
     await pool.query(
-      `INSERT INTO anuncios (titulo, tipo, descricao, link_url, imagem_url, anunciante, posicao, prioridade, data_inicio, data_fim, ativo)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)`,
+      `INSERT INTO anuncios (titulo, tipo, descricao, link_url, imagem_url, anunciante, posicao, prioridade, data_inicio, data_fim, ativo, data_registro)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, true, NOW())`,
       [titulo, tipo, descricao, link_url, imagem_url, anunciante, posicao, prioridade || 0, data_inicio, data_fim]
     );
     await pool.query("UPDATE anuncios_pedidos SET status = 'aprovado' WHERE id = $1", [pedido_id]);
@@ -1209,21 +1215,26 @@ app.post("/admin/anuncio", verificarAdmin, async (req, res) => {
 // Admin recusa pedido (remove de anuncios_pedidos)
 app.delete("/admin/anuncios/:id", verificarAdmin, async (req, res) => {
   try {
+    // Mantido DELETE, mas agora temos a data_registro caso precise de auditoria futura (soft delete)
     await pool.query("DELETE FROM anuncios_pedidos WHERE id = $1", [req.params.id]);
     res.send("❌ Pedido recusado e removido.");
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao recusar pedido:", err);
     res.status(500).send("Erro ao recusar pedido.");
   }
 });
 
-// Admin lista todos os anúncios ativos
+
+// Admin lista todos os anúncios ativos (com colunas explícitas)
 app.get("/admin/anuncios/ativos", verificarAdmin, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM anuncios ORDER BY id DESC");
+    const { rows } = await pool.query(
+      `SELECT id, titulo, tipo, posicao, prioridade, ativo, data_inicio, data_fim, data_registro 
+       FROM anuncios ORDER BY data_registro DESC`
+    );
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao listar anúncios ativos:", err);
     res.status(500).send("Erro ao listar anúncios ativos.");
   }
 });
@@ -1235,7 +1246,7 @@ app.patch("/admin/anuncio/:id/posicao", verificarAdmin, async (req, res) => {
     await pool.query("UPDATE anuncios SET posicao = $1 WHERE id = $2", [posicao, req.params.id]);
     res.send("📍 Posição atualizada!");
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao atualizar posição:", err);
     res.status(500).send("Erro ao atualizar posição.");
   }
 });
@@ -1247,26 +1258,43 @@ app.patch("/admin/anuncio/:id/status", verificarAdmin, async (req, res) => {
     await pool.query("UPDATE anuncios SET ativo = $1 WHERE id = $2", [ativo, req.params.id]);
     res.send(ativo ? "✅ Banner ativado!" : "🚫 Banner desativado!");
   } catch (err) {
-    console.error(err);
+    console.error("Erro ao atualizar status:", err);
     res.status(500).send("Erro ao atualizar status.");
   }
 });
 
-// Admin exclui banner ativo
+// Admin exclui banner ativo (Integridade Referencial)
 app.delete("/admin/anuncio/:id", verificarAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
-    await pool.query("DELETE FROM anuncios WHERE id = $1", [req.params.id]);
-    res.send("❌ Banner excluído!");
+    await client.query("BEGIN");
+    
+    // Para evitar registros órfãos, deletamos primeiro os eventos vinculados ao anúncio
+    await client.query("DELETE FROM anuncios_eventos WHERE anuncio_id = $1", [req.params.id]);
+    
+    // Depois deletamos o anúncio
+    await client.query("DELETE FROM anuncios WHERE id = $1", [req.params.id]);
+    
+    await client.query("COMMIT");
+    res.send("❌ Banner e seus eventos excluídos com sucesso!");
   } catch (err) {
-    console.error(err);
+    await client.query("ROLLBACK");
+    console.error("Erro ao excluir banner:", err);
     res.status(500).send("Erro ao excluir banner.");
+  } finally {
+    client.release();
   }
 });
+
+
+// 🔹 9. Admin - Métricas e Relatórios de Desempenho
+
 // Métricas de um anúncio específico
 app.get("/api/admin/anuncio-metricas/:id", verificarAdmin, async (req, res) => {
   const anuncioId = req.params.id;
 
   try {
+    // Consulta otimizada: foco na contagem por tipo de evento
     const result = await pool.query(
       `SELECT tipo, COUNT(*) AS total
        FROM anuncios_eventos
@@ -1277,34 +1305,39 @@ app.get("/api/admin/anuncio-metricas/:id", verificarAdmin, async (req, res) => {
 
     const metrics = { visita: 0, clique: 0, contato: 0 };
     result.rows.forEach(r => {
-      metrics[r.tipo] = parseInt(r.total, 10);
+      // Garantindo que convertemos de BigInt para Number para JSON
+      metrics[r.tipo] = Number(r.total);
     });
 
     res.json(metrics);
   } catch (err) {
     console.error("Erro métricas admin:", err);
-    res.status(500).send("erro");
+    res.status(500).send("Erro ao buscar métricas.");
   }
 });
 
-// Ranking geral de todos os anúncios
+// Ranking geral de todos os anúncios (Otimizado com índices)
 app.get("/api/admin/anuncios-metricas", verificarAdmin, async (req, res) => {
   try {
+    // Query reestruturada para usar o agrupamento de forma eficiente
+    // e respeitando a estrutura do nosso Dossiê
     const result = await pool.query(`
-      SELECT a.id, a.titulo,
-             COALESCE(SUM(CASE WHEN e.tipo='visita' THEN 1 ELSE 0 END),0) AS visitas,
-             COALESCE(SUM(CASE WHEN e.tipo='clique' THEN 1 ELSE 0 END),0) AS cliques,
-             COALESCE(SUM(CASE WHEN e.tipo='contato' THEN 1 ELSE 0 END),0) AS contatos
+      SELECT 
+        a.id, 
+        a.titulo,
+        COALESCE(SUM(CASE WHEN e.tipo='visita' THEN 1 ELSE 0 END), 0)::INT AS visitas,
+        COALESCE(SUM(CASE WHEN e.tipo='clique' THEN 1 ELSE 0 END), 0)::INT AS cliques,
+        COALESCE(SUM(CASE WHEN e.tipo='contato' THEN 1 ELSE 0 END), 0)::INT AS contatos
       FROM anuncios a
       LEFT JOIN anuncios_eventos e ON a.id = e.anuncio_id
       GROUP BY a.id, a.titulo
-      ORDER BY a.id;
+      ORDER BY a.id DESC;
     `);
 
     res.json(result.rows);
   } catch (err) {
     console.error("Erro listar métricas admin:", err);
-    res.status(500).send("erro");
+    res.status(500).send("Erro ao listar métricas.");
   }
 });
 
@@ -1342,212 +1375,201 @@ app.post("/admin/sql", async (req, res) => {
 });
 
 // =========================================================================
-// 🔹 10. Telegram Bot Core (Lógica de Comandos)
+// 🔹 10. Telegram Bot Core (Estrutura Otimizada)
 // =========================================================================
+
+// 1. Configurações Iniciais e Dicionário Centralizado
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-const GRUPO_VIP_ID = -1002605364157;
-
-// Dicionário de Mensagens Bilíngue para o Comando /start
-const msgsStart = {
+const dicionario = {
   pt: {
-    indicacao_ok: "🎉 Indicação registrada! Você ganhou 5 pontos.",
-    indicacao_ja: "ℹ️ Você já foi indicado anteriormente.",
-    boas_vindas: "🎉 Bem-vindo ao LucreMaisTask!\n\n🚀 Aqui você pode ganhar pontos todos os dias:\n" +
-                 "• 📌 Tarefa diária\n" +
-                 "• 🎰 Roleta da sorte\n" +
-                 "• 📲 Tarefas externas\n\n" +
-                 "Quanto mais você participa, mais pontos acumula e mais recompensas recebe!\n\n" +
-                 "👉 Clique abaixo para começar:",
+    escolha: "Escolha seu idioma / Choose your language:",
+    boas_vindas_novo: "🎉 Bem-vindo ao LucreMaisTask!\n\n🎁 MISSÃO DE ENTRADA: Complete sua primeira tarefa diária no App e ganhe 20 pontos bônus!",
+    boas_vindas_recorrente: "👋 Bem-vindo de volta!\n\n💰 Saldo atual: {saldo} pontos.\n🚀 Novas oportunidades disponíveis. Ganhe mais agora!",
     btn_app: "📲 Abrir Mini App",
-    erro: "⚠️ Erro no cadastro: "
+    erro: "⚠️ Erro no sistema, tente novamente."
   },
   en: {
-    indicacao_ok: "🎉 Referral registered! You earned 5 points.",
-    indicacao_ja: "ℹ️ You have already been referred before.",
-    boas_vindas: "🎉 Welcome to CashTaskBot!\n\n🚀 Here you can earn points every day:\n" +
-                 "• 📌 Daily task\n" +
-                 "• 🎰 Lucky Wheel\n" +
-                 "• 📲 External offers\n\n" +
-                 "The more you participate, the more points you accumulate and the more rewards you get!\n\n" +
-                 "👉 Click below to start:",
+    escolha: "Choose your language / Escolha seu idioma:",
+    boas_vindas_novo: "🎉 Welcome to CashTaskBot!\n\n🎁 WELCOME MISSION: Complete your first daily task in the App and earn 20 bonus points!",
+    boas_vindas_recorrente: "👋 Welcome back!\n\n💰 Current balance: {saldo} points.\n🚀 New opportunities available. Earn more now!",
     btn_app: "📲 Open Mini App",
-    erro: "⚠️ Registration error: "
+    erro: "⚠️ System error, please try again."
   }
 };
 
-// 🔹 Rota Única do Mini App para capturar IP e carregar a aplicação
+// 2. Utilitários do Bot
+/**
+ * Busca o saldo total do usuário consolidado pela tabela historico_ganhos
+ * Otimizado para performance com agregação SQL
+ */
+async function getSaldoUsuario(telegramId) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COALESCE(SUM(pontos), 0) as total 
+       FROM historico_ganhos 
+       WHERE telegram_id = $1`,
+      [telegramId]
+    );
+    return parseInt(rows[0].total);
+  } catch (err) {
+    console.error("Erro ao buscar saldo:", err);
+    return 0;
+  }
+}
+
+/**
+ * Rota do Mini App (Health Check e entrega de parâmetros)
+ */
 app.get("/", (req, res) => {
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  console.log("🌐 IP capturado do Mini App:", ip);
-
-  // Aqui você pode dar um res.sendFile() da sua index.html se ela estiver no servidor,
-  // ou manter apenas o indicador de carregamento
-  res.send("Mini App carregado");
+  console.log("🌐 Acesso Mini App - IP:", ip);
+  res.send("Mini App carregado - Sistema LucreMaisTask ativo.");
 });
 
-bot.onText(/\/startTrim(?:\s+(\d+))?/, async (msg, match) => {
-  // Mantendo o comportamento padrão para aceitar variações e espaços
-});
+// 🔹 3. Handlers: Comando /start e Seleção de Idioma
 
+// Trigger: /start
 bot.onText(/\/start(?:\s+(\d+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
-  const indicadoId = msg.from.id;
-  const indicadorId = match[1];
-  const nome = msg.from.first_name;
+  // Se não houver indicador, salva como "0" (orgânico)
+  const indicadorId = match[1] ? match[1] : "0";
 
-  // 🌍 Detecta o idioma do aplicativo do usuário (padrão: en)
-  const telegramLang = msg.from.language_code || "";
-  const userLang = telegramLang.startsWith("pt") ? "pt" : "en";
+  const keyboard = {
+    inline_keyboard: [
+      [{ text: "🇧🇷 Português", callback_data: `lang_pt_${indicadorId}` }],
+      [{ text: "🇺🇸 English", callback_data: `lang_en_${indicadorId}` }]
+    ]
+  };
+
+  bot.sendMessage(chatId, "Escolha seu idioma / Choose your language:", { reply_markup: keyboard });
+});
+
+// Handler: Processamento da escolha (Callback Query)
+bot.on('callback_query', async (query) => {
+  const data = query.data.split('_'); // ['lang', 'pt', 'id']
+  const lang = data[1];
+  const indicadorId = data[2];
+  
+  const chatId = query.message.chat.id;
+  const indicadoId = query.from.id;
+  const nome = query.from.first_name;
 
   try {
-    // 🔹 Cria usuário se não existir e já salva ou atualiza o idioma 'lang'
+    // 1. Registro do Usuário (Upsert conforme Dossiê)
     await pool.query(
-      `INSERT INTO usuarios (telegram_id, nome, lang)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (telegram_id) 
-       DO UPDATE SET lang = EXCLUDED.lang`, 
-      [indicadoId, nome, userLang]
+      `INSERT INTO usuarios (telegram_id, nome, lang, data_registro)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (telegram_id) DO UPDATE SET lang = EXCLUDED.lang`,
+      [indicadoId, nome, lang]
     );
 
-    // 🔹 Lógica de indicação
-    if (indicadorId && indicadorId !== indicadoId.toString()) {
-      const check = await pool.query(
-        "SELECT * FROM indicacoes WHERE id_indicado = $1",
-        [indicadoId]
-      );
-
-      if (check.rowCount === 0) {
-        const ip = "0.0.0.0";
-
-        await pool.query(
-          `INSERT INTO indicacoes (id_indicador, id_indicado, ip, data, pontos_ativados)
-           VALUES ($1, $2, $3, NOW(), false)`,
-          [indicadorId, indicadoId, ip]
-        );
-
-        // 🎁 Bônus para o indicado
-        await pool.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 5 WHERE telegram_id = $1`,
-          [indicadoId]
-        );
-
-        bot.sendMessage(chatId, msgsStart[userLang].indicacao_ok);
-      } else {
-        bot.sendMessage(chatId, msgsStart[userLang].indicacao_ja);
-      }
-    }
-
-    // 🔹 Verifica se o usuário pertence ao grupo VIP para atualizar status
-    try {
-      const member = await bot.getChatMember(GRUPO_VIP_ID, chatId);
-      const status = member?.status;
-
-      const isVip =
-        status === "member" ||
-        status === "administrator" ||
-        status === "creator";
-
+    // 2. Registro de Indicação (Só se não existir)
+    const check = await pool.query("SELECT id FROM indicacoes WHERE id_indicado = $1", [indicadoId]);
+    if (check.rowCount === 0) {
       await pool.query(
-        "UPDATE usuarios SET vip = $1 WHERE telegram_id = $2",
-        [isVip, chatId]
+        `INSERT INTO indicacoes (id_indicador, id_indicado, data_registro, pontos_ativados)
+         VALUES ($1, $2, NOW(), false)`,
+        [indicadorId, indicadoId]
       );
-    } catch (err) {
-      console.error("Erro ao verificar status VIP:", err.message);
     }
 
-    // 🔹 Mensagem final dinâmica enviando o idioma correspondente por parâmetro na URL do Mini App
-    bot.sendMessage(chatId, msgsStart[userLang].boas_vindas, {
+    // 3. Montagem da Mensagem (Nova ou Recorrente)
+    const saldo = await getSaldoUsuario(indicadoId);
+    let texto;
+
+    if (saldo === 0 && check.rowCount === 0) {
+      texto = dicionario[lang].boas_vindas_novo;
+    } else {
+      texto = dicionario[lang].boas_vindas_recorrente.replace("{saldo}", saldo);
+    }
+
+    // 4. Edição da mensagem com botão do Mini App
+    bot.editMessageText(texto, {
+      chat_id: chatId,
+      message_id: query.message.message_id,
       reply_markup: {
         inline_keyboard: [[
           {
-            text: msgsStart[userLang].btn_app,
-            web_app: { url: `${APP_DOMAIN}/?id=${chatId}&lang=${userLang}` }
+            text: dicionario[lang].btn_app,
+            web_app: { url: `${process.env.APP_DOMAIN}/?id=${indicadoId}&lang=${lang}` }
           }
         ]]
       }
     });
 
   } catch (err) {
-    console.error("Erro no bot:", err.message);
-    const langErro = msgsStart[userLang] ? userLang : "en";
-    bot.sendMessage(chatId, `${msgsStart[langErro].erro}${err.message}`);
+    console.error("Erro no processamento do idioma:", err);
+    bot.sendMessage(chatId, dicionario[lang || 'en'].erro);
   }
 });
 
-// 🔹 11. CRON - Engajamento Dia 2 (Otimizado Internacional)
+
 const cron = require("node-cron");
 
-cron.schedule("0 10 * * *", async () => {
-  console.log("⏰ Rodando cron de engajamento...");
-
+/**
+ * Função central de disparo para garantir o alinhamento com o Dossiê
+ * @param {string} lang - 'pt' ou 'en'
+ * @param {string} tipo - 'inativo' ou 'iniciante'
+ */
+async function dispararEngajamento(lang, tipo) {
   try {
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
-    const dataFormatada = ontem.toISOString().slice(0, 10);
-
-    // Busca usuários trazendo a coluna lang
-    const { rows } = await pool.query(
-      "SELECT telegram_id, COALESCE(lang, 'en') as lang FROM usuarios WHERE DATE(criado_em) = $1",
-      [dataFormatada]
-    );
-
-    console.log(`📊 Usuários encontrados para engajamento: ${rows.length}`);
-
-    for (const u of rows) {
-      const lang = u.lang === 'pt' ? 'pt' : 'en';
-
-      if (lang === 'pt') {
-        // Envio em Português
-        await bot.sendMessage(
-          u.telegram_id,
-          `🎁 *BÔNUS DE RETORNO LIBERADO!*\n\n` +
-          `👋 Olá! Notamos que você deixou pontos pendentes no seu saldo ontem.\n\n` +
-          `🎡 *1 Giro Grátis na Roleta* foi adicionado à sua conta e expira em poucas horas!\n` +
-          `💰 Não perca a chance de acumular pontos e pedir seu PIX hoje mesmo.\n\n` +
-          `👇 Clique abaixo para coletar e girar agora:`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🎰 Girar Roleta Grátis", web_app: { url: `${APP_DOMAIN}/roleta.html?id=${u.telegram_id}&lang=pt` } }],
-                [
-                  { text: "🚀 Ver Tarefas LucreMais", web_app: { url: `${APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=pt` } },
-                  { text: "🏠 Ir para o Início", web_app: { url: `${APP_DOMAIN}/index.html?id=${u.telegram_id}&lang=pt` } }
-                ]
-              ]
-            }
-          }
-        );
-      } else {
-        // Envio em Inglês (Global)
-        await bot.sendMessage(
-          u.telegram_id,
-          `🎁 *RETURN BONUS UNLOCKED!*\n\n` +
-          `👋 Hello! We noticed you left some unclaimed points in your balance yesterday.\n\n` +
-          `🎡 *1 Free Wheel Spin* has been added to your account and expires in a few hours!\n` +
-          `💰 Don't miss out on accumulating points and claiming your crypto reward today.\n\n` +
-          `👇 Click below to collect and spin right now:`,
-          {
-            parse_mode: "Markdown",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🎰 Spin Free Wheel", web_app: { url: `${APP_DOMAIN}/roleta.html?id=${u.telegram_id}&lang=en` } }],
-                [
-                  { text: "🚀 View CashTasks", web_app: { url: `${APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=en` } },
-                  { text: "🏠 Go to Home", web_app: { url: `${APP_DOMAIN}/index.html?id=${u.telegram_id}&lang=en` } }
-                ]
-              ]
-            }
-          }
-        );
-      }
+    // 1. Busca usuários baseada na lógica técnica aprovada (Dossiê)
+    // Inativos: NOT EXISTS na tabela historico_ganhos nos últimos 2 dias
+    // Iniciantes: EXISTS na tabela historico_ganhos nos últimos 2 dias, mas inativo nas últimas 24h
+    let query;
+    if (tipo === 'inativo') {
+      query = `SELECT u.telegram_id 
+               FROM usuarios u 
+               WHERE u.lang = $1 
+               AND NOT EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '48 hours')`;
+    } else {
+      query = `SELECT u.telegram_id 
+               FROM usuarios u 
+               WHERE u.lang = $1 
+               AND EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '48 hours')
+               AND NOT EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '24 hours')`;
     }
 
+    const { rows } = await pool.query(query, [lang]);
+    console.log(`🚀 Disparando ${tipo} (${lang}): ${rows.length} usuários.`);
+
+    // 2. Disparo das mensagens
+    for (const u of rows) {
+      const isPt = lang === 'pt';
+      const mensagem = tipo === 'inativo' 
+        ? (isPt ? "👋 Olá! São apenas 2 minutos para ganhar seus primeiros pontos no LucreMaisTask. Não perca essa chance!" : "👋 Hello! It only takes 2 minutes to earn your first points on CashTaskBot. Don't miss out!")
+        : (isPt ? "🚀 Você está indo bem! Faltam poucas tarefas para seu bônus de consistência. Volte agora e garanta seus pontos!" : "🚀 You're doing great! Only a few tasks left for your consistency bonus. Come back now and secure your points!");
+
+      const btnText = isPt ? "📲 Fazer Tarefas Agora" : "📲 Complete Tasks Now";
+
+      await bot.sendMessage(u.telegram_id, mensagem, {
+        reply_markup: {
+          inline_keyboard: [[
+            { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=${lang}` } }
+          ]]
+        }
+      }).catch(e => console.error(`Erro ao enviar para ${u.telegram_id}:`, e.message));
+    }
   } catch (err) {
-    console.error("Erro no cron de engajamento:", err.message);
+    console.error(`Erro no disparo ${tipo} (${lang}):`, err);
   }
-});
+}
+
+// 3. Agendamento com Zonas Horárias (Otimizado)
+
+// Disparo Brasil (BRT)
+cron.schedule("0 10 * * *", async () => {
+  await dispararEngajamento('pt', 'inativo');
+  await dispararEngajamento('pt', 'iniciante');
+}, { timezone: "America/Sao_Paulo" });
+
+// Disparo EUA (EST)
+cron.schedule("0 10 * * *", async () => {
+  await dispararEngajamento('en', 'inativo');
+  await dispararEngajamento('en', 'iniciante');
+}, { timezone: "America/New_York" });
+
 
 // 🔹 12. Inicializar servidor
 app.listen(PORT, () => {
