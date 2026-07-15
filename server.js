@@ -202,6 +202,44 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
 
 // 🔹 3. Rotas de Tarefas (Modificadas para suportar Tarefas VIP)
 
+/**
+ * Função para atualizar XP, Nível e Checkin de forma centralizada
+ */
+async function atualizarProgresso(client, telegram_id, pontos_ganhos) {
+  // 1. Definição das constantes do sistema
+  const XP_POR_PONTO = 0.5; // Cada 1 ponto ganho, dá 0.5 XP
+  const xp_a_adicionar = Math.floor(pontos_ganhos * XP_POR_PONTO);
+
+  // 2. Busca dados atuais do usuário (para cálculo de nível)
+  const res = await client.query(
+    "SELECT xp, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE",
+    [telegram_id]
+  );
+  
+  if (res.rows.length === 0) return;
+
+  const user = res.rows[0];
+  const novo_xp = (user.xp || 0) + xp_a_adicionar;
+  
+  // Fórmula: Nível = Raiz Quadrada do (XP / 100) + 1
+  const novo_nivel = Math.floor(Math.sqrt(novo_xp / 100)) + 1;
+
+  // 3. Atualiza no banco
+  await client.query(
+    `UPDATE usuarios 
+     SET xp = $1, 
+         nivel = $2, 
+         ultimo_checkin = NOW() 
+     WHERE telegram_id = $3`,
+    [novo_xp, novo_nivel, telegram_id]
+  );
+
+  return { novo_xp, novo_nivel };
+}
+
+
+
+
 app.post("/api/iniciar-tarefa", async (req, res) => {
   const { telegram_id, tarefa_id, fingerprint } = req.body;
 
@@ -396,6 +434,8 @@ app.post("/api/concluir-tarefa", async (req, res) => {
        WHERE telegram_id = $2`,
       [pontos, telegram_id]
     );
+     // atualiza xp após atividade 
+    await atualizarProgresso(client, telegram_id, pontos); // 'client' deve ser passado do pool ou usado dentro da transação
 
     // 🔹 Ativação da indicação
     const indicacaoRes = await pool.query(
@@ -493,6 +533,8 @@ app.post("/api/concluir-diaria", async (req, res) => {
       "UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2",
       [pontos, tgId]
     );
+     // atualiza xp após atividade 
+    await atualizarProgresso(client, telegram_id, pontos); // 'client' deve ser passado do pool ou usado dentro da transação
 
     await pool.query("COMMIT");
     res.json({ mensagem: `✅ Tarefa concluída! Você ganhou ${pontos} pontos.` });
@@ -614,6 +656,8 @@ app.post("/api/roleta/girar", async (req, res) => {
         [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
       );
     }
+     // atualiza xp após atividade 
+    await atualizarProgresso(client, telegram_id, pontos); // 'client' deve ser passado do pool ou usado dentro da transação
 
     await client.query("COMMIT");
     res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
@@ -702,6 +746,9 @@ app.get("/zeradsptc.php", async (req, res) => {
    VALUES ($1, $2, $3, $4)`,
   [user, 'zerads', pontos, 'ZerAds PTC']
   );
+       // atualiza xp após atividade 
+    await atualizarProgresso(client, user, pontos); // é diferente por conta que é de terceiros 
+
       await client.query("COMMIT");
       
       console.log(`✅ Pontos creditados e log registrado para o usuário ${user}`);
@@ -761,6 +808,8 @@ app.get("/cpalead-postback", async (req, res) => {
          WHERE telegram_id = $2`,
         [pontos, telegram_id]
       );
+ // atualiza xp após atividade 
+    await atualizarProgresso(client, telegram_id, pontos); // 'client' deve ser passado do pool ou usado dentro da transação
 
       await client.query("COMMIT");
       res.status(200).send("✅ Sucesso.");
@@ -850,6 +899,8 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                     `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2`,
                     [pontos, userId]
                 );
+ // atualiza xp após atividade 
+    await atualizarProgresso(client, userId, pontos); // 
 
                 await client.query('COMMIT');
                 console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pontos (${nomeTarefa}, View: ${viewId})`);
@@ -1686,7 +1737,32 @@ cron.schedule("0 12 * * *", async () => {
   }
 });
 
-// 🔹 13. Inicializar servidor
+
+// 🔹 13. CRON JOB: Degradação de XP (Roda todo dia às 03:00)
+cron.schedule('0 3 * * *', async () => {
+    console.log("🕒 Iniciando processo de degradação de XP por inatividade...");
+    
+    const client = await pool.connect();
+    try {
+        // Reduz 10% do XP de quem não teve checkin nos últimos 2 dias (48h)
+        // E que NÃO é VIP.
+        await client.query(`
+            UPDATE usuarios 
+            SET xp = FLOOR(xp * 0.90),
+                nivel = FLOOR(SQRT(FLOOR(xp * 0.90) / 100)) + 1
+            WHERE ultimo_checkin < NOW() - INTERVAL '48 hours'
+            AND (vip = false OR vip IS NULL)
+            AND xp > 0
+        `);
+        console.log("✅ Degradação de inativos concluída.");
+    } catch (err) {
+        console.error("❌ Erro no CRON de degradação:", err);
+    } finally {
+        client.release();
+    }
+});
+
+// 🔹 14. Inicializar servidor
 app.listen(PORT, () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
