@@ -921,6 +921,48 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     res.status(400).send('Invalid event');
 });
 
+
+/**
+ * Verifica se o usuário cumpriu a meta do dia
+ * 1. Uma Tarefa Externa (zerads, cpalead ou moneyrain)
+ * 2. Um Giro na Roleta (roleta)
+ * 3. Uma Interação Extra (tarefa)
+ * 4. Pelo menos 50 pontos no total
+ */
+async function verificarMetaDiaria(client, telegram_id) {
+    const res = await client.query(`
+        SELECT 
+            COUNT(*) FILTER (WHERE origem IN ('zerads', 'cpalead', 'moneyrain')) as externas,
+            COUNT(*) FILTER (WHERE origem = 'roleta') as roletas,
+            COUNT(*) FILTER (WHERE origem = 'tarefa') as tarefas,
+            SUM(pontos) as total_pontos
+        FROM historico_ganhos 
+        WHERE telegram_id = $1 
+        AND data_registro::date = CURRENT_DATE
+    `, [telegram_id]);
+
+    const stats = res.rows[0];
+    const metaCumprida = 
+        stats.externas >= 1 && 
+        stats.roletas >= 1 && 
+        stats.tarefas >= 1 && 
+        stats.total_pontos >= 50;
+
+    if (metaCumprida) {
+        await client.query(`
+            UPDATE usuarios_streaks 
+            SET meta_cumprida_hoje = TRUE 
+            WHERE telegram_id = $1
+        `, [telegram_id]);
+    }
+    
+    return metaCumprida;
+}
+
+
+
+
+
 // 🔹 4. Rotas de Usuário
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
