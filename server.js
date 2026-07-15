@@ -1073,6 +1073,76 @@ app.get("/api/saques", async (req, res) => {
   }
 });
 
+
+const axios = require('axios'); // Certifique-se de que o axios está no topo do arquivo
+
+app.post("/api/pagar-saque", async (req, res) => {
+  const senhaEnviada = req.headers["x-admin-key"];
+  const { saque_id } = req.body;
+
+  // 🔐 Verificação de segurança (deve ser igual à sua rota SQL)
+  if (!senhaEnviada || senhaEnviada !== process.env.ADMIN_KEY) {
+    console.log("❌ Tentativa de pagamento sem autorização");
+    return res.status(403).send("❌ Acesso negado");
+  }
+
+  try {
+    // 1. Busca os dados do saque pendente
+    const saqueResult = await pool.query(
+      "SELECT * FROM saques WHERE id = $1 AND status = 'pendente'", 
+      [saque_id]
+    );
+
+    if (saqueResult.rows.length === 0) {
+      return res.status(404).json({ error: "Saque não encontrado ou já processado." });
+    }
+    
+    const saque = saqueResult.rows[0];
+
+    // 2. Definição do valor (Baseado em PONTOS)
+    // ⚠️ Ajuste este valor conforme o quanto você quer pagar por ponto em LTC
+    const TAXA_PONTO_LTC = 0.000001; 
+    
+    // Cálculo: pontos * taxa = LTC. Depois * 100.000.000 para converter para Satoshis (inteiro)
+    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
+
+    // 3. Dispara o pagamento para a FaucetPay
+    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
+      api_key: FAUCETPAY_API_KEY, // A chave que definimos no topo do seu server
+      amount: amountEmSatoshis,
+      to: saque.chave_pix,       // O e-mail FaucetPay do usuário
+      currency: "LTC"
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    // 4. Tratamento do retorno da API
+    if (response.data.status === 200) {
+      // Sucesso: Atualiza o status e salva o payout_id (comprovante)
+      await pool.query(
+        "UPDATE saques SET status = 'pago', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
+        [response.data.payout_id, saque_id]
+      );
+      
+      res.json({ success: true, tx: response.data.payout_id });
+    } else {
+      // Caso a FaucetPay retorne erro (ex: saldo insuficiente, email inválido)
+      console.error("❌ Erro FaucetPay:", response.data.message);
+      res.status(400).json({ error: "Erro FaucetPay: " + response.data.message });
+    }
+
+  } catch (err) {
+    console.error("❌ Erro fatal ao pagar saque:", err.message);
+    res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
+  }
+});
+
+
+
+
+
+
+
 // 🔹 7. trafico e mensurização
 app.post('/api/log-traffic', async (req, res) => {
     // Adicionamos o telegram_id para fechar o ciclo de rastreio
