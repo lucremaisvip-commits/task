@@ -37,7 +37,9 @@
     .checklist-item { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 8px 0; font-weight: 500; }
     
     /* COMPONENTES GERAIS */
-    .lang-toggle-btn { background: #334155; color: #fff; border: 1px solid #475569; border-radius: 20px; padding: 4px 12px; font-size: 11px; cursor: pointer; }
+    .lang-toggle-btn { 
+  width: auto; padding: 4px 10px; font-size: 10px; border-radius: 12px;
+}
     button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; }
     
     /* ADAPTADORES */
@@ -85,12 +87,18 @@
     <h2 id="txtVipTitle" style="color: #a78bfa; margin-top: 0;">💎 Guilda VIP</h2>
     <p id="txtVipDesc" style="font-size: 13px;"></p>
     <ul id="listVip" style="list-style: none; padding: 0; font-size: 13px; margin: 15px 0;"></ul>
-    <a id="linkVip" href="#" style="text-decoration: none;"><button id="btnVip" style="background: #7c3aed;">🚀 Desbloquear Status</button></a>
+        <a id="linkVip" href="vip.html" style="text-decoration: none;">
+      <button id="btnVip" style="padding:10px 20px;font-weight:bold;background:#2a8f43;color:white;border:none;border-radius:6px;">
+        🚀 Desbloquear Status VIP
+      </button>
+    </a>
   </div>
 
-  <div class="ads-box" style="background: #111; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; margin: 20px 0;">
+  <div class="ads-box" style="background: #1e293b; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; margin: 20px 0;">
     <p id="txtSponsor" style="color: #64748b; font-size: 12px;"></p>
-    <a href="#" id="linkAdvertise" style="text-decoration: none;"><button id="btnAdvertise" style="background: transparent; border: 1px solid #475569; color: #94a3b8;">📢 Anunciar</button></a>
+       <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" id="linkAdvertise" target="_blank">
+      <button id="btnAdvertise">📢 Anunciar </button>
+    </a>
     <div class="grid" id="gridIndex" style="margin-top: 15px;"></div>
   </div>
 
@@ -111,7 +119,10 @@ const linguagens = {
       title: "LucreMaisTask",
       navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
       activeUser: "NÍVEL ATUAL",
-      dailyProgress: "⚔️ Daily Quest", 
+      dailyProgress: "⚔️ Tarefas diárias", 
+      taskExterna: "Tarefa Externa (Ads)",
+      taskRoleta: "Giro na Roleta",
+      taskDireta: "Tarefa Direta",
       btnContinueTasks: "🚀 Continuar Aventura",
       luckyWheel: "🎡 Templo da Sorte", 
       luckyWheelDesc: "Gire a roleta e teste seu destino. Oportunidades não esperam!", 
@@ -128,7 +139,10 @@ const linguagens = {
       title: "CashTaskBot",
       navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
       activeUser: "CURRENT LEVEL",
-      dailyProgress: "⚔️ Daily Quest", 
+      dailyProgress: "⚔️ Daily Quest",
+      taskExterna: "Offerwalls",
+      taskRoleta: "Wheel Spin",
+      taskDireta: "Direct Task",
       btnContinueTasks: "🚀 Adventure",
       luckyWheel: "🎡 Temple of Luck", 
       luckyWheelDesc: "Spin the wheel and test your fate. Opportunities don't wait!", 
@@ -144,40 +158,44 @@ const linguagens = {
   };
 
   function aplicarTraducoes() {
-    document.documentElement.lang = userLang;
-    const t = linguagens[userLang];
+  document.documentElement.lang = userLang;
+  const t = linguagens[userLang];
 
-    // Títulos e Menu
-    document.getElementById("pageTitle").innerText = t.title;
-    document.querySelector("#navHome .txt-nav").innerText = t.navHome;
-    document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
-    document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
-    document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
-    document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+  // Títulos e Menu
+  document.getElementById("pageTitle").innerText = t.title;
+  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
 
-    // HUD RPG
-    document.querySelector("#txtNivel").previousElementSibling.innerText = t.activeUser;
-    document.getElementById("txtDailyProgress").innerText = t.dailyProgress;
-    document.getElementById("btnContinueTasks").innerText = t.btnContinueTasks;
+  // HUD RPG
+  document.querySelector("#txtNivel").previousElementSibling.innerText = t.activeUser;
+  
+  // Checklist (AQUI ESTAVA FALTANDO!)
+  document.getElementById("txtDailyProgress").innerText = t.dailyProgress;
+  document.getElementById("item-externa").innerText = t.taskExterna; // Simplificado
+  document.getElementById("item-roleta").innerText = t.taskRoleta;
+  document.getElementById("item-tarefa").innerText = t.taskDireta;
+  document.getElementById("btnContinueTasks").innerText = t.btnContinueTasks;
 
-    // Roleta
-    document.getElementById("txtLuckyWheel").innerText = t.luckyWheel;
-    document.getElementById("txtLuckyWheelDesc").innerHTML = t.luckyWheelDesc;
-    document.getElementById("btnLuckyWheel").innerText = t.btnLuckyWheel;
+  // Roleta
+  document.getElementById("txtLuckyWheel").innerText = t.luckyWheel;
+  document.getElementById("txtLuckyWheelDesc").innerHTML = t.luckyWheelDesc;
+  document.getElementById("btnLuckyWheel").innerText = t.btnLuckyWheel;
 
-    // VIP
-    document.getElementById("txtVipTitle").innerText = t.vipTitle;
-    document.getElementById("txtVipDesc").innerHTML = t.vipDesc;
-    document.getElementById("listVip").innerHTML = t.vipList;
-    document.getElementById("btnVip").innerText = t.btnVip;
+  // VIP
+  document.getElementById("txtVipTitle").innerText = t.vipTitle;
+  document.getElementById("txtVipDesc").innerHTML = t.vipDesc;
+  document.getElementById("listVip").innerHTML = t.vipList;
+  document.getElementById("btnVip").innerText = t.btnVip;
 
-    // Patrocínio
-    document.getElementById("txtSponsor").innerHTML = t.sponsor;
-    document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
+  // Patrocínio
+  document.getElementById("txtSponsor").innerHTML = t.sponsor;
+  document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
 
-    // Atualiza links de navegação e idioma
-    atualizarUrlsMenu();
-  }
+  atualizarUrlsMenu();
+}
 
 
 
@@ -222,6 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 4. Carregamento de Dados Dinâmicos
     if (telegram_id) {
       carregarDadosRPG(); // Busca Nível, XP e Status no seu backend
+      verificarMetaDiaria();// atualiza meta diária
       carregarLucremais(); // Busca os anúncios do grid
     } else {
       // Se não houver ID, você pode exibir uma mensagem de erro ou redirecionar
@@ -296,7 +315,16 @@ async function carregarDadosRPG() {
       console.error("Erro ao carregar dados do RPG:", err);
     }
   }
-  
+  async function verificarMetaDiaria() {
+  try {
+    const res = await fetch(`/api/verificar-meta?id=${telegram_id}`);
+    const data = await res.json();
+    // Lógica para marcar visualmente as metas
+    if(data.meta_atingida) {
+      document.getElementById("txtDegradacaoAviso").style.display = "none";
+    }
+  } catch(e) { console.error(e); }
+}
     async function carregarLucremais() {
     try {
       const posicao = encodeURIComponent("index");
