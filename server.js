@@ -1780,14 +1780,24 @@ cron.schedule("0 12 * * *", async () => {
 });
 
 
-// 🔹 13. CRON JOB: Degradação de XP (Roda todo dia às 03:00)
-cron.schedule('0 3 * * *', async () => {
-    console.log("🕒 Iniciando processo de degradação de XP por inatividade...");
-    
+
+// 🔹 13. CRON MESTRE: Virada de Dia (Roda todo dia às 00:05)
+cron.schedule('5 0 * * *', async () => {
+    console.log("🕒 Iniciando processamento diário de streaks e XP...");
     const client = await pool.connect();
     try {
-        // Reduz 10% do XP de quem não teve checkin nos últimos 2 dias (48h)
-        // E que NÃO é VIP.
+        await client.query("BEGIN");
+
+        // 1. Atualiza Streaks (Incrementa quem cumpriu, reseta quem não cumpriu)
+        // Usamos uma única query para performance otimizada
+        await client.query(`
+            UPDATE usuarios_streaks 
+            SET streak_atual = CASE WHEN meta_cumprida_hoje = TRUE THEN streak_atual + 1 ELSE 0 END,
+                bau_disponivel = CASE WHEN (streak_atual + (CASE WHEN meta_cumprida_hoje = TRUE THEN 1 ELSE 0 END)) >= 7 THEN TRUE ELSE bau_disponivel END,
+                meta_cumprida_hoje = FALSE
+        `);
+
+        // 2. Degradação de XP (Sua lógica existente, agora dentro da transação)
         await client.query(`
             UPDATE usuarios 
             SET xp = FLOOR(xp * 0.90),
@@ -1796,9 +1806,12 @@ cron.schedule('0 3 * * *', async () => {
             AND (vip = false OR vip IS NULL)
             AND xp > 0
         `);
-        console.log("✅ Degradação de inativos concluída.");
+
+        await client.query("COMMIT");
+        console.log("✅ Processamento diário concluído com sucesso.");
     } catch (err) {
-        console.error("❌ Erro no CRON de degradação:", err);
+        await client.query("ROLLBACK");
+        console.error("❌ Erro no CRON Mestre:", err);
     } finally {
         client.release();
     }
