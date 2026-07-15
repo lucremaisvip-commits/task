@@ -230,21 +230,27 @@
       }
     }
 
-    async function atualizarStatus(id, status) {
-      const t = linguagens[userLang];
-      const sql = `UPDATE saques SET status = '${status}', data_aprovacao = NOW() WHERE id = ${id}`;
-      try {
-        await secureFetch('/admin/sql', {
-          method: 'POST',
-          body: JSON.stringify({ sql })
-        });
-        alert(t.alertSuccessStatus.replace("{id}", id).replace("{status}", status.toUpperCase()));
-        carregarSaques();
-      } catch (err) {
-        console.error("Erro ao atualizar status:", err);
-        alert(t.alertErrStatus);
-      }
+    async function processarPagamento(id) {
+  const t = linguagens[userLang];
+  if (!confirm("Confirmar pagamento via FaucetPay?")) return;
+
+  try {
+    const res = await secureFetch('/api/pagar-saque', {
+      method: 'POST',
+      body: JSON.stringify({ saque_id: id })
+    });
+    
+    const data = await res.json();
+    if (data.success) {
+      alert("✅ Pago com sucesso! TX: " + data.tx);
+      carregarSaques();
+    } else {
+      alert("❌ Erro: " + data.error);
     }
+  } catch (err) {
+    alert("Erro na comunicação com o servidor.");
+  }
+}
 
     async function checarTarefas(telegramId) {
       const t = linguagens[userLang];
