@@ -1,198 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
   <meta charset="UTF-8" />
   <title id="pageTitle">CashTaskBot</title>
-
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <meta name="description" content="Earn rewards by completing simple tasks on Telegram.">
-
   <meta http-equiv="X-Content-Type-Options" content="nosniff">
   <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
   <meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade">
-
+  
   <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-
   <meta name="meroads-verification" content="b4da05181ebf7532">
-  <script src="//libtl.com/sdk.js"
-          async
-          data-zone="9579151"
-          data-sdk="show_9579151"></script>
+  <script src="//libtl.com/sdk.js" async data-zone="9579151" data-sdk="show_9579151"></script>
 
   <link rel="preconnect" href="https://libtl.com" crossorigin>
   <link rel="dns-prefetch" href="//libtl.com">
-
   <link rel="preconnect" href="https://zerads.com" crossorigin>
   <link rel="dns-prefetch" href="//zerads.com">
 
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f9f9f9;
-      max-width: 600px;
-      margin: auto;
-      padding: 20px;
-      padding-bottom: 80px;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 80px; }
 
-    /* 📱 MENU INFERIOR FIXO */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: #111;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-      z-index: 9999;
-    }
+    /* MENU INFERIOR FIXO */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
+    .bottom-nav a { color: #aaa; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
+    .bottom-nav a.active { color: #00ff88; }
+    .bottom-nav a span { font-size: 18px; }
 
-    .bottom-nav a {
-      color: #aaa;
-      text-decoration: none;
-      font-size: 11px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      width: 20%;
-    }
+    /* HUD DE RPG */
+    .user-status-card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 16px; padding: 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
+    .xp-bar-container { background: #334155; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; }
+    .xp-bar-fill { background: #3b82f6; width: 0%; height: 100%; transition: width 0.5s ease; }
 
-    .bottom-nav a.active, .bottom-nav a:hover {
-      color: #00ff88;
-    }
-
-    .bottom-nav a span {
-      font-size: 18px;
-    }
-
-    /* 🎯 DASHBOARD DE STATUS */
-    .user-status-card {
-      background: linear-gradient(135deg, #1e293b, #0f172a);
-      border: 1px solid #334155;
-      border-radius: 12px;
-      padding: 15px;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .lang-toggle-btn {
-      background: #334155;
-      color: #fff;
-      border: 1px solid #475569;
-      border-radius: 20px;
-      padding: 4px 10px;
-      font-size: 11px;
-      font-weight: bold;
-      cursor: pointer;
-      width: auto;
-      margin-top: 0;
-      transition: background 0.2s;
-    }
-
-    .lang-toggle-btn:hover {
-      background: #475569;
-    }
-
-    .blur-points {
-      filter: blur(4px);
-      background: #334155;
-      color: transparent;
-      padding: 2px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      user-select: none;
-      transition: filter 0.3s ease;
-    }
-
-    .blur-points:hover {
-      filter: blur(0px);
-      color: #00ff88;
-      background: transparent;
-    }
-
-    .card, .ads-box, .banner-box {
-      background: white;
-      padding: 15px;
-      margin: 20px 0;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      text-align: center;
-    }
-
-    .ads-box button {
-      margin-bottom: 20px;
-    }
-
-    button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      background: #2a8f43;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1e6e34;
-    }
-
-    .tarefa {
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-      background-color: #f9f9f9;
-    }
-
-    .tarefa button {
-      background-color: #FFD700;
-      color: #333;
-      font-weight: bold;
-    }
-
-    .tarefa button:hover {
-      background-color: #FFC107;
-    }
-
-    .vip-box {
-      background: #eafbe7;
-      border: 1px solid #b7e4c7;
-      padding: 15px;
-      border-radius: 8px;
-      color: #155724;
-    }
-
-    .grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .banner {
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .banner img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
+    /* CHECKLIST DE MISSÕES */
+    .checklist-card { background: #ffffff; color: #1e293b; padding: 20px; border-radius: 12px; border-left: 5px solid #3b82f6; margin-bottom: 20px; }
+    .checklist-item { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 8px 0; font-weight: 500; }
+    
+    /* COMPONENTES GERAIS */
+    .lang-toggle-btn { background: #334155; color: #fff; border: 1px solid #475569; border-radius: 20px; padding: 4px 12px; font-size: 11px; cursor: pointer; }
+    button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; }
+    
+    /* ADAPTADORES */
+    .banner { border: 1px solid #ddd; border-radius: 6px; overflow: hidden; background: #fff; margin-bottom: 10px; }
+    .banner img { width: 100%; height: auto; display: block; }
   </style>
 </head>
-
 <body>
+
+  <div class="user-status-card">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <span style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
+        <strong id="txtNivel" style="font-size: 16px; color: #fff;">Nível 1 - Novato</strong>
+      </div>
+      <button onclick="alternarIdioma()" class="lang-toggle-btn">🌐 EN</button>
+    </div>
+    <div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #94a3b8;">
+        <span>EXP</span>
+        <span id="txtXpProgresso">0 / 500</span>
+      </div>
+      <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <div class="checklist-card">
+    <h4 id="txtDailyProgress" style="margin: 0 0 10px 0; color: #1e293b;">⚔️ Daily Quest</h4>
+    <div id="quest-list">
+      <div class="checklist-item" id="item-externa">⚪ Tarefa Externa (Ads)</div>
+      <div class="checklist-item" id="item-roleta">⚪ Giro na Roleta</div>
+      <div class="checklist-item" id="item-tarefa">⚪ Tarefa Direta</div>
+    </div>
+    <button onclick="irParaTarefas()" id="btnContinueTasks">🎯 Continuar Aventura</button>
+    <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
+  </div>
+
+  <div class="roleta-box" style="background: #1e293b; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #334155; margin: 20px 0;">
+    <h2 id="txtLuckyWheel" style="color: #f8fafc; margin-bottom: 10px;">🎡 Templo da Sorte</h2>
+    <p id="txtLuckyWheelDesc" style="font-size: 14px; color: #94a3b8; margin-bottom: 15px;"></p>
+    <button onclick="abrirRoleta()" id="btnLuckyWheel" style="background: #f59e0b; color: #000;">🎰 Girar Agora</button>
+  </div>
+
+  <div class="vip-box" style="background: linear-gradient(145deg, #2e1065, #1e1b4b); border: 1px solid #7c3aed; padding: 20px; border-radius: 12px; color: #f1f5f9; margin: 20px 0;">
+    <h2 id="txtVipTitle" style="color: #a78bfa; margin-top: 0;">💎 Guilda VIP</h2>
+    <p id="txtVipDesc" style="font-size: 13px;"></p>
+    <ul id="listVip" style="list-style: none; padding: 0; font-size: 13px; margin: 15px 0;"></ul>
+    <a id="linkVip" href="#" style="text-decoration: none;"><button id="btnVip" style="background: #7c3aed;">🚀 Desbloquear Status</button></a>
+  </div>
+
+  <div class="ads-box" style="background: #111; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; margin: 20px 0;">
+    <p id="txtSponsor" style="color: #64748b; font-size: 12px;"></p>
+    <a href="#" id="linkAdvertise" style="text-decoration: none;"><button id="btnAdvertise" style="background: transparent; border: 1px solid #475569; color: #94a3b8;">📢 Anunciar</button></a>
+    <div class="grid" id="gridIndex" style="margin-top: 15px;"></div>
+  </div>
 
   <nav class="bottom-nav">
     <a href="index.html" class="active" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
@@ -202,177 +102,84 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
-  <div class="user-status-card">
-    <div>
-      <span id="txtActiveUser" style="color: #94a3b8; font-size: 11px; display: block; font-weight: bold;">ACTIVE USER</span>
-      <strong id="statusUsuario" style="color: #fff; font-size: 13px;">Loading ID...</strong>
-    </div>
-    
-    <div>
-      <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
-    </div>
-
-    <div style="text-align: right;" onclick="irParaPontuacao()">
-      <span id="txtYourBalance" style="color: #00ff88; font-size: 11px; display: block; font-weight: bold;">💰 YOUR BALANCE</span>
-      <span class="blur-points" id="saldoFalso">9999 pts</span>
-    </div>
-  </div>
-
-  <div class="card" style="text-align: left; background: #fff; border-left: 5px solid #2a8f43; padding: 15px; margin: 0 0 20px 0;">
-    <h4 id="txtDailyProgress" style="margin: 0 0 5px 0; color: #333;">📊 Daily Progress</h4>
-    <p id="txtDailyProgressDesc" style="margin: 0 0 10px 0; font-size: 13px; color: #666;">Complete your goals to keep your multiplier active.</p>
-    <div style="background: #e2e8f0; width: 100%; height: 8px; border-radius: 4px; overflow: hidden;">
-      <div style="background: #2a8f43; width: 35%; height: 100%;"></div>
-    </div>
-    <button onclick="irParaTarefas()" id="btnContinueTasks" style="background: #111; margin-top: 12px; font-size: 13px; padding: 8px;">🎯 Continue Pending Tasks</button>
-  </div>
-
-  <div class="card">
-    <a href="https://telegrambot-mlfd.onrender.com/next.html" target="_blank" rel="noopener noreferrer">
-      <img src="img/lucremaistask.png"
-           alt="Promo Banner"
-           style="width:100%; max-width:600px; height:auto; border-radius:8px;">
-    </a>
-  </div>
-
-  <div class="tarefa">
-    <h3 id="txtDailyMission">📢 Daily Mission!</h3>
-    <p id="txtDailyMissionDesc">🎯 Watch the ad below and earn points.</p>
-    <button onclick="shareReward()" id="btnDailyMission">🔗 Complete Daily Mission</button>
-  </div>
-
-  <div style="background:#fff;padding:20px;border-radius:12px;text-align:center;box-shadow:0 0 10px rgba(0,0,0,0.05);max-width:500px;margin:20px auto;">
-    <img src="img/roleta.png"
-         alt="Lucky Wheel"
-         style="width:100px;max-width:100%;margin:0 auto 15px;display:block;"
-         loading="lazy" />
-
-    <h2 id="txtLuckyWheel" style="color:#2a8f43;">🎡 Lucky Wheel</h2>
-
-    <p id="txtLuckyWheelDesc" style="font-size:16px;color:#333;margin:10px 0;">
-      Test your luck and turn your points into instant prizes!<br>
-      The more you spin, the higher your chances to win rewards!
-    </p>
-
-    <button onclick="abrirRoleta()" id="btnLuckyWheel" style="
-      padding:12px 20px;
-      background:#2a8f43;
-      color:#fff;
-      border:none;
-      border-radius:8px;
-      font-size:16px;
-      cursor:pointer;
-      font-weight:bold;
-      width:100%;
-      max-width:250px;">
-      🎰 Go to Lucky Wheel
-    </button>
-  </div>
-
-  <div class="vip-box">
-    <h2 id="txtVipTitle">🎯 Become a VIP User</h2>
-    <p id="txtVipDesc"><strong>Unlock exclusive advantages and boost your earnings!</strong></p>
-
-    <ul id="listVip">
-      <li>💸 <b>Priority Withdrawals</b></li>
-      <li>📊 <b>Crypto Airdrops</b></li>
-      <li>🌐 <b>High-Paying Apps</b></li>
-      <li>🕵️ <b>Exclusive VIP Tasks</b></li>
-      <li>🚀 <b>Premium Content</b></li>
-    </ul>
-
-    <a id="linkVip" href="vip.html" style="text-decoration: none;">
-      <button id="btnVip" style="padding:10px 20px;font-weight:bold;background:#2a8f43;color:white;border:none;border-radius:6px;">
-        🚀 Upgrade to VIP
-      </button>
-    </a>
-  </div>
-
-  <div class="ads-box">
-    <p id="txtSponsor"><strong>🔰 Sponsorship</strong><br>Want your brand here?</p>
-
-    <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" id="linkAdvertise" target="_blank">
-      <button id="btnAdvertise">📢 Advertise</button>
-    </a>
-
-    <div class="grid" id="gridIndex"></div>
-  </div>
-
-  <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354"
-          width="300"
-          height="250"
-          loading="lazy"
-          style="border:0;display:block;margin:20px auto;">
-  </iframe>
-   
-  <script>
-  let telegram_id = "";
-  let userLang = "en";
-
-  const linguagens = {
+</body>
+<script>  
+let telegram_id = "";
+let userLang = "en";
+const linguagens = {
     pt: {
       title: "LucreMaisTask",
       navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
-      activeUser: "USUÁRIO ATIVO", yourBalance: "💰 SEU SALDO", loadingId: "Carregando ID...", noId: "❌ ID não encontrado",
-      dailyProgress: "📊 Progresso do Dia", dailyProgressDesc: "Complete suas metas para manter seu multiplicador ativo.", btnContinueTasks: "🎯 Continuar Tarefas Pendentes",
-      dailyMission: "📢 Missão do dia!", dailyMissionDesc: "🎯 Veja o anúncio abaixo e ganhe pontos.", btnDailyMission: "🔗 Realizar tarefa do dia",
-      luckyWheel: "🎡 Roleta da Sorte", luckyWheelDesc: "Teste sua sorte e transforme seus pontos em prêmios instantâneos<br>Quanto mais você gira, maiores as chances de conquistar recompensas!", btnLuckyWheel: "🎰 Ir para a Roleta",
-      vipTitle: "🎯 Seja um Usuário VIP", vipDesc: "<strong>Desbloqueie vantagens exclusivas e aumente seus lucros!</strong>",
-      vipList: `<li>💸 <b>Saque antecipado</b></li><li>📊 <b>Airdrops de Cripto</b></li><li>🌐 <b>Apps que pagam</b></li><li>🕵️ <b>Tarefas VIP</b></li><li>🚀 <b>Conteúdo premium</b></li>`,
-      btnVip: "🚀 Quero ser VIP", sponsor: "<strong>🔰 Patrocínio</strong><br>Quer sua marca aqui?", btnAdvertise: "📢 Anunciar",
-      errorLoadingAd: "❌ Anúncio ainda carregando...", invalidId: "ID inválido", connectionError: "Erro na tarefa diária"
+      activeUser: "NÍVEL ATUAL",
+      dailyProgress: "⚔️ Daily Quest", 
+      btnContinueTasks: "🚀 Continuar Aventura",
+      luckyWheel: "🎡 Templo da Sorte", 
+      luckyWheelDesc: "Gire a roleta e teste seu destino. Oportunidades não esperam!", 
+      btnLuckyWheel: "🎰 Girar Agora",
+      vipTitle: "💎 Guilda VIP", 
+      vipDesc: "Torne-se um <strong>Lendário</strong> e proteja seu progresso diário.",
+      vipList: `<li>🛡️ <b>XP Imune à Degradação</b></li><li>💸 <b>Saques Prioritários</b></li><li>🚀 <b>Missões de Elite</b></li>`,
+      btnVip: "🚀 Desbloquear Status VIP", 
+      sponsor: "<strong>🔰 Área de Suporte</strong>", 
+      btnAdvertise: "📢 Anunciar aqui",
+      noId: "❌ ID não encontrado"
     },
     en: {
       title: "CashTaskBot",
       navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
-      activeUser: "ACTIVE USER", yourBalance: "💰 YOUR BALANCE", loadingId: "Loading ID...", noId: "❌ ID not found",
-      dailyProgress: "📊 Daily Progress", dailyProgressDesc: "Complete your goals to keep your multiplier active.", btnContinueTasks: "🎯 Continue Pending Tasks",
-      dailyMission: "📢 Daily Mission!", dailyMissionDesc: "🎯 Watch the ad below and earn points.", btnDailyMission: "🔗 Complete Daily Mission",
-      luckyWheel: "🎡 Lucky Wheel", luckyWheelDesc: "Test your luck and turn your points into instant prizes!<br>The more you spin, the higher your chances to win rewards!", btnLuckyWheel: "🎰 Go to Lucky Wheel",
-      vipTitle: "🎯 Become a VIP User", vipDesc: "<strong>Unlock exclusive advantages and boost your earnings!</strong>",
-      vipList: `<li>💸 <b>Priority Withdrawals</b></li><li>📊 <b>Crypto Airdrops</b></li><li>🌐 <b>High-Paying Apps</b></li><li>🕵️ <b>Exclusive VIP Tasks</b></li><li>🚀 <b>Premium Content</b></li>`,
-      btnVip: "🚀 Upgrade to VIP", sponsor: "<strong>🔰 Sponsorship</strong><br>Want your brand here?", btnAdvertise: "📢 Advertise",
-      errorLoadingAd: "❌ Ad still loading...", invalidId: "Invalid ID", connectionError: "Error on daily mission"
+      activeUser: "CURRENT LEVEL",
+      dailyProgress: "⚔️ Daily Quest", 
+      btnContinueTasks: "🚀 Adventure",
+      luckyWheel: "🎡 Temple of Luck", 
+      luckyWheelDesc: "Spin the wheel and test your fate. Opportunities don't wait!", 
+      btnLuckyWheel: "🎰 Spin Now",
+      vipTitle: "💎 VIP Guild", 
+      vipDesc: "Become a <strong>Legend</strong> and protect your daily progress.",
+      vipList: `<li>🛡️ <b>XP Immune to Decay</b></li><li>💸 <b>Priority Withdrawals</b></li><li>🚀 <b>Elite Quests</b></li>`,
+      btnVip: "🚀 Unlock VIP Status", 
+      sponsor: "<strong>🔰 Support Area</strong>", 
+      btnAdvertise: "📢 Advertise here",
+      noId: "❌ ID not found"
     }
   };
 
-  // Renderiza todas as strings traduzidas na tela
   function aplicarTraducoes() {
     document.documentElement.lang = userLang;
     const t = linguagens[userLang];
 
+    // Títulos e Menu
     document.getElementById("pageTitle").innerText = t.title;
     document.querySelector("#navHome .txt-nav").innerText = t.navHome;
     document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
     document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
     document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
     document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
-    document.getElementById("txtActiveUser").innerText = t.activeUser;
-    document.getElementById("txtYourBalance").innerText = t.yourBalance;
+
+    // HUD RPG
+    document.querySelector("#txtNivel").previousElementSibling.innerText = t.activeUser;
     document.getElementById("txtDailyProgress").innerText = t.dailyProgress;
-    document.getElementById("txtDailyProgressDesc").innerText = t.dailyProgressDesc;
     document.getElementById("btnContinueTasks").innerText = t.btnContinueTasks;
-    document.getElementById("txtDailyMission").innerText = t.dailyMission;
-    document.getElementById("txtDailyMissionDesc").innerText = t.dailyMissionDesc;
-    document.getElementById("btnDailyMission").innerText = t.btnDailyMission;
+
+    // Roleta
     document.getElementById("txtLuckyWheel").innerText = t.luckyWheel;
     document.getElementById("txtLuckyWheelDesc").innerHTML = t.luckyWheelDesc;
     document.getElementById("btnLuckyWheel").innerText = t.btnLuckyWheel;
+
+    // VIP
     document.getElementById("txtVipTitle").innerText = t.vipTitle;
     document.getElementById("txtVipDesc").innerHTML = t.vipDesc;
     document.getElementById("listVip").innerHTML = t.vipList;
     document.getElementById("btnVip").innerText = t.btnVip;
+
+    // Patrocínio
     document.getElementById("txtSponsor").innerHTML = t.sponsor;
     document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
 
-    // Atualiza o texto visual do botão alternador de idioma
-    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
-
-   document.getElementById("linkVip").href = `vip.html?id=${telegram_id}&lang=${userLang}`;
-
-    // Atualiza dinamicamente as URLs de todos os links ancorados para carregar a query correta
+    // Atualiza links de navegação e idioma
     atualizarUrlsMenu();
   }
+
+
 
   // Reescreve os links para persistirem o ID e o idioma atual escolhido
   function atualizarUrlsMenu() {
@@ -393,43 +200,42 @@
     aplicarTraducoes();
   };
 
-  document.addEventListener("DOMContentLoaded", () => {
+
+document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
 
-    // Captura inicial do idioma
+    // 1. Captura inicial do idioma (PT ou EN)
     userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
 
-    // Captura do Telegram ID
-    telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "";
+    // 2. Captura do Telegram ID com prioridade (URL > WebApp > LocalStorage)
+    const initData = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
+    telegram_id = urlParams.get("id") || initData || localStorage.getItem("telegram_id") || "";
+    
     if (telegram_id) {
       telegram_id = String(telegram_id);
       localStorage.setItem("telegram_id", telegram_id);
     }
 
-    // Aplica os textos dinâmicos na tela
-    aplicarTraducoes();
-
-    // Gerencia exibição do ID
-    const statusBox = document.getElementById("statusUsuario");
-    if (statusBox) {
-      statusBox.textContent = telegram_id ? `👤 ID: ${telegram_id}` : linguagens[userLang].noId;
+    // 3. Inicialização da Interface
+    aplicarTraducoes(); // Atualiza os textos baseado no idioma
+    
+    // 4. Carregamento de Dados Dinâmicos
+    if (telegram_id) {
+      carregarDadosRPG(); // Busca Nível, XP e Status no seu backend
+      carregarLucremais(); // Busca os anúncios do grid
+    } else {
+      // Se não houver ID, você pode exibir uma mensagem de erro ou redirecionar
+      console.warn("Usuário não identificado.");
     }
-
-    carregarLucremais();
   });
 
-  // Funções globais de navegação mantendo o estado atualizado
+    // Funções globais de navegação mantendo o estado atualizado
   window.irParaTarefas = function() {
     if (!telegram_id) return;
     window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}`;
   };
 
-  window.irParaPontuacao = function() {
-    if (!telegram_id) return;
-    window.location.href = `pontuacao.html?id=${telegram_id}&lang=${userLang}`;
-  };
-
-  window.abrirRoleta = function () {
+    window.abrirRoleta = function () {
     if (!telegram_id) {
       alert(linguagens[userLang].invalidId);
       return;
@@ -437,27 +243,61 @@
     window.location.href = `roleta.html?id=${telegram_id}&lang=${userLang}`;
   };
 
-  window.shareReward = async function () {
-    const t = linguagens[userLang];
-    if (!telegram_id) { alert(t.invalidId); return; }
-    if (typeof show_9579151 !== "function") { alert(t.errorLoadingAd); return; }
+async function carregarDadosRPG() {
+    if (!telegram_id) return;
 
     try {
-      await show_9579151();
-      const res = await fetch("/api/concluir-diaria", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ telegram_id })
-      });
+      // Faz a requisição ao seu servidor
+      const res = await fetch(`/api/status-usuario?id=${telegram_id}`);
+      
+      if (!res.ok) throw new Error("Erro ao buscar dados do servidor");
+      
       const data = await res.json();
-      alert(data.mensagem || data.erro || "Concluído");
-    } catch (err) {
-      console.error(err);
-      alert(t.connectionError);
-    }
-  };
+      
+      // 1. Atualiza Nível e Título
+      const elNivel = document.getElementById("txtNivel");
+      if (elNivel) {
+        elNivel.innerText = `Nível ${data.nivel} - ${data.titulo}`;
+      }
+      
+      // 2. Atualiza Barra de XP (Cálculo de porcentagem)
+      const elBarXp = document.getElementById("barXp");
+      const elXpProgresso = document.getElementById("txtXpProgresso");
+      
+      if (elBarXp && elXpProgresso) {
+        const pct = Math.min((data.xp / data.xp_proximo) * 100, 100);
+        elBarXp.style.width = `${pct}%`;
+        elXpProgresso.innerText = `${data.xp} / ${data.xp_proximo}`;
+      }
 
-  async function carregarLucremais() {
+      // 3. Atualiza Checklist visual (Ícones de check)
+      const status = {
+        'item-externa': data.meta_externa,
+        'item-roleta': data.meta_roleta,
+        'item-tarefa': data.meta_tarefa
+      };
+
+      for (const [id, completo] of Object.entries(status)) {
+        const el = document.getElementById(id);
+        if (el) {
+          // Mantém o texto, mas substitui o emoji de status
+          const textoBase = el.innerText.substring(2); 
+          el.innerHTML = completo ? `✅ ${textoBase}` : `⚪ ${textoBase}`;
+        }
+      }
+
+      // 4. Lógica de aviso de degradação (Se não for VIP, mostra o aviso)
+      const elAviso = document.getElementById("txtDegradacaoAviso");
+      if (elAviso) {
+        elAviso.style.display = data.is_vip ? 'none' : 'block';
+      }
+
+    } catch (err) {
+      console.error("Erro ao carregar dados do RPG:", err);
+    }
+  }
+  
+    async function carregarLucremais() {
     try {
       const posicao = encodeURIComponent("index");
       const res = await fetch(`/api/anuncios?posicao=${posicao}`);
@@ -497,3 +337,5 @@
   </script>
 </body> 
 </html>
+
+  
