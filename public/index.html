@@ -101,7 +101,12 @@
     </a>
     <div class="grid" id="gridIndex" style="margin-top: 15px;"></div>
   </div>
-
+  <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354"
+          width="300"
+          height="250"
+          loading="lazy"
+          style="border:0;display:block;margin:20px auto;">
+  </iframe>
   <nav class="bottom-nav">
     <a href="index.html" class="active" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
     <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
@@ -194,9 +199,14 @@ const linguagens = {
   document.getElementById("txtSponsor").innerHTML = t.sponsor;
   document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
 
-  atualizarUrlsMenu();
-}
+// Atualiza o texto visual do botão alternador de idioma
+    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
 
+   document.getElementById("linkVip").href = `vip.html?id=${telegram_id}&lang=${userLang}`;
+
+    // Atualiza dinamicamente as URLs de todos os links ancorados para carregar a query correta
+    atualizarUrlsMenu();
+  }
 
 
   // Reescreve os links para persistirem o ID e o idioma atual escolhido
