@@ -8,7 +8,8 @@ const rateLimitLib = require("express-rate-limit"); // 🔥 renomeado para evita
 const APP_DOMAIN = process.env.APP_DOMAIN || "https://task-test-nrdn.onrender.com";
 const pool = require("./db");
 const TelegramBot = require("node-telegram-bot-api");
-
+const FAUCETPAY_API_KEY = "651358d8dd7a03537c613db2c33bb8c79ac2961bb824f6985eab53b3a92a8a0d"; 
+console.log("🚀 Bot rodando com chave de TESTE");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
