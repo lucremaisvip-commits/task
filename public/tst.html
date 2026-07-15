@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lab Monetag - Telegram Ready</title>
+  
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src='//libtl.com/sdk.js' data-zone='9579151' data-sdk='show_9579151'></script>
+  
+  <style>
+    button { padding: 15px; width: 100%; margin-bottom: 10px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; }
+    .btn-reward { background: #2a8f43; color: white; }
+    .btn-pop { background: #007bff; color: white; }
+    .status { padding: 10px; border: 1px solid #ddd; margin: 10px 0; font-family: monospace; font-size: 12px; }
+  </style>
+</head>
+<body style="max-width: 500px; margin: auto; padding: 20px;">
+
+  <h1>🧪 Lab Monetag</h1>
+  <div id="status" class="status">Status: Iniciando...</div>
+
+  <button class="btn-reward" onclick="testarAd('rewarded')">▶️ Rewarded Interstitial</button>
+  <button class="btn-pop" onclick="testarAd('pop')">▶️ Rewarded Popup</button>
+
+  <script>
+    const statusDiv = document.getElementById('status');
+    
+    // Inicializa o Telegram WebApp
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    
+    // Pega o ID do usuário real do Telegram
+    const userId = tg.initDataUnsafe?.user?.id || "anonimo";
+    statusDiv.innerText = `Status: Logado como ${userId}`;
+
+    async function testarAd(tipo) {
+      statusDiv.innerText = `Status: Carregando ${tipo}...`;
+      
+      try {
+        if (tipo === 'rewarded') {
+          // Passamos o ID do usuário aqui!
+          await show_9579151({ ymid: userId });
+          statusDiv.innerText = "Sucesso: Anúncio visto!";
+          alert('Recompensa registrada para ID: ' + userId);
+          
+        } else if (tipo === 'pop') {
+          // Passamos o ID do usuário aqui também!
+          await show_9579151({ type: 'pop', ymid: userId });
+          statusDiv.innerText = "Sucesso: Popup aberto!";
+        }
+      } catch (e) {
+        statusDiv.innerText = `Erro: ${e.message || "Anúncio indisponível"}`;
+      }
+    }
+  </script>
+</body>
+</html>
