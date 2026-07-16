@@ -1,149 +1,89 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
   <title id="pageTitle">🎰 Lucky Wheel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+  
+  <!-- SDK MONETAG -->
+  <script src='//libtl.com/sdk.js' data-zone='9579151' data-sdk='show_9579151' async></script>
+  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 0 20px 90px 20px;
-      text-align: center;
-    }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 100px; }
 
-    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: #111;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-      z-index: 9999;
-    }
+    /* MENU INFERIOR FIXO */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
+    .bottom-nav a { color: #aaa; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
+    .bottom-nav a.active { color: #00ff88; }
+    .bottom-nav a span { font-size: 18px; }
 
-    .bottom-nav a {
-      color: #aaa;
-      text-decoration: none;
-      font-size: 11px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      width: 20%;
-    }
+    /* CARDS ESTILO DASHBOARD */
+    .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    
+    /* ROLETA */
+    .roleta-container { position: relative; width: 280px; height: 280px; margin: 30px auto; }
+    #ponteiro { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #f59e0b; }
+    .roleta { width: 100%; height: 100%; border-radius: 50%; border: 6px solid #334155; box-shadow: 0 0 20px rgba(0,0,0,0.5); transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); }
 
-    .bottom-nav a.active, .bottom-nav a:hover {
-      color: #00ff88;
-    }
+    /* BOTÕES */
+    button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; font-size: 15px; }
+    #btnComprarTickets { background: #2a8f43; }
+    #botaoGirar { background: #f59e0b; color: #000; }
+    #botaoGirar:disabled { background: #64748b; cursor: not-allowed; }
 
-    .bottom-nav a span {
-      font-size: 18px;
-    }
-
-    .descricao {
-      margin: 10px 20px;
-      font-size: 14px;
-      color: #333;
-      line-height: 1.4;
-    }
-
-    .card {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      margin: 20px 0;
-      text-align: left;
-    }
-
-    .roleta-container {
-      position: relative;
-      width: 300px;
-      height: 300px;
-      margin: 40px auto 20px auto;
-    }
-
-    #ponteiro {
-      position: absolute;
-      top: -40px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
-      width: 0;
-      height: 0;
-      border-left: 15px solid transparent;
-      border-right: 15px solid transparent;
-      border-top: 30px solid #ff3333;
-    }
-
-    .roleta {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      border: 5px solid #333;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-      background: conic-gradient(
-        #ff5733 0deg 30deg, #33ff57 30deg 60deg,
-        #3357ff 60deg 90deg, #f3ff33 90deg 120deg,
-        #ff33f3 120deg 150deg, #33fff3 150deg 180deg,
-        #ff8333 180deg 210deg, #8333ff 210deg 240deg,
-        #33ff83 240deg 270deg, #ff3383 270deg 300deg,
-        #33b5ff 300deg 330deg, #b5ff33 330deg 360deg
-      );
-      transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
-    }
-
-    #botaoGirar {
-      padding: 12px 24px;
-      font-size: 18px;
-      background-color: #3498db;
-      color: white;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      margin-top: 10px;
-      font-weight: bold;
-      width: 80%;
-      max-width: 280px;
-    }
-
-    #resultado {
-      margin-top: 15px;
-      font-weight: bold;
-      font-size: 16px;
-    }
-
-    .grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .banner {
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .banner img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
+    /* TEXTOS */
+    #resultado { text-align: center; font-weight: bold; font-size: 18px; margin: 15px 0; color: #00ff88; }
+    .descricao { font-size: 14px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px; text-align: center; }
   </style>
 </head>
 <body>
 
+  <h1 id="mainTitle" style="text-align: center; margin-top: 20px;">🎰 Lucky Wheel</h1>
+  
+  <p class="descricao" id="mainDescription">
+    🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>
+    Cada giro consome primariamente <strong>1 Ticket</strong>. Se não tiver nenhum, um anúncio será exibido para liberar o giro.
+  </p>
+
+  <!-- Painel de Status -->
+  <div class="card">
+    <p style="margin: 5px 0;">🎡 Giros hoje: <span id="girosHoje">0 / 5</span></p>
+    <p style="margin: 5px 0;">🎟️ Tickets Disponíveis: <span id="ticketsDisponiveis" style="color: #00ff88; font-weight: bold;">0</span></p>
+    <p style="margin: 5px 0;">⭐ Saldo: <span id="pontos">...</span></p>
+  </div>
+
+  <!-- Loja de Tickets -->
+  <div class="card" id="cardLoja">
+    <h3 style="margin-top: 0;">📦 Loja de Tickets</h3>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Compre 5 tickets com desconto.</p>
+    <button id="btnComprarTickets" onclick="comprarTickets()">Comprar 5 Tickets</button>
+  </div>
+
+  <!-- Roleta -->
+  <div class="roleta-container">
+    <div id="ponteiro"></div>
+    <div class="roleta" id="roleta"></div>
+  </div>
+
+  <button id="botaoGirar">🎯 Spin Wheel</button>
+  <div id="resultado"></div>
+
+  <!-- Ajuda -->
+  <button id="btnAjuda" style="background: #334155; margin-bottom: 20px;">❓ Dúvidas sobre Roleta</button>
+
+  <!-- Histórico -->
+  <div class="card" id="historico">
+    <h3 id="titleHistory" style="margin-top: 0; color: #94a3b8;">📜 Histórico de Giros</h3>
+    <ul id="listaGiros" style="padding-left: 20px; font-size: 14px; color: #cbd5e1;">
+      <li id="loadingHistory">Carregando histórico...</li>
+    </ul>
+  </div>
+
+  <!-- Grid de Anúncios -->
+  <div class="grid" id="gridRoleta"></div>
+
+  <!-- Menu Inferior -->
   <nav class="bottom-nav">
     <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
     <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
@@ -152,153 +92,152 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
-  <h1 id="mainTitle">🎰 Lucky Wheel</h1>
-  
-  <p class="descricao" id="mainDescription">
-    🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>
-    Cada giro consome primariamente <strong>1 Ticket da carteira</strong>. Se não tiver nenhum, custará <strong>10 pontos</strong> do seu saldo.<br>
-    O limite de uso geral é de até <strong>5 vezes por dia</strong>.
-  </p>
+ <script> 
+// --- PARTE 1: Configurações, Traduções e UI ---
 
-  <div class="card">
-    <p style="margin: 5px 0;"><span id="txtSpinsToday">🎡 Giros hoje:</span> <span id="girosHoje">0 / 5</span></p>
-    <p style="margin: 5px 0;"><span id="txtTickets">🎟️ Tickets Disponíveis:</span> <span id="ticketsDisponiveis" style="font-weight: bold; color: #2a8f43;">0</span></p>
-    <p style="margin: 5px 0;"><span id="txtPoints">⭐ Saldo de Pontos:</span> <span id="pontos">...</span></p>
-  </div>
-
-  <div class="roleta-container">
-    <div id="ponteiro"></div>
-    <div class="roleta" id="roleta"></div>
-  </div>
-
-  <button id="botaoGirar">🎯 Spin Wheel</button>
-
-  <div id="resultado"></div>
-
-
-<div style="margin-top: 15px;">
-  <button id="btnAjuda" 
-          onclick="window.Telegram.WebApp.openLink(this.dataset.url)"
-          style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%;">
-    ❓ Dúvidas sobre Roleta
-  </button>
-</div>
-
-  <div class="card" id="historico" style="display: block; width: 100%; box-sizing: border-box;">
-    <h3 id="titleHistory" style="margin-top: 0; color: #2c3e50;">📜 Histórico de Giros</h3>
-    <ul id="listaGiros" style="padding-left: 20px; margin-bottom: 0;">
-      <li id="loadingHistory">Carregando histórico...</li>
-    </ul>
-  </div>
-
-  <div class="grid" id="gridRoleta"></div>
-
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script>
 let telegram_id = "";
 let userLang = "en";
 let rotacaoAtual = 0;
+let usuarioVip = false; 
 
+// Tradutor dinâmico para os prêmios numéricos
 const tradutorPremios = {
-  "2 Pontos": "2 Points",
-  "5 Pontos": "5 Points",
-  "10 Pontos": "10 Points",
-  "15 Pontos": "15 Points",
-  "20 Pontos": "20 Points",
-  "30 Pontos": "30 Points",
-  "Tente Novamente": "Try Again"
+  pt: {
+    pontos: (valor) => `${valor.toFixed(2).replace('.', ',')} Pontos`,
+    nada: "Tente Novamente"
+  },
+  en: {
+    pontos: (valor) => `${valor.toFixed(2)} Points`,
+    nada: "Try Again"
+  }
 };
 
 const linguagens = {
   pt: {
     title: "🎰 Roleta da Sorte",
     mainTitle: "🎰 Roleta da Sorte",
-    navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
-    description: `🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>Cada giro consome primariamente <strong>1 Ticket da carteira</strong>. Se não tiver nenhum, custará <strong>10 pontos</strong> do seu saldo.<br>O limite de uso geral é de até <strong>5 vezes por dia</strong>.`,
-    spinsToday: "🎡 Giros hoje:",
+    description: `🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>Cada giro consome primariamente <strong>1 Ticket</strong>. Se não tiver nenhum, um anúncio será exibido para liberar o giro.`,
+    girosHoje: "🎡 Giros hoje:",
     ticketsText: "🎟️ Tickets Disponíveis:",
-    pointsText: "⭐ Saldo de Pontos:",
+    pointsText: "⭐ Saldo:",
+    lojaTitle: "📦 Loja de Tickets",
+    lojaDesc: "Compre 5 tickets com desconto.",
+    btnComprar: "Comprar 5 Tickets",
     btnSpin: "🎯 Girar Roleta",
-    linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#roleta",
     btnHelp: "❓ Dúvidas sobre Roleta",
     historyTitle: "📜 Histórico de Giros",
-    historyLoading: "Carregando histórico...",
-    historyEmpty: "Nenhum giro realizado.",
-    spinning: "🎰 Girando...",
-    invalidId: "ID inválido",
-    wheelError: "❌ Erro na roleta"
+    loadingHistory: "Carregando histórico...",
+    navHome: "Home", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque"
   },
   en: {
     title: "🎰 Lucky Wheel",
     mainTitle: "🎰 Lucky Wheel",
-    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
-    description: `🎡 Test your luck and turn your points into instant prizes!<br>Each spin primarily consumes <strong>1 Ticket from your wallet</strong>. If you don't have any, it will cost <strong>10 points</strong> from your balance.<br>The general usage limit is up to <strong>5 times a day</strong>.`,
-    spinsToday: "🎡 Spins today:",
-    ticketsText: "🎟️ Available Tickets:",
-    pointsText: "⭐ Points Balance:",
+    description: `🎡 Test your luck and turn your points into instant prizes!<br>Each spin primarily consumes <strong>1 Ticket</strong>. If you don't have any, an ad will be shown to unlock the spin.`,
+    girosHoje: "🎡 Spins today:",
+    ticketsText: "🎟️ Tickets Available:",
+    pointsText: "⭐ Balance:",
+    lojaTitle: "📦 Ticket Shop",
+    lojaDesc: "Buy 5 tickets at a discount.",
+    btnComprar: "Buy 5 Tickets",
     btnSpin: "🎯 Spin Wheel",
-    linkAjuda: "https://lucremaistask.netlify.app/help.html#roleta",
     btnHelp: "❓ Wheel Questions",
     historyTitle: "📜 Spin History",
-    historyLoading: "Loading history...",
-    historyEmpty: "No spins performed yet.",
-    spinning: "🎰 Spinning...",
-    invalidId: "Invalid ID",
-    wheelError: "❌ Wheel error"
+    loadingHistory: "Loading history...",
+    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw"
   }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
-  document.documentElement.lang = userLang;
+function aplicarTraducoes() {
   const t = linguagens[userLang];
-
   document.getElementById("pageTitle").innerText = t.title;
   document.getElementById("mainTitle").innerText = t.mainTitle;
   document.getElementById("mainDescription").innerHTML = t.description;
-  document.getElementById("txtSpinsToday").innerText = t.spinsToday;
-  document.getElementById("txtTickets").innerText = t.ticketsText;
-  document.getElementById("txtPoints").innerText = t.pointsText;
+
+  document.getElementById("girosHoje").previousSibling.textContent = t.girosHoje + " ";
+  document.getElementById("ticketsDisponiveis").previousSibling.textContent = t.ticketsText + " ";
+  document.getElementById("pontos").previousSibling.textContent = t.pointsText + " ";
+
+  document.querySelector("#cardLoja h3").innerText = t.lojaTitle;
+  document.querySelector("#cardLoja p").innerText = t.lojaDesc;
+  document.getElementById("btnComprarTickets").innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
   document.getElementById("botaoGirar").innerText = t.btnSpin;
   document.getElementById("btnAjuda").innerText = t.btnHelp;
-  document.getElementById("btnAjuda").dataset.url = t.linkAjuda;
+
   document.getElementById("titleHistory").innerText = t.historyTitle;
-  document.getElementById("loadingHistory").innerText = t.historyLoading;
+  document.getElementById("loadingHistory").innerText = t.loadingHistory;
 
   document.querySelector("#navHome .txt-nav").innerText = t.navHome;
   document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
   document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
   document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
   document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+}
+// --- PARTE 2: Inicialização e Carregamento de Dados ---
 
-  telegram_id = String(
-    urlParams.get("id") ||
-    window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
-    localStorage.getItem("telegram_id") ||
-    ""
-  );
+document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // 1. Configura idioma e ID
+    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+    document.documentElement.lang = userLang;
+    
+    telegram_id = String(
+        urlParams.get("id") || 
+        window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
+        localStorage.getItem("telegram_id") || 
+        ""
+    );
 
-  if (telegram_id) {
-    localStorage.setItem("telegram_id", telegram_id);
-  }
-
-  document.querySelectorAll(".bottom-nav a").forEach(link => {
-    let currentHref = link.getAttribute("href");
-    if (currentHref) {
-      let baseHref = currentHref.split("?")[0];
-      link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+    if (telegram_id) {
+        localStorage.setItem("telegram_id", telegram_id);
     }
-  });
 
-  carregarDadosUsuario();
-  carregarBannersRoleta();
+    // 2. Ajusta links do menu inferior
+    document.querySelectorAll(".bottom-nav a").forEach(link => {
+        let baseHref = link.getAttribute("href").split("?")[0];
+        link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+    });
+
+    // 3. Aplica textos e carrega dados
+    aplicarTraducoes();
+    if (telegram_id) {
+        carregarDadosUsuario();
+        carregarBannersRoleta();
+    }
 });
+
+async function carregarDadosUsuario() {
+    if (!telegram_id) return;
+
+    try {
+        // Busca status do usuário e VIP
+        const userRes = await fetch(`/api/usuarios/${telegram_id}`);
+        const response = await userRes.json();
+
+        if (response.success) {
+            usuarioVip = response.data.is_vip || false; // Atualiza status VIP
+            document.getElementById("pontos").textContent = response.data.pontos ?? 0;
+            aplicarTraducoes(); // Atualiza texto do botão de compra baseado no VIP
+        }
+
+        // Busca giros e tickets
+        const hojeRes = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
+        const hoje = await hojeRes.json();
+
+        document.getElementById("girosHoje").textContent = `${hoje.giros ?? 0} / 5`;
+        document.getElementById("ticketsDisponiveis").textContent = hoje.tickets ?? 0;
+
+        await carregarHistorico();
+    } catch (err) {
+        console.error("Erro ao carregar dados do usuário:", err);
+    }
+}
+
+// --- PARTE 3: Lógica de Negócio, Roleta e Monetag ---
 
 const roleta = document.getElementById("roleta");
 const botaoGirar = document.getElementById("botaoGirar");
 const resultado = document.getElementById("resultado");
-
 const fatiasPremios = [
   "2 Pontos", "5 Pontos", "10 Pontos", "15 Pontos",
   "20 Pontos", "30 Pontos", "Tente Novamente",
@@ -307,75 +246,38 @@ const fatiasPremios = [
 ];
 const anguloPorFatia = 360 / 12;
 
-// 👤 CARREGAR DADOS DO USUÁRIO
-async function carregarDadosUsuario() {
-  if (!telegram_id) return;
+async function comprarTickets() {
+    const btn = document.getElementById("btnComprarTickets");
+    const t = linguagens[userLang];
+    btn.disabled = true;
+    btn.innerText = userLang === 'pt' ? "Processando..." : "Processing...";
 
-  try {
-    const userRes = await fetch(`/api/usuarios/${telegram_id}`);
-    const response = await userRes.json();
+    try {
+        const response = await fetch("/api/roleta/comprar-tickets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ telegram_id })
+        });
+        const data = await response.json();
 
-    if (!response.success) {
-      console.error("Erro usuário:", response);
-      return;
+        if (data.success) {
+            await carregarDadosUsuario();
+            alert(userLang === 'pt' ? "Compra realizada!" : "Purchase successful!");
+        } else {
+            alert(data.erro || "Erro na compra.");
+        }
+    } catch (err) {
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+        aplicarTraducoes(); // Restaura texto
     }
-
-    const user = response.data;
-    
-    // Atualizado para ler os tickets contados dinamicamente na nova rota do back
-    const hojeRes = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
-    const hoje = await hojeRes.json();
-
-    document.getElementById("pontos").textContent = user.pontos ?? 0;
-    document.getElementById("girosHoje").textContent = `${hoje.giros ?? 0} / 5`;
-    document.getElementById("ticketsDisponiveis").textContent = hoje.tickets ?? 0;
-
-    await carregarHistorico();
-  } catch (err) {
-    console.error("Erro ao carregar dados:", err);
-  }
 }
 
-// 📜 HISTÓRICO
-async function carregarHistorico() {
+async function executarGiro() {
   const t = linguagens[userLang];
-  try {
-    const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
-    const historico = await res.json();
-
-    const lista = document.getElementById("listaGiros");
-    lista.innerHTML = "";
-
-    if (!historico || !historico.length) {
-      lista.innerHTML = `<li>${t.historyEmpty}</li>`;
-      return;
-    }
-
-    historico.forEach(giro => {
-      const item = document.createElement("li");
-      const hora = new Date(giro.created_at).toLocaleTimeString(userLang === "pt" ? "pt-BR" : "en-US");
-      
-      const premioExibido = userLang === "pt" ? giro.premio : (tradutorPremios[giro.premio] || giro.premio);
-      const tagGratis = giro.gratis ? " (🎟️ Ticket)" : "";
-
-      item.textContent = `${premioExibido}${tagGratis} - ${hora}`;
-      lista.appendChild(item);
-    });
-  } catch (err) {
-    console.error("Erro histórico:", err);
-  }
-}
-
-// 🎰 SPIN EVENT (Sincronizado com a resposta estruturada do backend)
-botaoGirar.addEventListener("click", async () => {
-  const t = linguagens[userLang];
-  if (!telegram_id) {
-    alert(t.invalidId);
-    return;
-  }
-
   botaoGirar.disabled = true;
-  resultado.textContent = t.spinning;
+  resultado.textContent = userLang === 'pt' ? "Girando..." : "Spinning...";
 
   try {
     const res = await fetch("/api/roleta/girar", {
@@ -383,38 +285,62 @@ botaoGirar.addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ telegram_id })
     });
-
     const dados = await res.json();
 
-    // Caso o backend lance erro de saldo/limites
-    if (!dados.success || dados.erro) {
-      resultado.textContent = `❌ ${dados.erro || dados.mensagem || 'Erro'}`;
+    if (!dados.success) {
+      resultado.textContent = `❌ ${dados.erro || 'Erro'}`;
       botaoGirar.disabled = false;
       return;
     }
 
     let indice = fatiasPremios.indexOf(dados.premio);
     if (indice === -1) indice = 0;
-
-    const voltas = 5 * 360;
-    const angulo = voltas + (indice * anguloPorFatia);
-
-    rotacaoAtual += angulo;
+    
+    rotacaoAtual += (5 * 360) + (indice * anguloPorFatia);
     roleta.style.transform = `rotate(-${rotacaoAtual}deg)`;
 
     setTimeout(async () => {
-      const premioFinal = userLang === "pt" ? dados.premio : (tradutorPremios[dados.premio] || dados.premio);
-      resultado.textContent = `🎉 ${premioFinal}`;
+      const tP = tradutorPremios[userLang];
+      resultado.textContent = `🎉 ${dados.tipo === "nada" ? tP.nada : tP.pontos(dados.valor)}`;
       botaoGirar.disabled = false;
-      await carregarDadosUsuario(); // Atualiza pontos, giros e contagem de tickets na interface
+      await carregarDadosUsuario(); 
     }, 4000);
-
   } catch (err) {
-    console.error(err);
-    resultado.textContent = t.wheelError;
+    resultado.textContent = t.wheelError || "Error";
     botaoGirar.disabled = false;
   }
+}
+
+// Evento do botão que integra o Monetag
+document.getElementById("botaoGirar").addEventListener("click", () => {
+    if (usuarioVip) {
+        executarGiro();
+    } else {
+        // Chama o Rewarded Interstitial do Monetag
+        show_9579151().then(() => {
+            executarGiro();
+        }).catch(e => {
+            console.log("Anúncio fechado ou erro:", e);
+        });
+    }
 });
+
+async function carregarHistorico() {
+  const t = linguagens[userLang];
+  try {
+    const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
+    const historico = await res.json();
+    const lista = document.getElementById("listaGiros");
+    lista.innerHTML = "";
+
+    historico.forEach(giro => {
+      const item = document.createElement("li");
+      const premioExibido = userLang === "pt" ? giro.premio : (tradutorPremios.en.pontos(giro.valor || 0));
+      item.textContent = `${premioExibido} - ${new Date(giro.created_at).toLocaleTimeString()}`;
+      lista.appendChild(item);
+    });
+  } catch (err) { console.error(err); }
+}
 
 // 📢 BANNERS
 async function carregarBannersRoleta() {
@@ -452,6 +378,7 @@ function registrarClique(anuncioId) {
     body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id: telegram_id })
   }).catch(e => console.error(e));
 }
-</script>
+  </script>
 </body>
 </html>
+
