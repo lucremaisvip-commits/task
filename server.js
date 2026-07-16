@@ -662,6 +662,79 @@ app.get("/api/roleta/historico", async (req, res) => {
   }
 });
 
+
+
+// 🎟️ COMPRAR PACOTE DE TICKETS - CORRIGIDA
+app.post("/api/roleta/comprar-tickets", async (req, res) => {
+  const { telegram_id } = req.body;
+  
+  if (!telegram_id) {
+    return res.status(400).json({ erro: "telegram_id é obrigatório." });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    
+    // 1. Busca usuário e VIP (FOR UPDATE para travar a linha e evitar double-spend)
+    const userRes = await client.query(
+      "SELECT pontos, vip FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
+      [telegram_id]
+    );
+
+    if (userRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ erro: "Usuário não encontrado." });
+    }
+
+    const { pontos, vip } = userRes.rows[0];
+
+    // 2. Regra de Preço: 0.80 para não VIP, 0.70 para VIP
+    const preco = vip ? 0.70 : 0.80;
+
+    if (parseFloat(pontos) < preco) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ erro: "Pontos insuficientes para o pacote." });
+    }
+
+    // 3. Desconta pontos
+    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [preco, telegram_id]);
+
+    // 4. Insere 5 tickets (incluindo a data_registro como exigido pela sua tabela)
+    // Otimização: Fazemos um insert único com múltiplos valores em vez de um loop de 5 inserts
+    await client.query(`
+      INSERT INTO roleta_tickets (telegram_id, usado, data_registro) 
+      VALUES 
+      ($1, false, CURRENT_DATE),
+      ($1, false, CURRENT_DATE),
+      ($1, false, CURRENT_DATE),
+      ($1, false, CURRENT_DATE),
+      ($1, false, CURRENT_DATE)
+    `, [telegram_id]);
+
+    // 5. Opcional: Registra no histórico de ganhos/gastos para auditoria
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
+      VALUES ($1, 'compra_tickets', -$2, 'Pacote de 5 Tickets', NOW())
+    `, [telegram_id, preco]);
+
+    await client.query("COMMIT");
+    res.json({ success: true, mensagem: "Pacote de 5 tickets comprado com sucesso!" });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Erro ao comprar tickets:", err);
+    res.status(500).json({ erro: "Erro interno do servidor." });
+  } finally {
+    client.release();
+  }
+});
+
+
+
+
+
 // tarefas externas
 
 app.get("/zeradsptc.php", async (req, res) => {
