@@ -22,9 +22,43 @@
     .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
     
     /* ROLETA */
-    .roleta-container { position: relative; width: 280px; height: 280px; margin: 30px auto; }
-    #ponteiro { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); z-index: 10; width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #f59e0b; }
-    .roleta { width: 100%; height: 100%; border-radius: 50%; border: 6px solid #334155; box-shadow: 0 0 20px rgba(0,0,0,0.5); transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1); }
+    .roleta-container {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      margin: 40px auto 20px auto;
+    }
+
+    #ponteiro {
+      position: absolute;
+      top: -40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      width: 0;
+      height: 0;
+      border-left: 15px solid transparent;
+      border-right: 15px solid transparent;
+      border-top: 30px solid #ff3333;
+    }
+
+    .roleta {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 5px solid #333;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      background: conic-gradient(
+        #ff5733 0deg 30deg, #33ff57 30deg 60deg,
+        #3357ff 60deg 90deg, #f3ff33 90deg 120deg,
+        #ff33f3 120deg 150deg, #33fff3 150deg 180deg,
+        #ff8333 180deg 210deg, #8333ff 210deg 240deg,
+        #33ff83 240deg 270deg, #ff3383 270deg 300deg,
+        #33b5ff 300deg 330deg, #b5ff33 330deg 360deg
+      );
+      transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+    }
+
 
     /* BOTÕES */
     button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; font-size: 15px; }
