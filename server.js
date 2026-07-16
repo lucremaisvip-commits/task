@@ -699,7 +699,10 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
     }
 
     // 3. Desconta pontos
-    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [preco, telegram_id]);
+   await client.query(
+    "UPDATE usuarios SET pontos = (pontos::NUMERIC - $1::NUMERIC) WHERE telegram_id = $2", 
+    [preco, telegram_id]
+);
 
     // 4. Insere 5 tickets (incluindo a data_registro como exigido pela sua tabela)
     // Otimização: Fazemos um insert único com múltiplos valores em vez de um loop de 5 inserts
