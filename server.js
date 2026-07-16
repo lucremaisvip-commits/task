@@ -583,22 +583,29 @@ app.post("/api/roleta/girar", async (req, res) => {
     // 💰 Custo do giro agora é 0.20
     const CUSTO_GIRO = 0.20;
 
-    if (gratis) {
+if (gratis) {
       await client.query(
         "UPDATE roleta_tickets SET usado = true, data_registro = NOW() WHERE id = $1",
         [ticketIdUsado]
       );
     } else {
+      // CORREÇÃO: Cast para NUMERIC na subtração de pontos
       if (parseFloat(user.pontos) < CUSTO_GIRO) {
         await client.query("ROLLBACK");
         return res.status(400).json({ erro: "Pontos insuficientes" });
       }
-      await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [CUSTO_GIRO, telegram_id]);
+      await client.query(
+        "UPDATE usuarios SET pontos = (pontos::NUMERIC - $1::NUMERIC) WHERE telegram_id = $2", 
+        [CUSTO_GIRO.toFixed(2), telegram_id]
+      );
     }
 
     const premio = sortearPremio();
-    if (premio.tipo === "pontos") {
-      await client.query("UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2", [premio.valor, telegram_id]);
+    if (premio.tipo === "pontos" && premio.valor > 0) {
+      await client.query(
+        "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
+        [premio.valor.toFixed(2), telegram_id]
+      );
     }
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
@@ -609,25 +616,15 @@ app.post("/api/roleta/girar", async (req, res) => {
       [telegram_id, nomePremio, premio.valor, gratis]
     );
 
-    if (premio.valor > 0) {
-      await client.query(
-        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-         VALUES ($1, 'roleta', $2, $3, $4, NOW())`,
-        [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
-      );
-    }
+    // CORREÇÃO: Histórico agora registra todos os resultados, inclusive valor 0
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+       VALUES ($1, 'roleta', $2, $3, $4, NOW())`,
+      [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
+    );
       
     await client.query("COMMIT");
     res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Erro roleta:", err.message);
-    res.status(500).json({ erro: "Erro interno" });
-  } finally {
-    client.release();
-  }
-});
 
 // 📊 GIROS E TICKETS DISPONÍVEIS HOJE
 app.get("/api/roleta/hoje", async (req, res) => {
