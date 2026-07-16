@@ -874,18 +874,18 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
 
 
 /**
- * Verifica se o usuário cumpriu a meta do dia
- * 1. Uma Tarefa Externa (zerads, cpalead ou moneyrain)
- * 2. Um Giro na Roleta (roleta)
- * 3. Uma Interação Extra (tarefa)
- * 4. Pelo menos 50 pontos no total
+ * Verifica se o usuário cumpriu a meta do dia:
+ * 1. Pelo menos 3 tarefas de origem 'zerads'
+ * 2. Pelo menos 3 tarefas de origem 'moneyrain'
+ * 3. Pelo menos 1 tarefa de origem 'tarefa' (interna)
+ * 4. Pelo menos 1.01401 pontos no total
  */
 async function verificarMetaDiaria(client, telegram_id) {
     const res = await client.query(`
         SELECT 
-            COUNT(*) FILTER (WHERE origem IN ('zerads', 'cpalead', 'moneyrain')) as externas,
-            COUNT(*) FILTER (WHERE origem = 'roleta') as roletas,
-            COUNT(*) FILTER (WHERE origem = 'tarefa') as tarefas,
+            COUNT(*) FILTER (WHERE origem = 'zerads') as total_zerads,
+            COUNT(*) FILTER (WHERE origem = 'moneyrain') as total_moneyrain,
+            COUNT(*) FILTER (WHERE origem = 'tarefa') as total_tarefas,
             SUM(pontos) as total_pontos
         FROM historico_ganhos 
         WHERE telegram_id = $1 
@@ -893,11 +893,18 @@ async function verificarMetaDiaria(client, telegram_id) {
     `, [telegram_id]);
 
     const stats = res.rows[0];
+    
+    // Converte os valores do banco para números para comparação segura
+    const zerads = parseInt(stats.total_zerads) || 0;
+    const moneyrain = parseInt(stats.total_moneyrain) || 0;
+    const tarefas = parseInt(stats.total_tarefas) || 0;
+    const pontos = parseFloat(stats.total_pontos) || 0;
+
     const metaCumprida = 
-        stats.externas >= 1 && 
-        stats.roletas >= 1 && 
-        stats.tarefas >= 1 && 
-        stats.total_pontos >= 50;
+        zerads >= 3 && 
+        moneyrain >= 3 && 
+        tarefas >= 1 && 
+        pontos >= 1.01401;
 
     if (metaCumprida) {
         await client.query(`
@@ -910,9 +917,58 @@ async function verificarMetaDiaria(client, telegram_id) {
     return metaCumprida;
 }
 
+async function verificarMissaoEntrada(client, telegram_id) {
+    try {
+        // 1. Verifica condições: Meta batida, cadastro hoje, booster não usado e nenhum saque aprovado
+        const query = `
+            SELECT u.telegram_id
+            FROM usuarios u
+            JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
+            LEFT JOIN saques s ON u.telegram_id = s.telegram_id AND s.status = 'pago'
+            WHERE u.telegram_id = $1 
+            AND u.booster_usado = FALSE
+            AND us.meta_cumprida_hoje = TRUE
+            AND u.data_registro::date = CURRENT_DATE
+            AND s.id IS NULL
+            LIMIT 1
+        `;
 
+        const res = await client.query(query, [telegram_id]);
 
+        if (res.rows.length > 0) {
+            // Inicia uma transação para garantir que os dados não fiquem inconsistentes
+            await client.query('BEGIN');
 
+            // Atualiza os pontos e marca como usado
+            await client.query(`
+                UPDATE usuarios 
+                SET pontos = 2.02802,
+                    booster_usado = TRUE 
+                WHERE telegram_id = $1
+            `, [telegram_id]);
+
+            // Registra no histórico para controle (isso ajuda a saber que o ganho veio do booster)
+            await client.query(`
+                INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
+                VALUES ($1, 'booster_entrada', 2.02802, 'Missão de Entrada', NOW())
+            `, [telegram_id]);
+
+            await client.query('COMMIT');
+
+            return { 
+                liberado: true, 
+                mensagem: "🎉 Parabéns! Missão de entrada concluída com booster. Você já pode sacar!" 
+            };
+        }
+        
+        return { liberado: false };
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Erro na Missão de Entrada:", error);
+        return { liberado: false, erro: "Erro ao processar booster." };
+    }
+}
 
 // 🔹 4. Rotas de Usuário
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
