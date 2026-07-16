@@ -129,7 +129,24 @@
     
     // Salva no localStorage para uso em outras páginas
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
+function exibirAvisoServidor(dados) {
+    const modal = document.getElementById('modalAviso');
+    const titulo = document.getElementById('modalTitulo');
+    const msg = document.getElementById('modalMensagem');
+    const icone = document.getElementById('modalIcon');
 
+    if (modal && titulo && msg) {
+        titulo.innerText = dados.titulo;
+        msg.innerText = dados.mensagem;
+        icone.innerText = dados.icone;
+        modal.style.display = 'flex'; // Torna o modal visível
+    }
+}
+
+function fecharModal() {
+    const modal = document.getElementById('modalAviso');
+    if (modal) modal.style.display = 'none';
+}
     async function carregarDados() {
     try {
         const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
