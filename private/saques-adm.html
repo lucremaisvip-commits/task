@@ -79,7 +79,8 @@
             <td>#${saque.id}</td>
             <td><code>${saque.telegram_id}</code></td>
             <td>${saque.chave_pix}</td>
-            <td>${Number(saque.valor_solicitado).toFixed(8)} LTC</td>>
+            // Aqui você multiplica os pontos pela taxa para exibir o valor real previsto em LTC
+<td>${(Number(saque.pontos_solicitados) * 0.000001).toFixed(8)} LTC</td>
             <td>${saque.status}</td>
             <td>
               <button class="aprovar" onclick="processarPagamento(${saque.id})">Aprovar</button>
