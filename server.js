@@ -316,7 +316,6 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     return res.status(400).json({ erro: "Dados inválidos" });
   }
 
-  // 🚫 rate limit
   if (!checkRateLimit(telegram_id)) {
     return res.status(429).json({ erro: "Muitas requisições" });
   }
@@ -327,7 +326,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   try {
     await pool.query("BEGIN");
 
-    // 🔒 sessão
+    // 🔒 Validação de sessão
     const sessaoRes = await pool.query(
       `SELECT * FROM tarefas_sessoes WHERE token = $1 FOR UPDATE`,
       [token]
@@ -337,44 +336,26 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         sessaoRes.rows[0].status !== "aberto" || sessaoRes.rows[0].ip !== ip || 
         sessaoRes.rows[0].fingerprint !== fingerprint) {
       await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Sessão inválida ou manipulada" });
+      return res.status(400).json({ erro: "Sessão inválida" });
     }
 
     const sessao = sessaoRes.rows[0];
-
-    // 🔒 tempo mínimo (15s)
     const tempo = Date.now() - new Date(sessao.criado_em).getTime();
     if (tempo < 15000) {
       await pool.query("ROLLBACK");
       return res.status(400).json({ erro: "Tempo insuficiente" });
     }
 
-    // 🔒 tarefa válida
-    const tarefa = await pool.query(
-      `SELECT id, pontos, ativa, is_vip FROM tarefas WHERE id = $1`,
-      [tarefaId]
-    );
+    const tarefa = await pool.query(`SELECT id, pontos, ativa, is_vip FROM tarefas WHERE id = $1`, [tarefaId]);
 
     if (tarefa.rows.length === 0 || !tarefa.rows[0].ativa) {
       await pool.query("ROLLBACK");
       return res.status(400).json({ erro: "Tarefa inválida" });
     }
 
-    if (tarefa.rows[0].is_vip) {
-      const userCheck = await pool.query("SELECT vip FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-      if (!userCheck.rows[0]?.vip) {
-        await pool.query("ROLLBACK");
-        return res.status(403).json({ erro: "Essa é uma tarefa VIP" });
-      }
-    }
-
-    const pontos = tarefa.rows[0].pontos;
-
-    // 🔒 Bloqueio de duplicação: Verifica se já existe ganho de 'tarefa' para este ID hoje
+    // Bloqueio de duplicação diária
     const check = await pool.query(
-      `SELECT 1 FROM historico_ganhos 
-       WHERE telegram_id = $1 AND referencia_id = $2 AND origem = 'tarefa' 
-       AND data_registro::date = CURRENT_DATE`,
+      `SELECT 1 FROM historico_ganhos WHERE telegram_id = $1 AND referencia_id = $2 AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE`,
       [telegram_id, String(tarefaId)]
     );
 
@@ -383,7 +364,9 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       return res.status(400).json({ erro: "Já concluída hoje" });
     }
 
-    // 💰 Registro na tabela unificada (Historico de Ganhos)
+    const pontos = tarefa.rows[0].pontos;
+
+    // 💰 Registro histórico e atualização de saldo + XP (15 XP por tarefa)
     await pool.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'tarefa', $2, $3, $4, NOW())`,
@@ -391,14 +374,15 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     );
 
     await pool.query(
-      `UPDATE usuarios
-       SET pontos = COALESCE(pontos, 0) + $1,
-           tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1
+      `UPDATE usuarios 
+       SET pontos = COALESCE(pontos, 0) + $1, 
+           xp = COALESCE(xp, 0) + 15, 
+           tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
        WHERE telegram_id = $2`,
       [pontos, telegram_id]
     );
     
-    // 🔹 Ativação da indicação
+    // 🔹 Lógica de Indicação (0,40 pts + 20 XP para o indicador após 3 tarefas)
     const indicacaoRes = await pool.query(
       "SELECT * FROM indicacoes WHERE id_indicado = $1 AND pontos_ativados = false",
       [telegram_id]
@@ -406,8 +390,6 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     if (indicacaoRes.rows.length > 0) {
       const indicacao = indicacaoRes.rows[0];
-
-      // 🔥 Conta o progresso na tabela unificada (historico_ganhos)
       const tarefasRes = await pool.query(
         "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
@@ -418,28 +400,28 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       if (tarefasFeitas >= 3) {
         await pool.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
 
+        // Atualiza saldo (0,40) e XP (20) do indicador
         await pool.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos,0) + 10, indicacoes = COALESCE(indicacoes,0) + 1 WHERE telegram_id = $1`,
+          `UPDATE usuarios 
+           SET pontos = COALESCE(pontos, 0) + 0.40, 
+               xp = COALESCE(xp, 0) + 20, 
+               indicacoes = COALESCE(indicacoes, 0) + 1 
+           WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
 
-        // 📝 Registro de ganho por indicação na historico_ganhos
         await pool.query(
           `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-           VALUES ($1, 'indicacao', 10, $2, $3, NOW())`,
+           VALUES ($1, 'indicacao', 0.40, $2, $3, NOW())`,
           [indicacao.id_indicador, "Bônus por indicação", String(telegram_id)]
         );
       }
     }
 
-    // 🔒 fecha sessão
-    await pool.query(
-      "UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1",
-      [token]
-    );
+    await pool.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
     await pool.query("COMMIT");
-    res.json({ mensagem: "✅ Concluído com segurança!" });
+    res.json({ mensagem: "✅ Concluído! +15 XP" });
 
   } catch (err) {
     await pool.query("ROLLBACK");
@@ -447,7 +429,6 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     res.status(500).json({ erro: "Erro interno" });
   }
 });
-
 
 
 app.post("/api/concluir-diaria", async (req, res) => {
@@ -595,12 +576,12 @@ app.post("/api/roleta/girar", async (req, res) => {
     }
 
     const premio = sortearPremio();
-    if (premio.tipo === "pontos" && premio.valor > 0) {
-      await client.query(
-        "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
-        [premio.valor.toFixed(2), telegram_id]
-      );
-    }
+    
+    // Atualiza Pontos (se houver) e XP (30 fixos) no mesmo comando
+    await client.query(
+      "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC), xp = COALESCE(xp, 0) + 30 WHERE telegram_id = $2", 
+      [premio.valor.toFixed(2), telegram_id]
+    );
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
@@ -617,7 +598,7 @@ app.post("/api/roleta/girar", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
+    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis, xp: 30 });
 
   } catch (err) {
     await client.query("ROLLBACK");
@@ -744,47 +725,48 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
 app.get("/zeradsptc.php", async (req, res) => {
   const { pwd, user, amount, clicks } = req.query;
 
-  // 1. Validação de segurança (Senha e IP)
+  // 1. Validação de segurança
   const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
   const realIP = rawIP.split(',')[0]?.trim();
   const allowedIP = "162.0.208.108";
 
   if (pwd !== "NewPassword" || realIP !== allowedIP) {
-    console.log("❌ Acesso negado. IP:", realIP);
     return res.status(403).send("acesso negado");
   }
 
   try {
     const valorZER = parseFloat(amount || 0);
+    const totalClicks = parseInt(clicks || 0); // Captura o número de cliques
     const pontos = (((valorZER * 5.0) * 0.009) * 0.4) / 0.05;
+    
+    // Calcula o XP: 6 XP por clique reportado pelo ZeroAds
+    const xpGerado = totalClicks * 6;
 
-    // 2. Iniciar Transação
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      // 3. Atualizar saldo do usuário
+      // 3. Atualizar saldo e XP do usuário
       const updateResult = await client.query(
-        "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
-        [pontos, user]
+        "UPDATE usuarios SET pontos = pontos + $1, xp = xp + $2 WHERE telegram_id = $3",
+        [pontos, xpGerado, user]
       );
 
       if (updateResult.rowCount === 0) {
         await client.query("ROLLBACK");
-        console.log("⚠️ Usuário NÃO encontrado:", user);
         return res.send("usuario nao encontrado");
       }
 
-      // 4. Registrar na tabela zerads_concluidas
-  await client.query(
-  `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa) 
-   VALUES ($1, $2, $3, $4)`,
-  [user, 'zerads', pontos, 'ZerAds PTC']
-  );
-     
+      // 4. Registrar no histórico
+      await client.query(
+        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa) 
+         VALUES ($1, $2, $3, $4)`,
+        [user, 'zerads', pontos, 'ZerAds PTC']
+      );
+      
       await client.query("COMMIT");
       
-      console.log(`✅ Pontos creditados e log registrado para o usuário ${user}`);
+      console.log(`✅ Créditos: ${pontos} pts | XP: ${xpGerado} | Usuário: ${user}`);
       res.send("ok");
 
     } catch (dbErr) {
@@ -793,7 +775,6 @@ app.get("/zeradsptc.php", async (req, res) => {
     } finally {
       client.release();
     }
-
   } catch (err) {
     console.error("🔥 Erro ZerAds:", err);
     res.status(500).send("erro");
@@ -814,7 +795,7 @@ app.get("/cpalead-postback", async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // 1. Idempotência: Checa na historico_ganhos em vez de tabela dedicada
+      // 1. Idempotência: Checa na historico_ganhos
       const check = await client.query(
         "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'cpalead'", 
         [offer_id]
@@ -833,12 +814,13 @@ app.get("/cpalead-postback", async (req, res) => {
         [telegram_id, pontos, campaign_name, offer_id]
       );
 
-      // 3. Update saldo
+      // 3. Update saldo e XP (5 fixos)
       await client.query(
         `UPDATE usuarios 
-         SET pontos = COALESCE(pontos, 0) + $1, 
-             tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
-         WHERE telegram_id = $2`,
+          SET pontos = COALESCE(pontos, 0) + $1, 
+              xp = COALESCE(xp, 0) + 5,
+              tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
+          WHERE telegram_id = $2`,
         [pontos, telegram_id]
       );
 
@@ -885,7 +867,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     let data;
     try {
         data = JSON.parse(bodyBuffer.toString('utf8'));
-        console.log("📥 MoneyRain Payload:", JSON.stringify(data, null, 2));
     } catch (e) {
         return res.status(400).send('Invalid JSON');
     }
@@ -895,22 +876,18 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         const pontos = parseFloat(data.reward_currency_amount) * percentualRepasse;
         const viewId = data.view_id;
         
-        // Determina o nome da tarefa dinamicamente
-        // Se ad_type existir, coloca em maiúsculas (ex: PTC, AUTOSURF), senão mantém padrão
         const adType = data.ad_type ? data.ad_type.toUpperCase() : "Ad";
         const nomeTarefa = `MoneyRain ${adType}`;
 
         if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
 
         try {
-            // 3. Idempotência usando a tabela central historico_ganhos
             const check = await pool.query(
                 "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'moneyrain'", 
                 [viewId.toString()]
             );
 
             if (check.rowCount > 0) {
-                console.log(`ℹ️ View ${viewId} já creditada anteriormente.`);
                 return res.status(200).send('Already credited');
             }
 
@@ -918,21 +895,23 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
             try {
                 await client.query('BEGIN');
 
-                // 4. Registro na tabela unificada historico_ganhos com nome_tarefa dinâmico
                 await client.query(
                     `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
                      VALUES ($1, 'moneyrain', $2, $3, $4, NOW())`,
                     [userId, pontos, nomeTarefa, viewId.toString()]
                 );
 
-                // 5. Update saldo
+                // 5. Update saldo E XP (5 XP para MoneyRain)
                 await client.query(
-                    `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2`,
+                    `UPDATE usuarios 
+                     SET pontos = COALESCE(pontos, 0) + $1,
+                         xp = COALESCE(xp, 0) + 5 
+                     WHERE telegram_id = $2`,
                     [pontos, userId]
                 );
  
                 await client.query('COMMIT');
-                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pontos (${nomeTarefa}, View: ${viewId})`);
+                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e 5 XP`);
                 return res.status(200).send('OK');
 
             } catch (dbErr) {
