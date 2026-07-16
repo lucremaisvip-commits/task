@@ -15,6 +15,9 @@
     .info { color: #94a3b8; font-size: 14px; line-height: 1.5; margin-bottom: 15px; }
     .saldo-box { text-align: center; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 20px; }
     .saldo-valor { font-size: 24px; font-weight: bold; color: #00ff88; }
+    #txtLTC { font-size: 12px; color: #64748b; margin-top: 10px; }
+    .saldo-LTC { font-size: 16px; font-weight: 500; color: #38bdf8; }
+    .saldo-valor, .saldo-LTC { word-break: break-all; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; margin-bottom: 10px; }
     .link-faucet { color: #3b82f6; font-size: 13px; text-decoration: none; display: block; margin-bottom: 15px; text-align: center; }
     button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; margin-top: 5px; transition: opacity 0.3s; }
@@ -41,6 +44,8 @@
     <div class="saldo-box">
       <div id="txtSaldo">Seu Saldo Disponível</div>
       <div class="saldo-valor" id="valorSaldo">Carregando...</div>
+      <div id="txtLTC">Aproximadamente equivale a</div>
+      <div class="saldo-LTC" id="valorLTC">Carregando...</div>
     </div>
     <input type="email" id="emailFaucet" placeholder="E-mail da FaucetPay" />
     <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tem FaucetPay? Clique aqui.</a>
@@ -59,74 +64,117 @@
     const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
     
     const traducoes = {
-      pt: { titulo: "💰 Solicitar Saque", regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.", saldo: "Seu Saldo Disponível", pts: "Pts", link: "Não tem FaucetPay? Clique aqui.", btnSacar: "Solicitar Saque", btnDuvidas: "❓ Dúvidas", hist: "📜 Histórico de Saques", alEmail: "Digite o e-mail da FaucetPay!", alMin: "Pontos insuficientes!", alProc: "Processando...", alSucesso: "✅ Saque solicitado com sucesso!", alErro: "❌ Erro: ", alertaDuvida: "Processamento em até 24 horas." },
-      en: { titulo: "💰 Request Withdrawal", regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.", saldo: "Your Available Balance", pts: "Pts", link: "Don't have FaucetPay? Click here.", btnSacar: "Request Withdrawal", btnDuvidas: "❓ FAQs", hist: "📜 Withdrawal History", alEmail: "Enter your FaucetPay email!", alMin: "Insufficient points!", alProc: "Processing...", alSucesso: "✅ Withdrawal requested successfully!", alErro: "❌ Error: ", alertaDuvida: "Processing within 24 hours." }
-    };
-    const t = traducoes[lang];
-    
-    // Aplicar textos
-    document.getElementById("txtTitulo").innerText = t.titulo;
-    document.getElementById("txtRegras").innerHTML = t.regras;
-    document.getElementById("txtSaldo").innerText = t.saldo;
-    document.getElementById("emailFaucet").placeholder = t.alEmail;
-    document.getElementById("txtLink").innerText = t.link;
-    document.getElementById("btnSacar").innerText = t.btnSacar;
-    document.getElementById("btnDuvidas").innerText = t.btnDuvidas;
-    document.getElementById("txtHist").innerText = t.hist;
+  pt: { 
+    titulo: "💰 Solicitar Saque", 
+    regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.", 
+    saldo: "Seu Saldo Disponível", 
+    equiv: "Aproximadamente equivale a",
+    pts: "Pts", 
+    link: "Não tem FaucetPay? Clique aqui.", 
+    btnSacar: "Solicitar Saque", 
+    btnDuvidas: "❓ Dúvidas", 
+    hist: "📜 Histórico de Saques", 
+    alEmail: "Digite o e-mail da FaucetPay!", 
+    alMin: "Pontos insuficientes!", 
+    alProc: "Processando...", 
+    alSucesso: "✅ Saque solicitado com sucesso!", 
+    alErro: "❌ Erro: ", 
+    alertaDuvida: "Processamento em até 24 horas.",
+    menu: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"] 
+  },
+  en: { 
+    titulo: "💰 Request Withdrawal", 
+    regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.", 
+    saldo: "Your Available Balance", 
+    equiv: "Approximately equivalent to",
+    pts: "Pts", 
+    link: "Don't have FaucetPay? Click here.", 
+    btnSacar: "Request Withdrawal", 
+    btnDuvidas: "❓ FAQs", 
+    hist: "📜 Withdrawal History", 
+    alEmail: "Enter your FaucetPay email!", 
+    alMin: "Insufficient points!", 
+    alProc: "Processing...", 
+    alSucesso: "✅ Withdrawal requested successfully!", 
+    alErro: "❌ Error: ", 
+    alertaDuvida: "Processing within 24 hours.",
+    menu: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"]
+  }
+};
+const t = traducoes[lang];
+    // Aplicar textos gerais
+document.getElementById("txtTitulo").innerText = t.titulo;
+document.getElementById("txtRegras").innerHTML = t.regras;
+document.getElementById("txtSaldo").innerText = t.saldo;
+document.getElementById("txtLTC").innerText = t.equiv; // <-- Novo
+document.getElementById("emailFaucet").placeholder = t.alEmail;
+document.getElementById("txtLink").innerText = t.link;
+document.getElementById("btnSacar").innerText = t.btnSacar;
+document.getElementById("btnDuvidas").innerText = t.btnDuvidas;
+document.getElementById("txtHist").innerText = t.hist;
+
+// Aplicar textos do Menu Inferior
+const menuLinks = document.querySelectorAll(".bottom-nav a span:nth-child(2)");
+t.menu.forEach((text, index) => {
+    if (menuLinks[index]) {
+        menuLinks[index].innerText = text;
+    }
+});
 
     let saldoUsuario = 0;
     if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
 
     async function carregarDados() {
-    if (!telegram_id) return;
+    if (!telegram_id) {
+    document.querySelector(".saldo-valor").innerText = "ID não encontrado";
+    return;
+}
 
     try {
         // 1. Carrega Dados do Usuário
         const resUser = await fetch(`/api/usuarios/${telegram_id}`);
         const userData = await resUser.json();
         
+        // 2. Carrega Cotações (Nova Rota)
+        const resCot = await fetch("/api/ltc-hoje");
+        const c = await resCot.json();
+
+        // Processa Saldo
         if (userData && userData.success) {
             saldoUsuario = parseFloat(userData.data.pontos) || 0;
-            const saldoEl = document.querySelector(".saldo-valor");
-            if (saldoEl) {
-                saldoEl.innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
-            }
+            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
             window.isVip = userData.data.vip === true;
+
+            // Calcula e exibe o valor em LTC usando a cotação vinda do banco
+            if (c && c.valor_ltc) {
+                const totalLtc = saldoUsuario * parseFloat(c.valor_ltc);
+                document.getElementById("valorLTC").innerText = `≈ ${totalLtc.toFixed(8)} LTC`;
+            } else {
+                document.getElementById("valorLTC").innerText = "---";
+            }
         }
 
-        // 2. Carrega Histórico de Saques
+        // 3. Carrega Histórico de Saques
         const resHist = await fetch(`/api/saques?telegram_id=${telegram_id}`);
         const historico = await resHist.json();
         const lista = document.querySelector(".historico-lista");
 
-        if (!lista) return; // Segurança caso o elemento não exista
-
-        // Verifica se a API retornou um array válido
-        if (Array.isArray(historico) && historico.length > 0) {
-            lista.innerHTML = historico.map(s => {
-                // Formatação segura da data
-                const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
-                // Formatação segura dos pontos
-                const pts = Number(s.pontos_solicitados || 0).toFixed(8);
-                // Status garantido
-                const status = s.status || "Pending";
-                
-                return `<li>${data} | ${pts} ${t.pts} | <strong>${status}</strong></li>`;
-            }).join('');
-        } else {
-            // Exibe mensagem caso o histórico esteja vazio (sem erro de código)
-            lista.innerHTML = `<li>${t.hist.replace("📜 ", "")}: No transactions yet.</li>`;
+        if (lista && Array.isArray(historico)) {
+            if (historico.length > 0) {
+                lista.innerHTML = historico.map(s => {
+                    const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
+                    const pts = Number(s.pontos_solicitados || 0).toFixed(8);
+                    return `<li>${data} | ${pts} ${t.pts} | <strong>${s.status || 'Pending'}</strong></li>`;
+                }).join('');
+            } else {
+                lista.innerHTML = `<li>No transactions yet.</li>`;
+            }
         }
 
     } catch (err) {
         console.error("Erro ao carregar dados:", err);
-        const lista = document.querySelector(".historico-lista");
-        if (lista) {
-            lista.innerHTML = `<li>Error loading history.</li>`;
-        }
     }
 }
-
     async function solicitarSaque() {
         const btn = document.getElementById("btnSacar");
         const email = document.getElementById("emailFaucet").value;
@@ -141,7 +189,36 @@
             if (data.success) { alert(t.alSucesso); carregarDados(); } else { alert(t.alErro + data.error); }
         } catch (e) { alert("Error"); } finally { btn.disabled = false; btn.innerText = t.btnSacar; }
     }
-    document.addEventListener("DOMContentLoaded", carregarDados);
+    
+/**
+ * Atualiza os links do menu inferior dinamicamente
+ * Garante que o ID e o Idioma acompanhem o usuário
+ */
+function atualizarMenu() {
+    const navLinks = document.querySelectorAll(".bottom-nav a");
+    const paginaAtual = window.location.pathname.split("/").pop(); // Ex: "saque.html"
+
+    navLinks.forEach(link => {
+        let baseHref = link.getAttribute("href").split("?")[0];
+        
+        // Mantém os parâmetros de ID e Idioma
+        link.href = `${baseHref}?id=${telegram_id}&lang=${lang}`;
+
+        // Marca a página atual como ativa (classe CSS .active)
+        if (baseHref === paginaAtual) {
+            link.classList.add("active");
+        } else {
+            link.classList.remove("active");
+        }
+    });
+}
+
+// Chame a função após o DOM carregar
+document.addEventListener("DOMContentLoaded", () => {
+    atualizarMenu();
+    carregarDados();
+});
+    
   </script>
 </body>
 </html>
