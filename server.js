@@ -1109,14 +1109,12 @@ app.post("/api/solicitar-saque", async (req, res) => {
     return res.status(400).json({ error: "O campo telegram_id é obrigatório." });
   }
 
-  const VALOR_DO_PONTO_EM_BRL = 0.05;
-  const COTACAO_DOLAR = 5.50;
-
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
+    // 1. Busca dados do usuário (incluindo VIP)
     const userResult = await client.query(
       "SELECT pontos, vip, lang FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
       [telegram_id]
@@ -1129,48 +1127,52 @@ app.post("/api/solicitar-saque", async (req, res) => {
 
     const { pontos, vip, lang } = userResult.rows[0];
     
-    if (lang === "pt" && (!chave_pix || !cpf)) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Chave PIX e CPF são obrigatórios para usuários do Brasil." });
-    }
-
-    const pontosParaSacar = Math.floor(pontos);
-    const pontosQueFicam = pontos - pontosParaSacar;
-    const pontosMinimos = vip ? 200 : 400;
-
-    if (pontosParaSacar < pontosMinimos) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: `Pontos insuficientes. Mínimo: ${pontosMinimos}` });
-    }
-
-    const saqueHoje = await client.query(`
-      SELECT 1 FROM saques
+    // 2. Regras de Limite (VIP: 5/dia, Não-VIP: 1/dia)
+    const saquesHojeResult = await client.query(`
+      SELECT COUNT(*) as total FROM saques
       WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
     `, [telegram_id]);
 
-    if (saqueHoje.rows.length > 0) {
+    const totalSaquesHoje = parseInt(saquesHojeResult.rows[0].total);
+    const limiteSaques = vip ? 5 : 1;
+
+    if (totalSaquesHoje >= limiteSaques) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: "Você já solicitou um saque hoje." });
+      return res.status(400).json({ error: `Você atingiu seu limite diário de ${limiteSaques} saque(s).` });
     }
 
+    // 3. Regras de Valor Mínimo (VIP: 1.01401, Não-VIP: 2.02802)
+    const pontosMinimos = vip ? 1.01401 : 2.02802;
+
+    if (pontos < pontosMinimos) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ error: `Pontos insuficientes. Mínimo para seu nível: ${pontosMinimos.toFixed(5)}` });
+    }
+
+    // 4. Processamento do Saque
+    // Ajustado para permitir sacar todo o saldo disponível acima do mínimo ou o total
+    const pontosParaSacar = pontos; 
+    const pontosQueFicam = 0; // O usuário saca o saldo total acumulado
+
+    const VALOR_DO_PONTO_EM_BRL = 0.05;
+    const COTACAO_DOLAR = 5.50;
     let valorCalculado = (lang === "pt") ? (pontosParaSacar * VALOR_DO_PONTO_EM_BRL) : (pontosParaSacar * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
     const valorFinalFormatado = valorCalculado.toFixed(2);
 
-    // 1. Registra no histórico de saques
+    // 5. Registra no histórico de saques
     const saqueInsert = await client.query(`
       INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
       VALUES ($1, $2, $3, $4, $5, 'pendente', NOW())
       RETURNING id
     `, [telegram_id, pontosParaSacar, valorFinalFormatado, chave_pix || null, cpf || null]);
 
-    // 2. REGISTRO NO HISTÓRICO UNIFICADO (Saída de pontos)
-    // Usamos pontos negativos para representar a saída do saldo
+    // 6. REGISTRO NO HISTÓRICO UNIFICADO
     await client.query(`
       INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
       VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
     `, [telegram_id, -Math.abs(pontosParaSacar), saqueInsert.rows[0].id.toString()]);
 
-    // 3. Atualiza usuário
+    // 7. Atualiza usuário
     await client.query(
       "UPDATE usuarios SET pontos = $1 WHERE telegram_id = $2", 
       [pontosQueFicam, telegram_id]
@@ -1182,7 +1184,6 @@ app.post("/api/solicitar-saque", async (req, res) => {
       success: true, 
       message: "Saque solicitado com sucesso.", 
       valor: valorFinalFormatado,
-      moeda: lang === "pt" ? "BRL" : "USD",
       pontos_restantes: pontosQueFicam
     });
 
@@ -1606,14 +1607,15 @@ const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 const dicionario = {
   pt: {
     escolha: "Escolha seu idioma / Choose your language:",
-    boas_vindas_novo: "🎉 Bem-vindo ao LucreMaisTask!\n\n🎁 MISSÃO DE ENTRADA: Complete sua primeira tarefa diária no App e ganhe 20 pontos bônus!",
+    boas_vindas_novo: "🎉 Bem-vindo ao LucreMaisTask!\n\n🎁 MISSÃO DE ENTRADA: Complete suas tarefas diárias com o booster de entrada e saque para sua FaucetPay ainda hoje!",
     boas_vindas_recorrente: "👋 Bem-vindo de volta!\n\n💰 Saldo atual: {saldo} pontos.\n🚀 Novas oportunidades disponíveis. Ganhe mais agora!",
     btn_app: "📲 Abrir Mini App",
     erro: "⚠️ Erro no sistema, tente novamente."
   },
   en: {
     escolha: "Choose your language / Escolha seu idioma:",
-    boas_vindas_novo: "🎉 Welcome to CashTaskBot!\n\n🎁 WELCOME MISSION: Complete your first daily task in the App and earn 20 bonus points!",
+    // Mantive uma versão em inglês que reflete a mesma lógica da sua missão de entrada
+    boas_vindas_novo: "🎉 Welcome to LucreMaisTask!\n\n🎁 WELCOME MISSION: Complete your daily tasks with the entry booster and withdraw to your FaucetPay today!",
     boas_vindas_recorrente: "👋 Welcome back!\n\n💰 Current balance: {saldo} points.\n🚀 New opportunities available. Earn more now!",
     btn_app: "📲 Open Mini App",
     erro: "⚠️ System error, please try again."
