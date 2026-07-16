@@ -1158,7 +1158,15 @@ app.get("/api/ranking", async (req, res) => {
 });
 
 
-// 🔹 6. Saques (Versão Global Integrada ao historico_ganhos)
+// 🔹 6. Saques (Versão Global Integrada ao historico_ganhos e faucetpay)
+
+app.get("/api/ltc-hoje", async (req, res) => {
+    const result = await pool.query(
+        "SELECT * FROM cotacoes ORDER BY data_registro DESC LIMIT 1"
+    );
+    res.json(result.rows[0]); 
+});
+
 app.post("/api/solicitar-saque", async (req, res) => {
   const { telegram_id, chave_pix, cpf } = req.body;
 
@@ -1935,7 +1943,39 @@ cron.schedule('5 0 * * *', async () => {
     }
 });
 
-// 🔹 14. Inicializar servidor
+
+// 🔹 14. cron para consultar preço ltc uma vez por dia 
+
+cron.schedule('0 1 * * *', async () => {
+    try {
+        // 1. Busca cotação atual (Ex: 1 LTC em BRL)
+        const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=brl,usd");
+        const data = await res.json();
+        
+        const ltcEmBrl = data.litecoin.brl;
+        const ltcEmUsd = data.litecoin.usd;
+
+        // 2. Definimos que 1 Ponto = 0.05 BRL (Sua base atual)
+        const valorPontoBrl = 0.05;
+        
+        // 3. Calculamos quanto 1 Ponto vale nas outras moedas
+        const valorPontoLtc = valorPontoBrl / ltcEmBrl;
+        const valorPontoUsd = valorPontoBrl / (ltcEmBrl / ltcEmUsd); // Ajuste cambial
+        const valorPontoZer = valorPontoBrl / 0.02; // Exemplo de conversão para ZER
+
+        // 4. Salva no banco
+        await pool.query(`
+            INSERT INTO cotacoes (valor_ltc, valor_usd, valor_zer, valor_brl, data_registro)
+            VALUES ($1, $2, $3, $4, CURRENT_DATE)
+        `, [valorPontoLtc, valorPontoUsd, valorPontoZer, valorPontoBrl]);
+        
+        console.log("Cotações de pontos atualizadas com sucesso.");
+    } catch (err) {
+        console.error("Erro no cron de cotações:", err);
+    }
+});
+
+// 🔹 15. Inicializar servidor
 app.listen(PORT, () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
