@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
   <meta charset="UTF-8" />
   <title id="pageTitle">CashTaskBot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32,19 +32,24 @@
     .xp-bar-container { background: #334155; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; }
     .xp-bar-fill { background: #3b82f6; width: 0%; height: 100%; transition: width 0.5s ease; }
 
-    /* CHECKLIST DE MISSÕES */
-    .checklist-card { background: #ffffff; color: #1e293b; padding: 20px; border-radius: 12px; border-left: 5px solid #3b82f6; margin-bottom: 20px; }
-    .checklist-item { display: flex; align-items: center; gap: 10px; font-size: 14px; margin: 8px 0; font-weight: 500; }
+    .checklist-card { background: #1e293b; padding: 20px; border-radius: 16px; border: 1px solid #334155; color: #f1f5f9; margin-bottom: 20px; }
+    h2 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
     
-    /* COMPONENTES GERAIS */
-    .lang-toggle-btn { 
-  width: auto; padding: 4px 10px; font-size: 10px; border-radius: 12px;
-}
+    .task-row { margin-bottom: 15px; }
+    .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 14px; }
+    .btn-go { background: #3b82f6; border: none; color: white; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    
+    .progress-bar { background: #0f172a; height: 10px; border-radius: 5px; overflow: hidden; }
+    .progress-fill { background: #00ff88; height: 100%; width: 0%; transition: width 0.3s; }
+
+    .streak-container { display: flex; justify-content: space-between; margin-top: 20px; padding: 10px; background: #0f172a; border-radius: 12px; }
+    .day-circle { width: 30px; height: 30px; border: 2px solid #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #64748b; }
+    .day-circle.active { border-color: #00ff88; color: #00ff88; background: #064e3b; }
+    
+    .btn-bau { width: 100%; margin-top: 15px; padding: 12px; background: #f59e0b; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+    
+    .lang-toggle-btn { width: auto; padding: 4px 10px; font-size: 10px; border-radius: 12px; }
     button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; }
-    
-    /* ADAPTADORES */
-    .banner { border: 1px solid #ddd; border-radius: 6px; overflow: hidden; background: #fff; margin-bottom: 10px; }
-    .banner img { width: 100%; height: auto; display: block; }
   </style>
 </head>
 <body>
@@ -67,47 +72,38 @@
   </div>
 
   <div class="checklist-card">
-    <h4 id="txtDailyProgress" style="margin: 0 0 10px 0; color: #1e293b;">⚔️ Daily Quest</h4>
-    <div id="quest-list">
-      <div class="checklist-item" id="item-externa">⚪ Tarefa Externa (Ads)</div>
-      <div class="checklist-item" id="item-roleta">⚪ Giro na Roleta</div>
-      <div class="checklist-item" id="item-tarefa">⚪ Tarefa Direta</div>
+    <h2>⚔️ Tarefas diárias</h2>
+    <div class="task-row">
+      <div class="task-header">
+        <span>MoneyRain (0/3)</span>
+        <button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
     </div>
-    <button onclick="irParaTarefas()" id="btnContinueTasks">🎯 Continuar Aventura</button>
-    <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
-  </div>
-
-  <div class="roleta-box" style="background: #1e293b; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #334155; margin: 20px 0;">
-    <h2 id="txtLuckyWheel" style="color: #f8fafc; margin-bottom: 10px;">🎡 Templo da Sorte</h2>
-    <p id="txtLuckyWheelDesc" style="font-size: 14px; color: #94a3b8; margin-bottom: 15px;"></p>
-    <button onclick="abrirRoleta()" id="btnLuckyWheel" style="background: #f59e0b; color: #000;">🎰 Girar Agora</button>
-  </div>
-
-  <div class="vip-box" style="background: linear-gradient(145deg, #2e1065, #1e1b4b); border: 1px solid #7c3aed; padding: 20px; border-radius: 12px; color: #f1f5f9; margin: 20px 0;">
-    <h2 id="txtVipTitle" style="color: #a78bfa; margin-top: 0;">💎 Guilda VIP</h2>
-    <p id="txtVipDesc" style="font-size: 13px;"></p>
-    <ul id="listVip" style="list-style: none; padding: 0; font-size: 13px; margin: 15px 0;"></ul>
-        <a id="linkVip" href="vip.html" style="text-decoration: none;">
-      <button id="btnVip" style="padding:10px 20px;font-weight:bold;background:#2a8f43;color:white;border:none;border-radius:6px;">
-        🚀 Desbloquear Status VIP
-      </button>
-    </a>
-  </div>
-
-  <div class="ads-box" style="background: #1e293b; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #222; margin: 20px 0;">
-    <p id="txtSponsor" style="color: #64748b; font-size: 12px;"></p>
-       <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" id="linkAdvertise" target="_blank">
-      <button id="btnAdvertise">📢 Anunciar </button>
-    </a>
-    <div class="grid" id="gridIndex" style="margin-top: 15px;"></div>
-  
-  <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354"
-          width="300"
-          height="250"
-          loading="lazy"
-          style="border:0;display:block;margin:20px auto;">
-  </iframe>
+    <div class="task-row">
+      <div class="task-header">
+        <span>ZeroAds (0/3)</span>
+        <button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
     </div>
+    <div class="task-row">
+      <div class="task-header">
+        <span>Tarefa Direta (0/1)</span>
+        <button class="btn-go" onclick="location.href='tarefas.html'">Ir</button>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
+    </div>
+
+    <p style="font-size: 13px; color: #94a3b8; margin-top: 20px;">Sequência de dias:</p>
+    <div class="streak-container" id="streakContainer">
+      </div>
+    <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()">Abrir Baú (Disponível)</button>
+  </div>
+
+  <button onclick="irParaTarefas()" id="btnContinueTasks">🎯 Continuar Aventura</button>
+  <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
+
   <nav class="bottom-nav">
     <a href="index.html" class="active" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
     <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
@@ -116,265 +112,8 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
-</body>
-<script>  
-let telegram_id = "";
-let userLang = "en";
-const linguagens = {
-    pt: {
-      title: "LucreMaisTask",
-      navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
-      activeUser: "NÍVEL ATUAL",
-      dailyProgress: "⚔️ Tarefas diárias", 
-      taskExterna: "Tarefa Externa (Ads)",
-      taskRoleta: "Giro na Roleta",
-      taskDireta: "Tarefa Direta",
-      btnContinueTasks: "🚀 Continuar Aventura",
-      luckyWheel: "🎡 Templo da Sorte", 
-      luckyWheelDesc: "Gire a roleta e teste seu destino. Oportunidades não esperam!", 
-      btnLuckyWheel: "🎰 Girar Agora",
-      vipTitle: "💎 Guilda VIP", 
-      vipDesc: "Torne-se um <strong>Lendário</strong> e proteja seu progresso diário.",
-      vipList: `<li>🛡️ <b>XP Imune à Degradação</b></li><li>💸 <b>Saques Prioritários</b></li><li>🚀 <b>Missões de Elite</b></li>`,
-      btnVip: "🚀 Desbloquear Status VIP", 
-      sponsor: "<strong>🔰 Área de Suporte</strong>", 
-      btnAdvertise: "📢 Anunciar aqui",
-      noId: "❌ ID não encontrado"
-    },
-    en: {
-      title: "CashTaskBot",
-      navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
-      activeUser: "CURRENT LEVEL",
-      dailyProgress: "⚔️ Daily Quest",
-      taskExterna: "Offerwalls",
-      taskRoleta: "Wheel Spin",
-      taskDireta: "Direct Task",
-      btnContinueTasks: "🚀 Adventure",
-      luckyWheel: "🎡 Temple of Luck", 
-      luckyWheelDesc: "Spin the wheel and test your fate. Opportunities don't wait!", 
-      btnLuckyWheel: "🎰 Spin Now",
-      vipTitle: "💎 VIP Guild", 
-      vipDesc: "Become a <strong>Legend</strong> and protect your daily progress.",
-      vipList: `<li>🛡️ <b>XP Immune to Decay</b></li><li>💸 <b>Priority Withdrawals</b></li><li>🚀 <b>Elite Quests</b></li>`,
-      btnVip: "🚀 Unlock VIP Status", 
-      sponsor: "<strong>🔰 Support Area</strong>", 
-      btnAdvertise: "📢 Advertise here",
-      noId: "❌ ID not found"
-    }
-  };
-
-  function aplicarTraducoes() {
-  document.documentElement.lang = userLang;
-  const t = linguagens[userLang];
-
-  // Títulos e Menu
-  document.getElementById("pageTitle").innerText = t.title;
-  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
-  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
-  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
-  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
-  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
-
-  // HUD RPG
-  document.querySelector("#txtNivel").previousElementSibling.innerText = t.activeUser;
-  
-  // Checklist (AQUI ESTAVA FALTANDO!)
-  document.getElementById("txtDailyProgress").innerText = t.dailyProgress;
-  document.getElementById("item-externa").innerText = t.taskExterna; // Simplificado
-  document.getElementById("item-roleta").innerText = t.taskRoleta;
-  document.getElementById("item-tarefa").innerText = t.taskDireta;
-  document.getElementById("btnContinueTasks").innerText = t.btnContinueTasks;
-
-  // Roleta
-  document.getElementById("txtLuckyWheel").innerText = t.luckyWheel;
-  document.getElementById("txtLuckyWheelDesc").innerHTML = t.luckyWheelDesc;
-  document.getElementById("btnLuckyWheel").innerText = t.btnLuckyWheel;
-
-  // VIP
-  document.getElementById("txtVipTitle").innerText = t.vipTitle;
-  document.getElementById("txtVipDesc").innerHTML = t.vipDesc;
-  document.getElementById("listVip").innerHTML = t.vipList;
-  document.getElementById("btnVip").innerText = t.btnVip;
-
-  // Patrocínio
-  document.getElementById("txtSponsor").innerHTML = t.sponsor;
-  document.getElementById("btnAdvertise").innerText = t.btnAdvertise;
-
-// Atualiza o texto visual do botão alternador de idioma
-    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
-
-   document.getElementById("linkVip").href = `vip.html?id=${telegram_id}&lang=${userLang}`;
-
-    // Atualiza dinamicamente as URLs de todos os links ancorados para carregar a query correta
-    atualizarUrlsMenu();
-  }
-
-
-  // Reescreve os links para persistirem o ID e o idioma atual escolhido
-  function atualizarUrlsMenu() {
-    if (!telegram_id) return;
-    document.querySelectorAll(".bottom-nav a, .ads-box a").forEach(link => {
-      let currentHref = link.getAttribute("href");
-      if (currentHref) {
-        // Remove parâmetros antigos para não duplicar
-        let baseHref = currentHref.split("?")[0];
-        link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
-      }
-    });
-  }
-
-  // 🔄 Executada no clique do botão físico do Dashboard
-  window.alternarIdioma = function() {
-    userLang = userLang === "pt" ? "en" : "pt";
-    aplicarTraducoes();
-  };
-
-
-document.addEventListener("DOMContentLoaded", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-
-    // 1. Captura inicial do idioma (PT ou EN)
-    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
-
-    // 2. Captura do Telegram ID com prioridade (URL > WebApp > LocalStorage)
-    const initData = window.Telegram?.WebApp?.initDataUnsafe?.user?.id;
-    telegram_id = urlParams.get("id") || initData || localStorage.getItem("telegram_id") || "";
-    
-    if (telegram_id) {
-      telegram_id = String(telegram_id);
-      localStorage.setItem("telegram_id", telegram_id);
-    }
-
-    // 3. Inicialização da Interface
-    aplicarTraducoes(); // Atualiza os textos baseado no idioma
-    
-    // 4. Carregamento de Dados Dinâmicos
-    if (telegram_id) {
-      carregarDadosRPG(); // Busca Nível, XP e Status no seu backend
-      verificarMetaDiaria();// atualiza meta diária
-      carregarLucremais(); // Busca os anúncios do grid
-    } else {
-      // Se não houver ID, você pode exibir uma mensagem de erro ou redirecionar
-      console.warn("Usuário não identificado.");
-    }
-  });
-
-    // Funções globais de navegação mantendo o estado atualizado
-  window.irParaTarefas = function() {
-    if (!telegram_id) return;
-    window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}`;
-  };
-
-    window.abrirRoleta = function () {
-    if (!telegram_id) {
-      alert(linguagens[userLang].invalidId);
-      return;
-    }
-    window.location.href = `roleta.html?id=${telegram_id}&lang=${userLang}`;
-  };
-
-async function carregarDadosRPG() {
-    if (!telegram_id) return;
-
-    try {
-      // Faz a requisição ao seu servidor
-      const res = await fetch(`/api/status-usuario?id=${telegram_id}`);
-      
-      if (!res.ok) throw new Error("Erro ao buscar dados do servidor");
-      
-      const data = await res.json();
-      
-      // 1. Atualiza Nível e Título
-      const elNivel = document.getElementById("txtNivel");
-      if (elNivel) {
-        elNivel.innerText = `Nível ${data.nivel} - ${data.titulo}`;
-      }
-      
-      // 2. Atualiza Barra de XP (Cálculo de porcentagem)
-      const elBarXp = document.getElementById("barXp");
-      const elXpProgresso = document.getElementById("txtXpProgresso");
-      
-      if (elBarXp && elXpProgresso) {
-        const pct = Math.min((data.xp / data.xp_proximo) * 100, 100);
-        elBarXp.style.width = `${pct}%`;
-        elXpProgresso.innerText = `${data.xp} / ${data.xp_proximo}`;
-      }
-
-      // 3. Atualiza Checklist visual (Ícones de check)
-      const status = {
-        'item-externa': data.meta_externa,
-        'item-roleta': data.meta_roleta,
-        'item-tarefa': data.meta_tarefa
-      };
-
-      for (const [id, completo] of Object.entries(status)) {
-        const el = document.getElementById(id);
-        if (el) {
-          // Mantém o texto, mas substitui o emoji de status
-          const textoBase = el.innerText.substring(2); 
-          el.innerHTML = completo ? `✅ ${textoBase}` : `⚪ ${textoBase}`;
-        }
-      }
-
-      // 4. Lógica de aviso de degradação (Se não for VIP, mostra o aviso)
-      const elAviso = document.getElementById("txtDegradacaoAviso");
-      if (elAviso) {
-        elAviso.style.display = data.is_vip ? 'none' : 'block';
-      }
-
-    } catch (err) {
-      console.error("Erro ao carregar dados do RPG:", err);
-    }
-  }
-  async function verificarMetaDiaria() {
-  try {
-    const res = await fetch(`/api/verificar-meta?id=${telegram_id}`);
-    const data = await res.json();
-    // Lógica para marcar visualmente as metas
-    if(data.meta_atingida) {
-      document.getElementById("txtDegradacaoAviso").style.display = "none";
-    }
-  } catch(e) { console.error(e); }
-}
-    async function carregarLucremais() {
-    try {
-      const posicao = encodeURIComponent("index");
-      const res = await fetch(`/api/anuncios?posicao=${posicao}`);
-      const dados = await res.json();
-      const grid = document.getElementById("gridIndex");
-      if (!grid || dados.length === 0) return;
-      
-      grid.innerHTML = "";
-      dados.forEach(b => {
-        const el = document.createElement("div");
-        el.className = "banner";
-        el.innerHTML = `
-          <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
-            <img src="${b.imagem_url}" alt="${b.titulo}">
-          </a>
-        `;
-        grid.appendChild(el);
-
-        fetch("/api/anuncio-evento", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ anuncio_id: b.id, tipo: "visita", telegram_id })
-        }).catch(e => console.error(e));
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  function registrarClique(anuncioId) {
-    fetch("/api/anuncio-evento", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id })
-    }).catch(e => console.error(e));
-  }
+  <script>
+    // Seus scripts futuros aqui
   </script>
-</body> 
+</body>
 </html>
-
-  
