@@ -624,7 +624,7 @@ if (gratis) {
     );
       
     await client.query("COMMIT");
-    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
+    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });}
 
 // 📊 GIROS E TICKETS DISPONÍVEIS HOJE
 app.get("/api/roleta/hoje", async (req, res) => {
