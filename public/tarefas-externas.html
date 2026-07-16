@@ -8,123 +8,110 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 
-  <style>
-    body {
-      font-family: sans-serif;
-      background: #f9f9f9;
-      max-width: 600px;
-      margin: auto;
-      padding: 20px;
-      padding-bottom: 90px;
-    }
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f172a;
+    color: #f1f5f9;
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+    padding-bottom: 90px;
+  }
 
-    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: #111;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-      z-index: 9999;
-    }
+  /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: #111;
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+    z-index: 9999;
+  }
 
-    .bottom-nav a {
-      color: #aaa;
-      text-decoration: none;
-      font-size: 11px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      width: 20%;
-    }
+  .bottom-nav a {
+    color: #aaa;
+    text-decoration: none;
+    font-size: 11px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 20%;
+  }
 
-    .bottom-nav a.active, .bottom-nav a:hover {
-      color: #00ff88;
-    }
+  .bottom-nav a.active, .bottom-nav a:hover {
+    color: #00ff88;
+  }
 
-    .bottom-nav a span {
-      font-size: 18px;
-    }
+  .bottom-nav a span {
+    font-size: 18px;
+  }
 
-    .card {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
+  /* CARDS ESTILO DASHBOARD */
+  .card {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    margin-bottom: 20px;
+    color: #f1f5f9;
+  }
 
-    .btn-container {
-      text-align: center;
-      margin: 15px 0;
-    }
+  .btn-container {
+    text-align: center;
+    margin: 15px 0;
+  }
 
-    .btn-container button {
-      background: #2a8f43;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      margin: 5px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      width: auto;
-    }
+  .btn-container button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    margin: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    width: auto;
+  }
 
-    .btn-container button:hover {
-      background: #1e6e34;
-    }
+  .btn-container button:hover {
+    background: #2563eb;
+  }
 
-    .iframe-container {
-      width: 100%;
-      min-height: 500px;
-      border: none;
-      display: none;
-      border-radius: 6px;
-    }
+  .iframe-container {
+    width: 100%;
+    min-height: 500px;
+    border: 1px solid #334155;
+    display: none;
+    border-radius: 8px;
+    background: #0f172a;
+  }
 
-    button {
-      padding: 12px;
-      margin-top: 10px;
-      background: #2a8f43;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      width: 100%;
-      font-size: 15px;
-      box-sizing: border-box;
-    }
+  button {
+    padding: 12px;
+    margin-top: 10px;
+    background: #2a8f43;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 15px;
+    font-weight: bold;
+    transition: opacity 0.3s;
+  }
 
-    button:hover {
-      background: #1e6e34;
-    }
-
-    .grid {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .banner {
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      overflow: hidden;
-      background: #fff;
-    }
-
-    .banner img {
-      width: 100%;
-      height: auto;
-      display: block;
-    }
-  </style>
+  button:hover {
+    opacity: 0.9;
+  }
+</style>
 </head>
 <body>
 
@@ -171,17 +158,7 @@
     </div>
   </div>
 
-  <div class="card" style="text-align:center;">
-    <div id="anuncie" style="margin:15px 0;">
-      <h3 id="adsBlockTitle">📣 Want to advertise here?</h3>
-      <p id="adsBlockDesc">Promote your product, course, or service directly inside our bot!</p>
-      <a href="https://lucremaistask.netlify.app/anuncie.html" target="_blank" style="text-decoration: none;">
-        <button id="btnAdvertiseNow">📢 Advertise Now</button>
-      </a>
-    </div>
-
-    <div class="grid" id="gridExternas"></div>
-  </div>
+  
 
 <script>
   let telegramId = "";
@@ -280,7 +257,6 @@
       if(moneyrainFrame) moneyrainFrame.src = `https://offerwall.moneyrain.top/embed.php?pub=228&site=teste-bot&uid=${telegramId}`;
     }
 
-    carregarExternas();
   });
 
   function mostrarWall(wall) {
@@ -307,31 +283,6 @@
     
     window.open(`https://zerads.com/ptc.php?ref=11571&user=${telegramId}`, "_blank");
     alert(t.alertFeedback);
-  }
-
-  async function carregarExternas() {
-    try {
-      const res = await fetch("/api/anuncios?posicao=tarefas externas");
-      const dados = await res.json();
-      const grid = document.getElementById("gridExternas");
-      if (!grid) return;
-      
-      grid.innerHTML = "";
-      dados.forEach(b => {
-        const el = document.createElement("div");
-        el.className = "banner";
-        el.innerHTML = `<a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})"><img src="${b.imagem_url}" alt="banner"></a>`;
-        grid.appendChild(el);
-      });
-    } catch (err) { console.error("Erro ao carregar banners:", err); }
-  }
-
-  function registrarClique(anuncioId) {
-    fetch("/api/anuncio-evento", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id: telegramId })
-    }).catch(e => console.error(e));
   }
 </script>
 
