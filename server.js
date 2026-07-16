@@ -323,11 +323,13 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   const ipHeader = req.headers["x-forwarded-for"];
   const ip = ipHeader ? ipHeader.split(",")[0].trim() : req.socket.remoteAddress;
 
+  const client = await pool.connect(); // Obtém conexão única para a transação
+
   try {
-    await pool.query("BEGIN");
+    await client.query("BEGIN");
 
     // 🔒 Validação de sessão
-    const sessaoRes = await pool.query(
+    const sessaoRes = await client.query(
       `SELECT * FROM tarefas_sessoes WHERE token = $1 FOR UPDATE`,
       [token]
     );
@@ -335,98 +337,87 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id || 
         sessaoRes.rows[0].status !== "aberto" || sessaoRes.rows[0].ip !== ip || 
         sessaoRes.rows[0].fingerprint !== fingerprint) {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Sessão inválida" });
+      throw new Error("Sessão inválida");
     }
 
     const sessao = sessaoRes.rows[0];
-    const tempo = Date.now() - new Date(sessao.criado_em).getTime();
+    const tempo = Date.now() - new Date(sessao.data_registro).getTime(); // Ajustado para coluna correta
     if (tempo < 15000) {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Tempo insuficiente" });
+      throw new Error("Tempo insuficiente");
     }
 
-    const tarefa = await pool.query(`SELECT id, pontos, ativa, is_vip FROM tarefas WHERE id = $1`, [tarefaId]);
-
+    const tarefa = await client.query(`SELECT id, pontos, ativa FROM tarefas WHERE id = $1`, [tarefaId]);
     if (tarefa.rows.length === 0 || !tarefa.rows[0].ativa) {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Tarefa inválida" });
+      throw new Error("Tarefa inválida");
     }
 
     // Bloqueio de duplicação diária
-    const check = await pool.query(
+    const check = await client.query(
       `SELECT 1 FROM historico_ganhos WHERE telegram_id = $1 AND referencia_id = $2 AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE`,
       [telegram_id, String(tarefaId)]
     );
-
     if (check.rows.length > 0) {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "Já concluída hoje" });
+      throw new Error("Já concluída hoje");
     }
 
     const pontos = tarefa.rows[0].pontos;
 
-    // 💰 Registro histórico e atualização de saldo + XP (15 XP por tarefa)
-    await pool.query(
+    // 💰 Registro histórico e atualização de saldo + XP
+    await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'tarefa', $2, $3, $4, NOW())`,
       [telegram_id, pontos, "Tarefa ID: " + tarefaId, String(tarefaId)]
     );
 
-    await pool.query(
-      `UPDATE usuarios 
-       SET pontos = COALESCE(pontos, 0) + $1, 
-           xp = COALESCE(xp, 0) + 15, 
-           tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
-       WHERE telegram_id = $2`,
+    await client.query(
+      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, xp = COALESCE(xp, 0) + 15, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
       [pontos, telegram_id]
     );
-    
-    // 🔹 Lógica de Indicação (0,40 pts + 20 XP para o indicador após 3 tarefas)
-    const indicacaoRes = await pool.query(
+
+    // 1. Verifica meta diária
+    const metaBatida = await verificarMetaDiaria(client, telegram_id);
+
+    // 2. Verifica missão de entrada (Booster)
+    let infoBooster = { liberado: false };
+    if (metaBatida) {
+        infoBooster = await verificarMissaoEntrada(client, telegram_id);
+    }
+
+    // 🔹 Lógica de Indicação
+    const indicacaoRes = await client.query(
       "SELECT * FROM indicacoes WHERE id_indicado = $1 AND pontos_ativados = false",
       [telegram_id]
     );
 
     if (indicacaoRes.rows.length > 0) {
       const indicacao = indicacaoRes.rows[0];
-      const tarefasRes = await pool.query(
+      const tarefasRes = await client.query(
         "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
       );
-
-      const tarefasFeitas = parseInt(tarefasRes.rows[0].count);
-
-      if (tarefasFeitas >= 3) {
-        await pool.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
-
-        // Atualiza saldo (0,40) e XP (20) do indicador
-        await pool.query(
-          `UPDATE usuarios 
-           SET pontos = COALESCE(pontos, 0) + 0.40, 
-               xp = COALESCE(xp, 0) + 20, 
-               indicacoes = COALESCE(indicacoes, 0) + 1 
-           WHERE telegram_id = $1`,
+      if (parseInt(tarefasRes.rows[0].count) >= 3) {
+        await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
+        await client.query(
+          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, xp = COALESCE(xp, 0) + 20, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
-
-        await pool.query(
-          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-           VALUES ($1, 'indicacao', 0.40, $2, $3, NOW())`,
-          [indicacao.id_indicador, "Bônus por indicação", String(telegram_id)]
+        await client.query(
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
+          [indicacao.id_indicador, String(telegram_id)]
         );
       }
     }
 
-    await pool.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
+    await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
-    await pool.query("COMMIT");
-    res.json({ mensagem: "✅ Concluído! +15 XP" });
+    await client.query("COMMIT");
+    res.json({ mensagem: "✅ Concluído! +15 XP", metaBatida, booster: infoBooster.liberado });
 
   } catch (err) {
-    await pool.query("ROLLBACK");
-    console.error("Erro na conclusão:", err.message);
-    res.status(500).json({ erro: "Erro interno" });
+    await client.query("ROLLBACK");
+    res.status(400).json({ erro: err.message || "Erro interno" });
+  } finally {
+    client.release();
   }
 });
 
@@ -736,10 +727,8 @@ app.get("/zeradsptc.php", async (req, res) => {
 
   try {
     const valorZER = parseFloat(amount || 0);
-    const totalClicks = parseInt(clicks || 0); // Captura o número de cliques
+    const totalClicks = parseInt(clicks || 0);
     const pontos = (((valorZER * 5.0) * 0.009) * 0.4) / 0.05;
-    
-    // Calcula o XP: 6 XP por clique reportado pelo ZeroAds
     const xpGerado = totalClicks * 6;
 
     const client = await pool.connect();
@@ -759,14 +748,25 @@ app.get("/zeradsptc.php", async (req, res) => {
 
       // 4. Registrar no histórico
       await client.query(
-        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa) 
-         VALUES ($1, $2, $3, $4)`,
+        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro) 
+         VALUES ($1, $2, $3, $4, NOW())`,
         [user, 'zerads', pontos, 'ZerAds PTC']
       );
+
+      // --- DISPARO DE METAS (Onde o sistema valida o progresso) ---
+      // A função verificaMetaDiaria e verificarMissaoEntrada devem estar 
+      // declaradas no seu escopo ou importadas corretamente.
+      const metaBatida = await verificarMetaDiaria(client, user);
       
+      let infoBooster = { liberado: false };
+      if (metaBatida) {
+          infoBooster = await verificarMissaoEntrada(client, user);
+      }
+      // -----------------------------------------------------------
+
       await client.query("COMMIT");
       
-      console.log(`✅ Créditos: ${pontos} pts | XP: ${xpGerado} | Usuário: ${user}`);
+      console.log(`✅ Créditos: ${pontos} pts | XP: ${xpGerado} | Usuário: ${user} | Meta: ${metaBatida}`);
       res.send("ok");
 
     } catch (dbErr) {
@@ -875,13 +875,13 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         const userId = data.external_uid;
         const pontos = parseFloat(data.reward_currency_amount) * percentualRepasse;
         const viewId = data.view_id;
-        
         const adType = data.ad_type ? data.ad_type.toUpperCase() : "Ad";
         const nomeTarefa = `MoneyRain ${adType}`;
 
         if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
 
         try {
+            // Verificação de duplicação fora da transação é ok, mas dentro seria ideal
             const check = await pool.query(
                 "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'moneyrain'", 
                 [viewId.toString()]
@@ -901,7 +901,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                     [userId, pontos, nomeTarefa, viewId.toString()]
                 );
 
-                // 5. Update saldo E XP (5 XP para MoneyRain)
                 await client.query(
                     `UPDATE usuarios 
                      SET pontos = COALESCE(pontos, 0) + $1,
@@ -909,9 +908,19 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                      WHERE telegram_id = $2`,
                     [pontos, userId]
                 );
- 
+
+                // --- DISPARO DE METAS E BOOSTERS ---
+                // Agora o callback do MoneyRain também contribui para o seu sistema de checklist
+                const metaBatida = await verificarMetaDiaria(client, userId);
+                
+                let infoBooster = { liberado: false };
+                if (metaBatida) {
+                    infoBooster = await verificarMissaoEntrada(client, userId);
+                }
+                // ------------------------------------
+
                 await client.query('COMMIT');
-                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e 5 XP`);
+                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e 5 XP | Meta batida: ${metaBatida} | Booster: ${infoBooster.liberado}`);
                 return res.status(200).send('OK');
 
             } catch (dbErr) {
@@ -928,7 +937,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     
     res.status(400).send('Invalid event');
 });
-
 
 /**
  * Verifica se o usuário cumpriu a meta do dia:
