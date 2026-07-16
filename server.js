@@ -1198,6 +1198,11 @@ app.post("/api/solicitar-saque", async (req, res) => {
       [telegram_id]
     );
 
+    if (userResult.rows[0].status_conta === 'banido') {
+  await client.query("ROLLBACK");
+  return res.status(400).json({ error: "Erro interno ao processar saque." }); // Mensagem genérica para não entregar o banimento
+}
+    
     if (userResult.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ error: "Usuário não encontrado." });
