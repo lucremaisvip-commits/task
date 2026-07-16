@@ -114,14 +114,18 @@
   </nav>
 
   <script>
-<script>
-    // Recupera o ID do usuário via Telegram WebApp (ajuste conforme seu método de captura)
-    const telegram_id = window.Telegram?.WebApp;
-  telegramID = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "";
+    // Recupera ID de forma robusta
+    const urlParams = new URLSearchParams(window.location.search);
+    const tg = window.Telegram?.WebApp;
+    const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
+    
+    // Salva no localStorage para uso em outras páginas
+    if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
     async function carregarDados() {
         try {
             const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+            if (!response.ok) throw new Error("Erro na rede");
             const data = await response.json();
 
             // 1. Atualizar Barras de Progresso
@@ -132,7 +136,7 @@
             // 2. Atualizar Círculos de Streak
             const streak = data.streak.streak_atual || 0;
             const container = document.getElementById('streakContainer');
-            container.innerHTML = ''; // Limpa antes de popular
+            container.innerHTML = ''; 
             for (let i = 1; i <= 7; i++) {
                 const div = document.createElement('div');
                 div.className = `day-circle ${i <= streak ? 'active' : ''}`;
@@ -142,7 +146,7 @@
 
             // 3. Gerenciar Botão Baú
             const btnBau = document.getElementById('btnAbrirBau');
-            btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+            if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
 
         } catch (err) {
             console.error("Erro ao carregar checklist:", err);
@@ -150,12 +154,17 @@
     }
 
     function atualizarProgresso(id, valor, max) {
+        const el = document.getElementById(id);
+        if (!el) return;
         const percent = Math.min((valor / max) * 100, 100);
-        document.getElementById(id).style.width = percent + '%';
-        // Opcional: Atualizar o texto também
-        const parent = document.getElementById(id).parentElement.parentElement;
+        el.style.width = percent + '%';
+        
+        const parent = el.parentElement.parentElement;
         const span = parent.querySelector('.task-header span');
-        span.innerText = span.innerText.replace(/\(\d\/\d\)/, `(${valor}/${max})`);
+        if (span) {
+            const text = span.innerText.replace(/\(\d\/\d\)/, `(${valor}/${max})`);
+            span.innerText = text;
+        }
     }
 
     async function abrirBau() {
@@ -167,16 +176,14 @@
         const data = await res.json();
         
         if (data.success) {
-            alert(data.mensagem + `\nVocê ganhou ${data.premioPontos} pts e 2 tickets!`);
-            location.reload(); // Recarrega para limpar o botão
+            alert(data.mensagem);
+            location.reload();
         } else {
             alert("Erro: " + data.error);
         }
     }
 
-    // Inicialização
     carregarDados();
 </script>
-  </script>
 </body>
 </html>
