@@ -1125,31 +1125,38 @@ app.get("/api/status-checklist", async (req, res) => {
     const { telegram_id } = req.query;
     const client = await pool.connect();
     try {
-        // 1. Busca estatísticas do dia atual
-        const statsRes = await client.query(`
+        // Busca estatísticas, streak E a data de registro do usuário
+        const result = await client.query(`
             SELECT 
-                COUNT(*) FILTER (WHERE origem = 'zerads') as zerads,
-                COUNT(*) FILTER (WHERE origem = 'moneyrain') as moneyrain,
-                COUNT(*) FILTER (WHERE origem = 'tarefa') as tarefas
-            FROM historico_ganhos 
-            WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE
+                u.data_registro::date as data_criacao,
+                us.streak_atual, 
+                us.bau_disponivel,
+                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'zerads' AND data_registro::date = CURRENT_DATE) as zerads,
+                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain' AND data_registro::date = CURRENT_DATE) as moneyrain,
+                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE) as tarefas
+            FROM usuarios u
+            LEFT JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
+            WHERE u.telegram_id = $1
         `, [telegram_id]);
 
-        // 2. Busca o status da streak
-        const streakRes = await client.query(`
-            SELECT streak_atual, bau_disponivel 
-            FROM usuarios_streaks WHERE telegram_id = $1
-        `, [telegram_id]);
+        const data = result.rows[0];
 
         res.json({
-            progresso: statsRes.rows[0],
-            streak: streakRes.rows[0] || { streak_atual: 0, bau_disponivel: false }
+            progresso: { 
+                zerads: parseInt(data.zerads), 
+                moneyrain: parseInt(data.moneyrain), 
+                tarefas: parseInt(data.tarefas) 
+            },
+            streak: { 
+                streak_atual: data.streak_atual || 0, 
+                bau_disponivel: data.bau_disponivel || false 
+            },
+            data_criacao: data.data_criacao // Data ISO (ex: "2026-06-22")
         });
     } finally {
         client.release();
     }
 });
-
 
 
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
