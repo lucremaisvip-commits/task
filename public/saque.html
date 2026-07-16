@@ -79,7 +79,8 @@
         const userData = await resUser.json();
         if (userData.success) {
             saldoUsuario = parseFloat(userData.data.pontos);
-            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(2)} Pontos`;
+            // CORREÇÃO: Exibindo 8 casas decimais
+            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} Pontos`;
             window.isVip = userData.data.vip;
         }
 
@@ -90,7 +91,7 @@
         if (historico.length > 0) {
             lista.innerHTML = historico.map(s => `
                 <li>Data: ${new Date(s.data_solicitacao).toLocaleDateString()} | 
-                ${s.pontos_solicitados} pts | <strong>${s.status}</strong></li>
+                ${Number(s.pontos_solicitados).toFixed(8)} pts | <strong>${s.status}</strong></li>
             `).join('');
         } else {
             lista.innerHTML = "<li>Nenhum saque registrado.</li>";
