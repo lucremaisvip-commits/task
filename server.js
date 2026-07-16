@@ -1002,7 +1002,7 @@ async function verificarMissaoEntrada(client, telegram_id) {
             SELECT u.telegram_id
             FROM usuarios u
             JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
-            LEFT JOIN saques s ON u.telegram_id = s.telegram_id AND s.status = 'pago'
+            LEFT JOIN saques s ON u.telegram_id = s.telegram_id AND s.status = 'ok'
             WHERE u.telegram_id = $1 
             AND u.booster_usado = FALSE
             AND us.meta_cumprida_hoje = TRUE
@@ -1240,7 +1240,7 @@ app.post("/api/solicitar-saque", async (req, res) => {
     // 5. Registra no histórico de saques
     const saqueInsert = await client.query(`
       INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
-      VALUES ($1, $2, $3, $4, $5, 'pendente', NOW())
+      VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW())
       RETURNING id
     `, [telegram_id, pontosParaSacar, valorFinalFormatado, chave_pix || null, cpf || null]);
 
@@ -1313,9 +1313,9 @@ app.post("/api/pagar-saque", async (req, res) => {
   }
 
   try {
-    // 1. Busca os dados do saque pendente
+    // 1. Busca os dados do saque Waiting
     const saqueResult = await pool.query(
-      "SELECT * FROM saques WHERE id = $1 AND status = 'pendente'", 
+      "SELECT * FROM saques WHERE id = $1 AND status = 'Waiting'", 
       [saque_id]
     );
 
@@ -1346,7 +1346,7 @@ app.post("/api/pagar-saque", async (req, res) => {
     if (response.data.status === 200) {
       // Sucesso: Atualiza o status e salva o payout_id (comprovante)
       await pool.query(
-        "UPDATE saques SET status = 'pago', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
+        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
         [response.data.payout_id, saque_id]
       );
       
