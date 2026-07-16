@@ -3,32 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Saque</title>
+  <title>Saque / Withdrawal</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 100px; }
-
-    /* MENU INFERIOR */
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
     .bottom-nav a { color: #aaa; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
     .bottom-nav a.active { color: #00ff88; }
     .bottom-nav a span { font-size: 18px; }
-
-    /* CARDS */
     .card { background: #1e293b; padding: 20px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
     h2, h3 { color: #f1f5f9; margin-top: 0; }
     .info { color: #94a3b8; font-size: 14px; line-height: 1.5; margin-bottom: 15px; }
-
-    /* SAQUE */
     .saldo-box { text-align: center; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 20px; }
     .saldo-valor { font-size: 24px; font-weight: bold; color: #00ff88; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #fff; box-sizing: border-box; margin-bottom: 10px; }
     .link-faucet { color: #3b82f6; font-size: 13px; text-decoration: none; display: block; margin-bottom: 15px; text-align: center; }
-    
     button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; margin-top: 5px; transition: opacity 0.3s; }
     #btnSacar { background: #2a8f43; color: white; }
     #btnSacar:disabled { background: #1e6e34; opacity: 0.6; cursor: not-allowed; }
     #btnDuvidas { background: #334155; color: white; margin-top: 15px; }
-
     .historico-lista { list-style: none; padding: 0; margin-top: 10px; color: #94a3b8; font-size: 14px; }
     .historico-lista li { background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 5px; border-bottom: 1px solid #334155; }
   </style>
@@ -44,43 +36,54 @@
   </nav>
 
   <div class="card">
-    <h2>💰 Solicitar Saque</h2>
-    <div class="info">
-      <strong>Regras de Saque via FaucetPay:</strong><br>
-      • <strong>Usuários Padrão:</strong> Saque mínimo de 2,02802 pts. Apenas 1 saque por dia.<br>
-      • <strong>Usuários VIP:</strong> Saque mínimo de 1,01401 pts. Máximo 5 saques por dia.
-    </div>
+    <h2 id="txtTitulo">💰 Solicitar Saque</h2>
+    <div class="info" id="txtRegras"></div>
     <div class="saldo-box">
-      <div style="color: #94a3b8; font-size: 13px;">Seu Saldo Disponível</div>
-      <div class="saldo-valor">Carregando...</div>
+      <div id="txtSaldo">Seu Saldo Disponível</div>
+      <div class="saldo-valor" id="valorSaldo">Carregando...</div>
     </div>
     <input type="email" id="emailFaucet" placeholder="E-mail da FaucetPay" />
-    <a href="https://faucetpay.io/?r=998373" class="link-faucet">Não tem FaucetPay? Clique aqui.</a>
+    <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tem FaucetPay? Clique aqui.</a>
     <button id="btnSacar" onclick="solicitarSaque()">Solicitar Saque</button>
-    <button id="btnDuvidas" onclick="alert('Processamento em até 24 horas após solicitação.')">❓ Dúvidas sobre Saques</button>
+    <button id="btnDuvidas" onclick="alert(t.alertaDuvida)">❓ Dúvidas sobre Saques</button>
   </div>
 
   <div class="card">
-    <h3>📜 Histórico de Saques</h3>
-    <ul class="historico-lista"><li>Carregando histórico...</li></ul>
+    <h3 id="txtHist">📜 Histórico de Saques</h3>
+    <ul class="historico-lista"><li>Carregando...</li></ul>
   </div>
 
   <script>
     const urlParams = new URLSearchParams(window.location.search);
+    const lang = urlParams.get("lang") === "en" ? "en" : "pt";
     const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
-    let saldoUsuario = 0;
+    
+    const traducoes = {
+      pt: { titulo: "💰 Solicitar Saque", regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.", saldo: "Seu Saldo Disponível", pts: "Pts", link: "Não tem FaucetPay? Clique aqui.", btnSacar: "Solicitar Saque", btnDuvidas: "❓ Dúvidas", hist: "📜 Histórico de Saques", alEmail: "Digite o e-mail da FaucetPay!", alMin: "Pontos insuficientes!", alProc: "Processando...", alSucesso: "✅ Saque solicitado com sucesso!", alErro: "❌ Erro: ", alertaDuvida: "Processamento em até 24 horas." },
+      en: { titulo: "💰 Request Withdrawal", regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.", saldo: "Your Available Balance", pts: "Pts", link: "Don't have FaucetPay? Click here.", btnSacar: "Request Withdrawal", btnDuvidas: "❓ FAQs", hist: "📜 Withdrawal History", alEmail: "Enter your FaucetPay email!", alMin: "Insufficient points!", alProc: "Processing...", alSucesso: "✅ Withdrawal requested successfully!", alErro: "❌ Error: ", alertaDuvida: "Processing within 24 hours." }
+    };
+    const t = traducoes[lang];
+    
+    // Aplicar textos
+    document.getElementById("txtTitulo").innerText = t.titulo;
+    document.getElementById("txtRegras").innerHTML = t.regras;
+    document.getElementById("txtSaldo").innerText = t.saldo;
+    document.getElementById("emailFaucet").placeholder = t.alEmail;
+    document.getElementById("txtLink").innerText = t.link;
+    document.getElementById("btnSacar").innerText = t.btnSacar;
+    document.getElementById("btnDuvidas").innerText = t.btnDuvidas;
+    document.getElementById("txtHist").innerText = t.hist;
 
+    let saldoUsuario = 0;
     if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
 
     async function carregarDados() {
         if (!telegram_id) return;
-
         const resUser = await fetch(`/api/usuarios/${telegram_id}`);
         const userData = await resUser.json();
         if (userData.success) {
             saldoUsuario = parseFloat(userData.data.pontos);
-            // CORREÇÃO: Exibindo 8 casas decimais
-            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} Pontos`;
+            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
             window.isVip = userData.data.vip;
         }
 
@@ -88,48 +91,25 @@
         const historico = await resHist.json();
         const lista = document.querySelector(".historico-lista");
         
-        if (historico.length > 0) {
-            lista.innerHTML = historico.map(s => `
-                <li>Data: ${new Date(s.data_solicitacao).toLocaleDateString()} | 
-                ${Number(s.pontos_solicitados).toFixed(8)} pts | <strong>${s.status}</strong></li>
-            `).join('');
-        } else {
-            lista.innerHTML = "<li>Nenhum saque registrado.</li>";
-        }
+        lista.innerHTML = historico.length > 0 ? historico.map(s => `
+            <li>${new Date(s.data_solicitacao).toLocaleDateString()} | ${Number(s.pontos_solicitados).toFixed(8)} pts | <strong>${s.status}</strong></li>
+        `).join('') : `<li>${t.hist.replace("📜 ", "")} ${t.alErro.split(":")[0]}...</li>`;
     }
 
     async function solicitarSaque() {
         const btn = document.getElementById("btnSacar");
         const email = document.getElementById("emailFaucet").value;
-        if (!email) return alert("Digite o e-mail da FaucetPay!");
-
+        if (!email) return alert(t.alEmail);
         const limite = window.isVip ? 1.01401 : 2.02802;
-        if (saldoUsuario < limite) return alert(`Pontos insuficientes! Mínimo: ${limite.toFixed(5)}.`);
+        if (saldoUsuario < limite) return alert(t.alMin);
 
-        btn.disabled = true;
-        btn.innerText = "Processando...";
-
+        btn.disabled = true; btn.innerText = t.alProc;
         try {
-            const res = await fetch("/api/solicitar-saque", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ telegram_id, chave_pix: email })
-            });
+            const res = await fetch("/api/solicitar-saque", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telegram_id, chave_pix: email }) });
             const data = await res.json();
-            if (data.success) {
-                alert("✅ Saque solicitado com sucesso! Processamento em até 24h.");
-                carregarDados();
-            } else {
-                alert("❌ Erro: " + data.error);
-            }
-        } catch (e) {
-            alert("Erro de conexão.");
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "Solicitar Saque";
-        }
+            if (data.success) { alert(t.alSucesso); carregarDados(); } else { alert(t.alErro + data.error); }
+        } catch (e) { alert("Error"); } finally { btn.disabled = false; btn.innerText = t.btnSacar; }
     }
-
     document.addEventListener("DOMContentLoaded", carregarDados);
   </script>
 </body>
