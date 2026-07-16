@@ -1027,6 +1027,90 @@ async function verificarMissaoEntrada(client, telegram_id) {
     }
 }
 
+
+app.post("/api/abrir-bau", async (req, res) => {
+    const { telegram_id } = req.body;
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        // 1. Verifica se o baú está disponível
+        const checkRes = await client.query(`
+            SELECT us.bau_disponivel, u.nivel 
+            FROM usuarios_streaks us
+            JOIN usuarios u ON us.telegram_id = u.telegram_id
+            WHERE us.telegram_id = $1 FOR UPDATE
+        `, [telegram_id]);
+
+        if (checkRes.rows.length === 0 || !checkRes.rows[0].bau_disponivel) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ success: false, error: "Baú não disponível." });
+        }
+
+        const nivel = checkRes.rows[0].nivel;
+
+        // 2. Calcula o prêmio conforme a fórmula definida
+        const base = 0.40;
+        const fatorNivel = 0.05;
+        const teto = 0.80;
+        const premioPontos = Math.min(base + (nivel * fatorNivel), teto);
+        const premioTickets = 2; 
+
+        // 3. Atualiza Saldo do Usuário
+        await client.query(`
+            UPDATE usuarios 
+            SET pontos = pontos + $1 
+            WHERE telegram_id = $2
+        `, [premioPontos, telegram_id]);
+
+        // 4. Insere no Histórico de Ganhos
+        await client.query(`
+            INSERT INTO historico_ganhos 
+            (telegram_id, origem, pontos, nome_tarefa, data_registro) 
+            VALUES ($1, 'bau_semanal', $2, 'Baú de 7 Dias (Nível ' || $3 || ')', NOW())
+        `, [telegram_id, premioPontos, nivel]);
+
+        // 5. Insere os 2 tickets na tabela roleta_tickets
+        await client.query(`
+            INSERT INTO roleta_tickets (telegram_id, usado, data_registro) 
+            VALUES 
+            ($1, false, CURRENT_DATE),
+            ($1, false, CURRENT_DATE)
+        `, [telegram_id]);
+
+        // 6. Atualiza o status do baú na tabela streaks
+        await client.query(`
+            UPDATE usuarios_streaks 
+            SET bau_disponivel = FALSE 
+            WHERE telegram_id = $1
+        `, [telegram_id]);
+
+        await client.query("COMMIT");
+
+        res.json({
+            success: true,
+            mensagem: "🎉 Baú aberto com sucesso!",
+            premioPontos: premioPontos.toFixed(8),
+            premioTickets: premioTickets
+        });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("Erro ao abrir baú:", err);
+        res.status(500).json({ success: false, error: "Erro interno ao processar baú." });
+    } finally {
+        client.release();
+    }
+});
+
+
+
+
+
+
+
+
 // 🔹 4. Rotas de Usuário
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
