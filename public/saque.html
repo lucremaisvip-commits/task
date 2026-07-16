@@ -78,23 +78,54 @@
     if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
 
     async function carregarDados() {
-        if (!telegram_id) return;
+    if (!telegram_id) return;
+
+    try {
+        // 1. Carrega Dados do Usuário
         const resUser = await fetch(`/api/usuarios/${telegram_id}`);
         const userData = await resUser.json();
-        if (userData.success) {
-            saldoUsuario = parseFloat(userData.data.pontos);
-            document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
-            window.isVip = userData.data.vip;
+        
+        if (userData && userData.success) {
+            saldoUsuario = parseFloat(userData.data.pontos) || 0;
+            const saldoEl = document.querySelector(".saldo-valor");
+            if (saldoEl) {
+                saldoEl.innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
+            }
+            window.isVip = userData.data.vip === true;
         }
 
+        // 2. Carrega Histórico de Saques
         const resHist = await fetch(`/api/saques?telegram_id=${telegram_id}`);
         const historico = await resHist.json();
         const lista = document.querySelector(".historico-lista");
-        
-        lista.innerHTML = historico.length > 0 ? historico.map(s => `
-            <li>${new Date(s.data_solicitacao).toLocaleDateString()} | ${Number(s.pontos_solicitados).toFixed(8)} pts | <strong>${s.status}</strong></li>
-        `).join('') : `<li>${t.hist.replace("📜 ", "")} ${t.alErro.split(":")[0]}...</li>`;
+
+        if (!lista) return; // Segurança caso o elemento não exista
+
+        // Verifica se a API retornou um array válido
+        if (Array.isArray(historico) && historico.length > 0) {
+            lista.innerHTML = historico.map(s => {
+                // Formatação segura da data
+                const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
+                // Formatação segura dos pontos
+                const pts = Number(s.pontos_solicitados || 0).toFixed(8);
+                // Status garantido
+                const status = s.status || "Pending";
+                
+                return `<li>${data} | ${pts} ${t.pts} | <strong>${status}</strong></li>`;
+            }).join('');
+        } else {
+            // Exibe mensagem caso o histórico esteja vazio (sem erro de código)
+            lista.innerHTML = `<li>${t.hist.replace("📜 ", "")}: No transactions yet.</li>`;
+        }
+
+    } catch (err) {
+        console.error("Erro ao carregar dados:", err);
+        const lista = document.querySelector(".historico-lista");
+        if (lista) {
+            lista.innerHTML = `<li>Error loading history.</li>`;
+        }
     }
+}
 
     async function solicitarSaque() {
         const btn = document.getElementById("btnSacar");
