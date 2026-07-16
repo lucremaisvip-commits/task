@@ -71,7 +71,15 @@
       <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
     </div>
   </div>
-
+<!-- Modal Genérico de Avisos -->
+<div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 25px; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
+    <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+    <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
+    <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
+    <button onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+  </div>
+</div>
   <div class="checklist-card">
     <h2>⚔️ Tarefas diárias</h2>
     <div class="task-row">
@@ -122,20 +130,36 @@
     // Salva no localStorage para uso em outras páginas
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
+    function exibirAvisoServidor(aviso) {
+    if (!aviso) return;
+
+    const modal = document.getElementById('modalAviso');
+    document.getElementById('modalTitulo').innerText = aviso.titulo;
+    document.getElementById('modalMensagem').innerText = aviso.mensagem;
+    document.getElementById('modalIcon').innerText = aviso.icone || '🎉';
+    
+    modal.style.display = 'flex';
+}
+
+function fecharModal() {
+    document.getElementById('modalAviso').style.display = 'none';
+}
+    
     async function carregarDados() {
-        try {
-            const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
-            if (!response.ok) throw new Error("Erro na rede");
-            const data = await response.json();
+    try {
+        const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+        if (!response.ok) throw new Error("Erro na rede");
+        const data = await response.json();
 
-            // 1. Atualizar Barras de Progresso
-            atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
-            atualizarProgresso('progZero', data.progresso.zerads, 3);
-            atualizarProgresso('progDireta', data.progresso.tarefas, 1);
+        // 1. Atualizar Barras de Progresso
+        atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
+        atualizarProgresso('progZero', data.progresso.zerads, 3);
+        atualizarProgresso('progDireta', data.progresso.tarefas, 1);
 
-            // 2. Atualizar Círculos de Streak
-            const streak = data.streak.streak_atual || 0;
-            const container = document.getElementById('streakContainer');
+        // 2. Atualizar Círculos de Streak
+        const streak = data.streak.streak_atual || 0;
+        const container = document.getElementById('streakContainer');
+        if (container) {
             container.innerHTML = ''; 
             for (let i = 1; i <= 7; i++) {
                 const div = document.createElement('div');
@@ -143,15 +167,48 @@
                 div.innerText = i;
                 container.appendChild(div);
             }
-
-            // 3. Gerenciar Botão Baú
-            const btnBau = document.getElementById('btnAbrirBau');
-            if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
-
-        } catch (err) {
-            console.error("Erro ao carregar checklist:", err);
         }
+
+        // 3. Gerenciar Botão Baú
+        const btnBau = document.getElementById('btnAbrirBau');
+        if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+
+        // 4. EXIBIR AVISO DO SERVIDOR (Se houver notificação)
+        if (data.notificacao) {
+            // Verifica se esta mensagem específica já foi exibida nesta sessão
+            if (sessionStorage.getItem('aviso_exibido') !== data.notificacao.mensagem) {
+                exibirAvisoServidor(data.notificacao);
+                sessionStorage.setItem('aviso_exibido', data.notificacao.mensagem);
+            }
+        }
+
+    } catch (err) {
+        console.error("Erro ao carregar checklist:", err);
     }
+}
+
+/**
+ * Função para exibir o modal genérico com dados vindos do servidor
+ */
+function exibirAvisoServidor(aviso) {
+    if (!aviso) return;
+
+    const modal = document.getElementById('modalAviso');
+    const titulo = document.getElementById('modalTitulo');
+    const mensagem = document.getElementById('modalMensagem');
+    const icone = document.getElementById('modalIcon');
+
+    if (titulo) titulo.innerText = aviso.titulo;
+    if (mensagem) mensagem.innerText = aviso.mensagem;
+    if (icone) icone.innerText = aviso.icone || '🎉';
+    
+    if (modal) modal.style.display = 'flex';
+}
+
+function fecharModal() {
+    const modal = document.getElementById('modalAviso');
+    if (modal) modal.style.display = 'none';
+}
 
     function atualizarProgresso(id, valor, max) {
         const el = document.getElementById(id);
@@ -184,6 +241,7 @@
     }
 
     carregarDados();
+
 </script>
 </body>
 </html>
