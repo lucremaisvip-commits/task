@@ -5,143 +5,31 @@
   <title id="pageTitle">Invites</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    background: #f4f4f4;
-    max-width: 600px;
-    margin: auto;
-    padding: 20px;
-    padding-bottom: 80px;
-    text-align: center;
-  }
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 100px; }
 
-  /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
-  .bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: #111;
-    display: flex;
-    justify-content: space-around;
-    padding: 10px 0;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
-    z-index: 9999;
-  }
+    /* MENU INFERIOR FIXO */
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
+    .bottom-nav a { color: #aaa; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
+    .bottom-nav a.active { color: #00ff88; }
+    .bottom-nav a span { font-size: 18px; }
 
-  .bottom-nav a {
-    color: #aaa;
-    text-decoration: none;
-    font-size: 11px;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    width: 20%;
-  }
+    /* CARDS ESTILO DASHBOARD */
+    .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; color: #f1f5f9; }
+    
+    .info { margin: 15px 0; font-size: 14px; line-height: 1.5; color: #94a3b8; text-align: center; }
 
-  .bottom-nav a.active, .bottom-nav a:hover {
-    color: #00ff88;
-  }
+    .link-box { background: #0f172a; padding: 15px; border-radius: 8px; word-break: break-all; font-size: 14px; font-family: monospace; color: #00ff88; text-align: center; border: 1px solid #334155; margin-bottom: 15px; }
 
-  .bottom-nav a span {
-    font-size: 18px;
-  }
+    button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin-top: 10px; font-size: 15px; transition: opacity 0.3s; }
+    button:active { opacity: 0.8; }
 
-  .card {
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-    text-align: left;
-  }
+    #btnCopy { background: #2a8f43; }
+    #btnShare { background: #f59e0b; color: #000; }
+    #btnHelp { background: #334155; color: #fff; }
 
-  .card h2, .card h3 {
-    text-align: center;
-  }
-
-  .info {
-    margin: 8px 0;
-    font-size: 15px;
-    line-height: 1.5;
-    color: #333;
-  }
-
-  .link-box {
-    background: #e0ffe5;
-    padding: 12px;
-    border-radius: 6px;
-    word-break: break-word;
-    font-size: 15px;
-    font-weight: bold;
-    color: #1e6e34;
-    text-align: center;
-    border: 1px dashed #2a8f43;
-    margin-bottom: 10px;
-  }
-
-  button {
-    padding: 12px;
-    margin-top: 10px;
-    background: #2a8f43;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    width: 100%;
-    font-size: 15px;
-    font-weight: bold;
-    transition: background 0.3s;
-  }
-
-  button:hover {
-    background: #1e6e34;
-  }
-
-  .banner {
-    margin: 15px 0;
-  }
-
-  .banner img {
-    width: 100%;
-    border-radius: 8px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    display: block;
-  }
-
-  .ads-area {
-    text-align: center;
-    margin-top: 30px;
-  }
-
-  .ads-area h3 {
-    font-size: 18px;
-    margin-bottom: 10px;
-  }
-
-  .ads-area a {
-    text-decoration: none;
-  }
-
-  .grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
-  }
-
-  .grid .banner {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #fff;
-    margin: 0;
-  }
-</style>
-
+    h2, h3 { color: #f1f5f9; margin-top: 0; text-align: center; }
+  </style>
 </head>
 <body>
 
@@ -155,76 +43,49 @@
 
   <div class="card">
     <h2 id="mainInviteTitle">📢 Convide e concorra!</h2>
-    <p class="info" id="mainInviteDesc">
-      Indique o bot <strong>LucreMaisTask</strong> para seus amigos e familiares. 
-      Cada novo usuário que entrar com seu link acumula pontos e te aproxima de prêmios incríveis no final do mês! 🎁
-    </p>
+    <p class="info" id="mainInviteDesc">Carregando...</p>
 
     <h3 id="subtitleYourLink">📎 Seu link de convite:</h3>
     <div class="link-box" id="linkConvite">Loading...</div>
+    
     <button onclick="copiarConvite()" id="btnCopy">📋 Copiar Link</button>
     <button onclick="compartilharTelegram()" id="btnShare">📤 Compartilhar via Telegram</button>
-    <button id="btnHelp" onclick="window.Telegram.WebApp.openLink(this.dataset.url)">
-  ❓ Dúvidas sobre Indicações
-</button>
-  </div>
-
-  <div class="ads-area">
-    <h3 id="adsBlockTitle">📣 Quer anunciar aqui?</h3>
-    <p id="adsBlockDesc">Divulgue seu produto, curso ou serviço diretamente dentro do nosso bot!</p>
-    <a href="https://telegrambot-mlfd.onrender.com/anuncie.html" target="_blank">
-      <button style="margin-bottom: 20px;" id="btnAdvertiseNow">📢 Anunciar Agora</button>
-    </a>
-
-    <div class="grid" id="gridIndicacoes"></div>
-  </div>
-  
-  <div class="banner">
-    <a href="https://pay.kirvano.com/r/d3132611-4800-4778-ac74-a7d5431627fc" target="_blank">
-      <img src="img/cine.png" alt="Banner 1">
-    </a>
+    <button id="btnHelp" onclick="window.Telegram.WebApp.openLink(this.dataset.url)">❓ Dúvidas sobre Indicações</button>
   </div>
 
 <script>
 let telegramID = "";
 let userLang = "en";
 
-// Dicionário de Idiomas
 const linguagens = {
   pt: {
     pageTitle: "Indicações",
     navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
     inviteTitle: "📢 Convide e concorra!",
-    inviteDesc: "Indique o bot <strong>LucreMaisTask</strong> para seus amigos e familiares. Cada novo usuário que entrar com seu link acumula pontos e te aproxima de prêmios incríveis no final do mês! 🎁",
+    inviteDesc: "Indique o bot <strong>LucreMaisTask</strong> para seus amigos. Cada novo usuário que entrar pelo seu link te dá pontos e te aproxima de prêmios extras no final do mês! 🎁",
     yourLink: "📎 Seu link de convite:",
     btnCopy: "📋 Copiar Link",
     btnShare: "📤 Compartilhar via Telegram",
     btnHelp: "❓ Dúvidas sobre Indicações",
     linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#indicacoes",
-    adsTitle: "📣 Quer anunciar aqui?",
-    adsDesc: "Divulgue seu produto, curso ou serviço diretamente dentro do nosso bot!",
-    btnAdvertise: "📢 Anunciar Agora",
     generating: "Gerando...",
-    errorId: "❌ Não foi possível identificar seu ID do Telegram.",
-    copiedAlert: "✅ Link copiado para sua área de transferência.",
+    errorId: "❌ ID não identificado.",
+    copiedAlert: "✅ Link copiado!",
     shareText: "Use o LucreMaisTask e ganhe recompensas!"
   },
   en: {
     pageTitle: "Invites",
     navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
     inviteTitle: "📢 Invite & Win Prizes!",
-    inviteDesc: "Refer the <strong>LucreMaisTask</strong> bot to your friends and family. Every new user who joins using your link helps you accumulate points and brings you closer to amazing rewards at the end of the month! 🎁",
+    inviteDesc: "Refer the <strong>LucreMaisTask</strong> bot to your friends. Every new user who joins via your link helps you accumulate points and brings you closer to amazing rewards! 🎁",
     yourLink: "📎 Your referral link:",
     btnCopy: "📋 Copy Link",
     btnShare: "📤 Share via Telegram",
     btnHelp: "❓ Referral Questions",
     linkAjuda: "https://lucremaistask.netlify.app/help.html#indicacoes",
-    adsTitle: "📣 Want to advertise here?",
-    adsDesc: "Promote your product, course, or service directly inside our bot!",
-    btnAdvertise: "📢 Advertise Now",
     generating: "Generating...",
-    errorId: "❌ Could not identify your Telegram ID.",
-    copiedAlert: "✅ Link copied to clipboard.",
+    errorId: "❌ ID not identified.",
+    copiedAlert: "✅ Link copied!",
     shareText: "Use LucreMaisTask and earn rewards!"
   }
 };
@@ -235,110 +96,39 @@ document.addEventListener("DOMContentLoaded", () => {
   document.documentElement.lang = userLang;
   const t = linguagens[userLang];
 
-  // Tradução estática da Interface
+  // Aplicar traduções
   document.getElementById("pageTitle").innerText = t.pageTitle;
   document.getElementById("mainInviteTitle").innerText = t.inviteTitle;
   document.getElementById("mainInviteDesc").innerHTML = t.inviteDesc;
   document.getElementById("subtitleYourLink").innerText = t.yourLink;
-  document.getElementById("linkConvite").innerText = t.generating;
   document.getElementById("btnCopy").innerText = t.btnCopy;
   document.getElementById("btnShare").innerText = t.btnShare;
   document.getElementById("btnHelp").innerText = t.btnHelp;
   document.getElementById("btnHelp").dataset.url = t.linkAjuda;
-  document.getElementById("adsBlockTitle").innerText = t.adsTitle;
-  document.getElementById("adsBlockDesc").innerText = t.adsDesc;
-  document.getElementById("btnAdvertiseNow").innerText = t.btnAdvertise;
-
+  
   document.querySelector("#navHome .txt-nav").innerText = t.navHome;
   document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
   document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
   document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
   document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
 
-  // Gerenciamento e persistência do ID
   const tg = window.Telegram?.WebApp;
   telegramID = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "";
 
-  if (!telegramID) {
-    alert(t.errorId);
-  } else {
+  if (telegramID) {
     localStorage.setItem("telegram_id", telegramID);
-    const link = `https://t.me/LucreMaisTask_bot?start=${telegramID}`;
-    document.getElementById("linkConvite").innerText = link;
-
-    // Propagar ID e Lang nas abas do menu
-    document.querySelectorAll(".bottom-nav a").forEach(l => {
-      let currentHref = l.getAttribute("href");
-      if (currentHref) {
-        let baseHref = currentHref.split("?")[0];
-        l.href = `${baseHref}?id=${telegramID}&lang=${userLang}`;
-      }
-      if (currentHref && currentHref.startsWith("indicacoes.html")) {
-        l.classList.add("active");
-      } else {
-        l.classList.remove("active");
-      }
-    });
+    document.getElementById("linkConvite").innerText = `https://t.me/LucreMaisTask_bot?start=${telegramID}`;
+  } else {
+    document.getElementById("linkConvite").innerText = t.errorId;
   }
-
-  carregarIndicacoes();
 });
 
-// SCRIPT API ANÚNCIOS
-async function carregarIndicacoes() {
-  try {
-    const res = await fetch("/api/anuncios?posicao=indicacoes");
-    const dados = await res.json();
-
-    const grid = document.getElementById("gridIndicacoes");
-    grid.innerHTML = "";
-
-    dados.forEach(b => {
-      const el = document.createElement("div");
-      el.className = "banner";
-      el.innerHTML = `
-        <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
-          <img src="${b.imagem_url}" alt="banner">
-        </a>
-      `;
-      grid.appendChild(el);
-
-      // Registrar visita ao renderizar
-      fetch("/api/anuncio-evento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          anuncio_id: b.id,
-          tipo: "visita"
-        })
-      }).catch(e => console.error(e));
-    });
-  } catch (err) {
-    console.error("Erro ao carregar banners indicações:", err);
-  }
-}
-
-// Tracking de clique
-function registrarClique(anuncioId) {
-  fetch("/api/anuncio-evento", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      anuncio_id: anuncioId,
-      tipo: "clique"
-    })
-  }).catch(e => console.error(e));
-}
-
 function copiarConvite() {
-  const t = linguagens[userLang];
   const link = document.getElementById("linkConvite").innerText;
-  navigator.clipboard.writeText(link).then(() => {
-    alert(t.copiedAlert);
-  });
+  navigator.clipboard.writeText(link).then(() => alert(linguagens[userLang].copiedAlert));
 }
 
-function compartirTelegram() {
+function compartilharTelegram() {
   const t = linguagens[userLang];
   const link = document.getElementById("linkConvite").innerText;
   window.open(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(t.shareText)}`, "_blank");
