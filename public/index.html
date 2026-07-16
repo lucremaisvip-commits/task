@@ -130,21 +130,6 @@
     // Salva no localStorage para uso em outras páginas
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
-    function exibirAvisoServidor(aviso) {
-    if (!aviso) return;
-
-    const modal = document.getElementById('modalAviso');
-    document.getElementById('modalTitulo').innerText = aviso.titulo;
-    document.getElementById('modalMensagem').innerText = aviso.mensagem;
-    document.getElementById('modalIcon').innerText = aviso.icone || '🎉';
-    
-    modal.style.display = 'flex';
-}
-
-function fecharModal() {
-    document.getElementById('modalAviso').style.display = 'none';
-}
-    
     async function carregarDados() {
     try {
         const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
@@ -173,41 +158,37 @@ function fecharModal() {
         const btnBau = document.getElementById('btnAbrirBau');
         if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
 
-        // 4. EXIBIR AVISO DO SERVIDOR (Se houver notificação)
-        if (data.notificacao) {
-            // Verifica se esta mensagem específica já foi exibida nesta sessão
-            if (sessionStorage.getItem('aviso_exibido') !== data.notificacao.mensagem) {
-                exibirAvisoServidor(data.notificacao);
-                sessionStorage.setItem('aviso_exibido', data.notificacao.mensagem);
+        // 4. LÓGICA DE AVISOS (Missão de Entrada vs Diária)
+        // Verifica se todas as tarefas foram batidas
+        const terminouTudo = (data.progresso.zerads >= 3 && data.progresso.moneyrain >= 3 && data.progresso.tarefas >= 1);
+        
+        if (terminouTudo) {
+            const hoje = new Date().toISOString().split('T')[0]; // Data atual YYYY-MM-DD
+            const ehCadastroHoje = (data.data_criacao === hoje);
+            const userLang = localStorage.getItem('lang') || 'pt'; // Ajuste conforme seu sistema de idioma
+
+            // Verifica se este aviso de conclusão já foi exibido nesta sessão
+            if (sessionStorage.getItem('conclusao_exibida') !== 'true') {
+                
+                const aviso = ehCadastroHoje ? {
+                    pt: { titulo: "Sucesso!", mensagem: "Parabéns! Missão de entrada concluída com booster. Você já pode sacar!", icone: "🎉" },
+                    en: { titulo: "Success!", mensagem: "Congratulations! Entrance mission completed with booster. You can now withdraw!", icone: "🎉" }
+                } : {
+                    pt: { titulo: "Parabéns!", mensagem: "Missão diária concluída!", icone: "✅" },
+                    en: { titulo: "Congratulations!", mensagem: "Daily mission completed!", icone: "✅" }
+                };
+
+                // Exibe o aviso no idioma correto
+                const msgTraduzida = aviso[userLang] || aviso['pt'];
+                exibirAvisoServidor(msgTraduzida);
+                
+                sessionStorage.setItem('conclusao_exibida', 'true');
             }
         }
 
     } catch (err) {
         console.error("Erro ao carregar checklist:", err);
     }
-}
-
-/**
- * Função para exibir o modal genérico com dados vindos do servidor
- */
-function exibirAvisoServidor(aviso) {
-    if (!aviso) return;
-
-    const modal = document.getElementById('modalAviso');
-    const titulo = document.getElementById('modalTitulo');
-    const mensagem = document.getElementById('modalMensagem');
-    const icone = document.getElementById('modalIcon');
-
-    if (titulo) titulo.innerText = aviso.titulo;
-    if (mensagem) mensagem.innerText = aviso.mensagem;
-    if (icone) icone.innerText = aviso.icone || '🎉';
-    
-    if (modal) modal.style.display = 'flex';
-}
-
-function fecharModal() {
-    const modal = document.getElementById('modalAviso');
-    if (modal) modal.style.display = 'none';
 }
 
     function atualizarProgresso(id, valor, max) {
