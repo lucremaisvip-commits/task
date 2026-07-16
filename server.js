@@ -508,21 +508,22 @@ app.post("/api/concluir-diaria", async (req, res) => {
 // 🔹 3.3 Roleta (Refatorada com Sistema de Tickets Seguros)
 
 
-// 🎰 GIRAR ROLETA
+// 🎰 GIRAR ROLETA - ATUALIZADA
 app.post("/api/roleta/girar", async (req, res) => {
   const { telegram_id } = req.body;
 
-  if (!telegram_id || typeof telegram_id !== "string") {
+  if (!telegram_id) {
     return res.status(400).json({ erro: "telegram_id inválido" });
   }
 
+  // Novos prêmios ajustados para o novo saque mínimo
   const premios = [
-    { tipo: "pontos", valor: 2, chance: 30 },
-    { tipo: "pontos", valor: 5, chance: 25 },
-    { tipo: "pontos", valor: 10, chance: 15 },
-    { tipo: "pontos", valor: 15, chance: 10 },
-    { tipo: "pontos", valor: 20, chance: 5 },
-    { tipo: "pontos", valor: 30, chance: 2 },
+    { tipo: "pontos", valor: 0.10, chance: 30 },
+    { tipo: "pontos", valor: 0.25, chance: 25 },
+    { tipo: "pontos", valor: 0.50, chance: 15 },
+    { tipo: "pontos", valor: 0.75, chance: 10 },
+    { tipo: "pontos", valor: 1.00, chance: 5 },
+    { tipo: "pontos", valor: 1.50, chance: 2 },
     { tipo: "nada", valor: 0, chance: 13 }
   ];
 
@@ -552,7 +553,6 @@ app.post("/api/roleta/girar", async (req, res) => {
     }
 
     const user = userRes.rows[0];
-
     const limiteGiros = 5;
     const girosHoje = await client.query(
       `SELECT COUNT(*) FROM roleta_giros 
@@ -580,17 +580,20 @@ app.post("/api/roleta/girar", async (req, res) => {
       ticketIdUsado = ticketCheck.rows[0].id;
     }
 
+    // 💰 Custo do giro agora é 0.20
+    const CUSTO_GIRO = 0.20;
+
     if (gratis) {
       await client.query(
         "UPDATE roleta_tickets SET usado = true, data_registro = NOW() WHERE id = $1",
         [ticketIdUsado]
       );
     } else {
-      if (user.pontos < 10) {
+      if (parseFloat(user.pontos) < CUSTO_GIRO) {
         await client.query("ROLLBACK");
         return res.status(400).json({ erro: "Pontos insuficientes" });
       }
-      await client.query("UPDATE usuarios SET pontos = pontos - 10 WHERE telegram_id = $1", [telegram_id]);
+      await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [CUSTO_GIRO, telegram_id]);
     }
 
     const premio = sortearPremio();
@@ -600,14 +603,12 @@ app.post("/api/roleta/girar", async (req, res) => {
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
-    // 📝 Salva histórico visual
     const giroRes = await client.query(
       `INSERT INTO roleta_giros (telegram_id, premio, pontos_ganhos, gratis, data_registro) 
        VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
       [telegram_id, nomePremio, premio.valor, gratis]
     );
 
-    // 💰 Salva auditoria na historico_ganhos (apenas se ganhou algo)
     if (premio.valor > 0) {
       await client.query(
         `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
@@ -615,7 +616,7 @@ app.post("/api/roleta/girar", async (req, res) => {
         [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
       );
     }
-     
+      
     await client.query("COMMIT");
     res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
 
