@@ -232,7 +232,7 @@ const linguagens = {
 
 function aplicarTraducoes() {
   const t = linguagens[userLang];
-  
+  document.getElementById("btnAjuda").dataset.url = t.linkAjuda;
   const setElText = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
   const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
