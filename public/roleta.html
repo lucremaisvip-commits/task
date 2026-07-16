@@ -6,7 +6,7 @@
   <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
   
   <!-- SDK MONETAG -->
-  <script src='//libtl.com/sdk.js' data-zone='9579151' data-sdk='show_9579151' async></script>
+  <script src='//libtl.com/sdk.js' data-zone='11315704' data-sdk='show_11315704'></script>
   <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
 
   <style>
@@ -149,6 +149,11 @@ const linguagens = {
 
 function aplicarTraducoes() {
   const t = linguagens[userLang];
+  const btnComprar = document.getElementById("btnComprarTickets");
+  
+  if (btnComprar) {
+      btnComprar.innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
+  }
   document.getElementById("pageTitle").innerText = t.title;
   document.getElementById("mainTitle").innerText = t.mainTitle;
   document.getElementById("mainDescription").innerHTML = t.description;
@@ -215,7 +220,7 @@ async function carregarDadosUsuario() {
         const response = await userRes.json();
 
         if (response.success) {
-            usuarioVip = response.data.is_vip || false; // Atualiza status VIP
+            usuarioVip = response.data.vip === true;
             document.getElementById("pontos").textContent = response.data.pontos ?? 0;
             aplicarTraducoes(); // Atualiza texto do botão de compra baseado no VIP
         }
@@ -317,7 +322,7 @@ document.getElementById("botaoGirar").addEventListener("click", () => {
         executarGiro();
     } else {
         // Chama o Rewarded Interstitial do Monetag
-        show_9579151().then(() => {
+        show_11315704().then(() => {
             executarGiro();
         }).catch(e => {
             console.log("Anúncio fechado ou erro:", e);
