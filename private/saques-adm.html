@@ -79,7 +79,7 @@
             <td>#${saque.id}</td>
             <td><code>${saque.telegram_id}</code></td>
             <td>${saque.chave_pix}</td>
-            <td>R$ ${Number(saque.valor_solicitado).toFixed(2)}</td>
+            <td>${Number(saque.valor_solicitado).toFixed(8)} LTC</td>>
             <td>${saque.status}</td>
             <td>
               <button class="aprovar" onclick="processarPagamento(${saque.id})">Aprovar</button>
