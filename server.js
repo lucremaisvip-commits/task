@@ -516,7 +516,6 @@ app.post("/api/roleta/girar", async (req, res) => {
     return res.status(400).json({ erro: "telegram_id inválido" });
   }
 
-  // Novos prêmios ajustados para o novo saque mínimo
   const premios = [
     { tipo: "pontos", valor: 0.10, chance: 30 },
     { tipo: "pontos", valor: 0.25, chance: 25 },
@@ -555,8 +554,7 @@ app.post("/api/roleta/girar", async (req, res) => {
     const user = userRes.rows[0];
     const limiteGiros = 5;
     const girosHoje = await client.query(
-      `SELECT COUNT(*) FROM roleta_giros 
-       WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
+      `SELECT COUNT(*) FROM roleta_giros WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
 
@@ -566,9 +564,7 @@ app.post("/api/roleta/girar", async (req, res) => {
     }
 
     const ticketCheck = await client.query(
-      `SELECT id FROM roleta_tickets 
-       WHERE telegram_id = $1 AND usado = false 
-       ORDER BY id ASC LIMIT 1 FOR UPDATE`,
+      `SELECT id FROM roleta_tickets WHERE telegram_id = $1 AND usado = false ORDER BY id ASC LIMIT 1 FOR UPDATE`,
       [telegram_id]
     );
 
@@ -580,16 +576,14 @@ app.post("/api/roleta/girar", async (req, res) => {
       ticketIdUsado = ticketCheck.rows[0].id;
     }
 
-    // 💰 Custo do giro agora é 0.20
     const CUSTO_GIRO = 0.20;
 
-if (gratis) {
+    if (gratis) {
       await client.query(
         "UPDATE roleta_tickets SET usado = true, data_registro = NOW() WHERE id = $1",
         [ticketIdUsado]
       );
     } else {
-      // CORREÇÃO: Cast para NUMERIC na subtração de pontos
       if (parseFloat(user.pontos) < CUSTO_GIRO) {
         await client.query("ROLLBACK");
         return res.status(400).json({ erro: "Pontos insuficientes" });
@@ -616,15 +610,25 @@ if (gratis) {
       [telegram_id, nomePremio, premio.valor, gratis]
     );
 
-    // CORREÇÃO: Histórico agora registra todos os resultados, inclusive valor 0
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'roleta', $2, $3, $4, NOW())`,
       [telegram_id, premio.valor, nomePremio, String(giroRes.rows[0].id)]
     );
-      
+
     await client.query("COMMIT");
-    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });}
+    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Erro roleta:", err.message);
+    res.status(500).json({ erro: "Erro interno" });
+  } finally {
+    client.release();
+  }
+});
+
+    
 
 // 📊 GIROS E TICKETS DISPONÍVEIS HOJE
 app.get("/api/roleta/hoje", async (req, res) => {
