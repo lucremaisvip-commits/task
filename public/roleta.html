@@ -149,33 +149,67 @@ const linguagens = {
 
 function aplicarTraducoes() {
   const t = linguagens[userLang];
-  const btnComprar = document.getElementById("btnComprarTickets");
   
+  // Função auxiliar de segurança para não quebrar o código caso o ID não exista
+  const setElText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+  };
+
+  const setHtml = (id, html) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  };
+
+  // Atualização dos textos principais
+  setElText("pageTitle", t.title);
+  setElText("mainTitle", t.mainTitle);
+  setHtml("mainDescription", t.description);
+
+  // Labels dos cards (usando verificação para evitar erro de null)
+  const labels = [
+    { id: "girosHoje", text: t.girosHoje },
+    { id: "ticketsDisponiveis", text: t.ticketsText },
+    { id: "pontos", text: t.pointsText }
+  ];
+
+  labels.forEach(item => {
+    const el = document.getElementById(item.id);
+    if (el && el.previousSibling) {
+      el.previousSibling.textContent = item.text + " ";
+    }
+  });
+
+  // Loja e Botões
+  const cardLojaH3 = document.querySelector("#cardLoja h3");
+  if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
+  
+  const cardLojaP = document.querySelector("#cardLoja p");
+  if (cardLojaP) cardLojaP.innerText = t.lojaDesc;
+
+  const btnComprar = document.getElementById("btnComprarTickets");
   if (btnComprar) {
-      btnComprar.innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
+    btnComprar.innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
   }
-  document.getElementById("pageTitle").innerText = t.title;
-  document.getElementById("mainTitle").innerText = t.mainTitle;
-  document.getElementById("mainDescription").innerHTML = t.description;
 
-  document.getElementById("girosHoje").previousSibling.textContent = t.girosHoje + " ";
-  document.getElementById("ticketsDisponiveis").previousSibling.textContent = t.ticketsText + " ";
-  document.getElementById("pontos").previousSibling.textContent = t.pointsText + " ";
+  setElText("botaoGirar", t.btnSpin);
+  setElText("btnAjuda", t.btnHelp);
+  setElText("titleHistory", t.historyTitle);
+  setElText("loadingHistory", t.loadingHistory);
 
-  document.querySelector("#cardLoja h3").innerText = t.lojaTitle;
-  document.querySelector("#cardLoja p").innerText = t.lojaDesc;
-  document.getElementById("btnComprarTickets").innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
-  document.getElementById("botaoGirar").innerText = t.btnSpin;
-  document.getElementById("btnAjuda").innerText = t.btnHelp;
+  // Menu Inferior
+  const menuMap = {
+    "navHome": t.navHome,
+    "navTasks": t.navTasks,
+    "navInvites": t.navInvites,
+    "navOfferwalls": t.navOfferwalls,
+    "navWithdraw": t.navWithdraw
+  };
 
-  document.getElementById("titleHistory").innerText = t.historyTitle;
-  document.getElementById("loadingHistory").innerText = t.loadingHistory;
-
-  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
-  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
-  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
-  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
-  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+  for (const [id, text] of Object.entries(menuMap)) {
+    const el = document.querySelector(`#${id} .txt-nav`);
+    if (el) el.innerText = text;
+  }
 }
 // --- PARTE 2: Inicialização e Carregamento de Dados ---
 
