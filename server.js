@@ -1112,6 +1112,38 @@ app.post("/api/abrir-bau", async (req, res) => {
 
 
 // 🔹 4. Rotas de Usuário
+
+app.get("/api/status-checklist", async (req, res) => {
+    const { telegram_id } = req.query;
+    const client = await pool.connect();
+    try {
+        // 1. Busca estatísticas do dia atual
+        const statsRes = await client.query(`
+            SELECT 
+                COUNT(*) FILTER (WHERE origem = 'zerads') as zerads,
+                COUNT(*) FILTER (WHERE origem = 'moneyrain') as moneyrain,
+                COUNT(*) FILTER (WHERE origem = 'tarefa') as tarefas
+            FROM historico_ganhos 
+            WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE
+        `, [telegram_id]);
+
+        // 2. Busca o status da streak
+        const streakRes = await client.query(`
+            SELECT streak_atual, bau_disponivel 
+            FROM usuarios_streaks WHERE telegram_id = $1
+        `, [telegram_id]);
+
+        res.json({
+            progresso: statsRes.rows[0],
+            streak: streakRes.rows[0] || { streak_atual: 0, bau_disponivel: false }
+        });
+    } finally {
+        client.release();
+    }
+});
+
+
+
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
   try {
