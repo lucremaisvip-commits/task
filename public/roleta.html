@@ -90,10 +90,18 @@
 
   <h1 id="mainTitle" style="text-align: center; margin-top: 20px;">🎰 Lucky Wheel</h1>
   
-  <p class="descricao" id="mainDescription">
-    🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>
-    Cada giro consome primariamente <strong>1 Ticket</strong>. Se não tiver nenhum, um anúncio será exibido para liberar o giro.
-  </p>
+<div class="descricao" id="mainDescription" style="text-align: left; font-size: 14px; color: #94a3b8;">
+    <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+        🎡 <strong>Sorte ao seu alcance!</strong><br>
+        Transforme seus pontos em prêmios instantâneos com nossa Roleta.
+    </p>
+    <ul style="padding-left: 20px; line-height: 1.6;">
+        <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
+        <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
+        <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
+        <li><strong>Limite diário:</strong> Até 5 rodadas por dia.</li>
+    </ul>
+</div>
 
   <!-- Painel de Status -->
   <div class="card">
@@ -129,8 +137,7 @@
     </ul>
   </div>
 
-  <!-- Grid de Anúncios -->
-  <div class="grid" id="gridRoleta"></div>
+
 
   <!-- Menu Inferior -->
   <nav class="bottom-nav">
@@ -149,7 +156,6 @@ let userLang = "en";
 let rotacaoAtual = 0;
 let usuarioVip = false; 
 
-// Tradutor dinâmico para os prêmios numéricos
 const tradutorPremios = {
   pt: {
     pontos: (valor) => `${valor.toFixed(2).replace('.', ',')} Pontos`,
@@ -165,7 +171,17 @@ const linguagens = {
   pt: {
     title: "🎰 Roleta da Sorte",
     mainTitle: "🎰 Roleta da Sorte",
-    description: `🎡 Teste sua sorte e transforme seus pontos em prêmios instantâneos!<br>Cada giro consome primariamente <strong>1 Ticket</strong>. Se não tiver nenhum, um anúncio será exibido para liberar o giro.`,
+    description: `
+        <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+            🎡 <strong>Sorte ao seu alcance!</strong><br>
+            Transforme seus pontos em prêmios instantâneos com nossa Roleta.
+        </p>
+        <ul style="padding-left: 20px; line-height: 1.6;">
+            <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
+            <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
+            <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
+            <li><strong>Limite diário:</strong> Até 5 rodadas por dia.</li>
+        </ul>`,
     girosHoje: "🎡 Giros hoje:",
     ticketsText: "🎟️ Tickets Disponíveis:",
     pointsText: "⭐ Saldo:",
@@ -181,7 +197,17 @@ const linguagens = {
   en: {
     title: "🎰 Lucky Wheel",
     mainTitle: "🎰 Lucky Wheel",
-    description: `🎡 Test your luck and turn your points into instant prizes!<br>Each spin primarily consumes <strong>1 Ticket</strong>. If you don't have any, an ad will be shown to unlock the spin.`,
+    description: `
+        <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+            🎡 <strong>Luck within reach!</strong><br>
+            Turn your points into instant prizes with our Wheel.
+        </p>
+        <ul style="padding-left: 20px; line-height: 1.6;">
+            <li><strong>How it works:</strong> Each spin consumes 1 Ticket. If none, costs 0.20 pts.</li>
+            <li><strong>Users:</strong> Watch a quick ad to unlock your spin.</li>
+            <li><strong>VIP Perks:</strong> No ads and discounts on ticket purchases.</li>
+            <li><strong>Daily limit:</strong> Up to 5 spins per day.</li>
+        </ul>`,
     girosHoje: "🎡 Spins today:",
     ticketsText: "🎟️ Tickets Available:",
     pointsText: "⭐ Balance:",
@@ -199,37 +225,20 @@ const linguagens = {
 function aplicarTraducoes() {
   const t = linguagens[userLang];
   
-  // Função auxiliar de segurança para não quebrar o código caso o ID não exista
-  const setElText = (id, text) => {
-    const el = document.getElementById(id);
-    if (el) el.innerText = text;
-  };
+  const setElText = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+  const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
 
-  const setHtml = (id, html) => {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = html;
-  };
-
-  // Atualização dos textos principais
   setElText("pageTitle", t.title);
   setElText("mainTitle", t.mainTitle);
   setHtml("mainDescription", t.description);
 
-  // Labels dos cards (usando verificação para evitar erro de null)
-  const labels = [
-    { id: "girosHoje", text: t.girosHoje },
-    { id: "ticketsDisponiveis", text: t.ticketsText },
-    { id: "pontos", text: t.pointsText }
-  ];
-
-  labels.forEach(item => {
-    const el = document.getElementById(item.id);
-    if (el && el.previousSibling) {
-      el.previousSibling.textContent = item.text + " ";
-    }
+  // Atualização dos textos dos labels fixos
+  document.querySelectorAll(".card p").forEach(p => {
+    if (p.querySelector("#girosHoje")) p.firstChild.textContent = t.girosHoje + " ";
+    if (p.querySelector("#ticketsDisponiveis")) p.firstChild.textContent = t.ticketsText + " ";
+    if (p.querySelector("#pontos")) p.firstChild.textContent = t.pointsText + " ";
   });
 
-  // Loja e Botões
   const cardLojaH3 = document.querySelector("#cardLoja h3");
   if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
   
@@ -244,15 +253,14 @@ function aplicarTraducoes() {
   setElText("botaoGirar", t.btnSpin);
   setElText("btnAjuda", t.btnHelp);
   setElText("titleHistory", t.historyTitle);
-  setElText("loadingHistory", t.loadingHistory);
+  
+  // Atualiza o texto de carregando apenas se ainda estiver vazio ou carregando
+  const loading = document.getElementById("loadingHistory");
+  if (loading) loading.innerText = t.loadingHistory;
 
-  // Menu Inferior
   const menuMap = {
-    "navHome": t.navHome,
-    "navTasks": t.navTasks,
-    "navInvites": t.navInvites,
-    "navOfferwalls": t.navOfferwalls,
-    "navWithdraw": t.navWithdraw
+    "navHome": t.navHome, "navTasks": t.navTasks, "navInvites": t.navInvites, 
+    "navOfferwalls": t.navOfferwalls, "navWithdraw": t.navWithdraw
   };
 
   for (const [id, text] of Object.entries(menuMap)) {
@@ -415,73 +423,46 @@ document.getElementById("botaoGirar").addEventListener("click", () => {
 
 async function carregarHistorico() {
   const t = linguagens[userLang];
+  const tP = tradutorPremios[userLang]; // Acessa o tradutor que definimos na Parte 1
+  
   try {
     const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
     const historico = await res.json();
     const lista = document.getElementById("listaGiros");
-    lista.innerHTML = "";
+    
+    lista.innerHTML = ""; // Limpa o "Carregando..."
+
+    if (!historico || historico.length === 0) {
+      lista.innerHTML = `<li>${userLang === 'pt' ? 'Nenhum giro registrado.' : 'No spins recorded.'}</li>`;
+      return;
+    }
 
     historico.forEach(giro => {
       const item = document.createElement("li");
       
-      // 1. Usa data_registro (corrigido do seu padrão)
-      const dataFormatada = new Date(giro.data_registro).toLocaleTimeString();
+      // 1. Formatação da Data (usando 'data_registro' conforme seu banco)
+      const dataObj = new Date(giro.data_registro);
+      const dataFormatada = !isNaN(dataObj.getTime()) ? dataObj.toLocaleTimeString() : "--:--";
       
-      // 2. Garante que o prêmio seja exibido corretamente no idioma correto
-      // O 'giro.pontos_ganhos' é o valor numérico que vem do banco
-      const valor = giro.pontos_ganhos || 0;
-      
+      // 2. Tradução do Prêmio usando o objeto tradutorPremios da Parte 1
+      const valor = parseFloat(giro.pontos_ganhos) || 0;
       let textoPremio;
-      if (userLang === "pt") {
-        textoPremio = giro.premio;
+      
+      if (valor > 0) {
+        textoPremio = tP.pontos(valor); // Usa a função definida em tradutorPremios
       } else {
-        // Tradução manual para inglês usando o valor do banco
-        textoPremio = valor > 0 ? `${valor.toFixed(2)} Points` : "Try Again";
+        textoPremio = tP.nada; // Usa a string definida em tradutorPremios
       }
 
       item.textContent = `${textoPremio} - ${dataFormatada}`;
       lista.appendChild(item);
     });
   } catch (err) { 
-    console.error("Erro ao carregar histórico:", err); 
-  }
-}
-// 📢 BANNERS
-async function carregarBannersRoleta() {
-  try {
-    const res = await fetch("/api/anuncios?posicao=roleta");
-    const dados = await res.json();
-    const grid = document.getElementById("gridRoleta");
-    grid.innerHTML = "";
-
-    dados.forEach(b => {
-      const el = document.createElement("div");
-      el.className = "banner";
-      el.innerHTML = `
-        <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
-          <img src="${b.imagem_url}" alt="banner">
-        </a>
-      `;
-      grid.appendChild(el);
-
-      fetch("/api/anuncio-evento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ anuncio_id: b.id, tipo: "visita", telegram_id: telegram_id })
-      }).catch(e => console.error(e));
-    });
-  } catch (err) {
-    console.error("Erro ao carregar banners roleta:", err);
+    console.error("Erro ao carregar histórico:", err);
+    document.getElementById("listaGiros").innerHTML = "<li>Error loading history</li>";
   }
 }
 
-function registrarClique(anuncioId) {
-  fetch("/api/anuncio-evento", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ anuncio_id: anuncioId, tipo: "clique", telegram_id: telegram_id })
-  }).catch(e => console.error(e));
-}
   </script>
 </body>
 </html>
