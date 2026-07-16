@@ -127,7 +127,13 @@
   <div id="resultado"></div>
 
   <!-- Ajuda -->
-  <button id="btnAjuda" style="background: #334155; margin-bottom: 20px;">❓ Dúvidas sobre Roleta</button>
+  <div style="margin-top: 15px;">
+  <button id="btnAjuda" 
+          onclick="window.Telegram.WebApp.openLink(this.dataset.url)"
+          style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%;">
+    ❓ Dúvidas sobre Roleta
+  </button>
+</div>
 
   <!-- Histórico -->
   <div class="card" id="historico">
@@ -189,6 +195,7 @@ const linguagens = {
     lojaDesc: "Compre 5 tickets com desconto.",
     btnComprar: "Comprar 5 Tickets",
     btnSpin: "🎯 Girar Roleta",
+    linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#roleta",
     btnHelp: "❓ Dúvidas sobre Roleta",
     historyTitle: "📜 Histórico de Giros",
     loadingHistory: "Carregando histórico...",
@@ -215,6 +222,7 @@ const linguagens = {
     lojaDesc: "Buy 5 tickets at a discount.",
     btnComprar: "Buy 5 Tickets",
     btnSpin: "🎯 Spin Wheel",
+    linkAjuda: "https://lucremaistask.netlify.app/help.html#roleta",
     btnHelp: "❓ Wheel Questions",
     historyTitle: "📜 Spin History",
     loadingHistory: "Loading history...",
