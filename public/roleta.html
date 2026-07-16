@@ -374,13 +374,29 @@ async function carregarHistorico() {
 
     historico.forEach(giro => {
       const item = document.createElement("li");
-      const premioExibido = userLang === "pt" ? giro.premio : (tradutorPremios.en.pontos(giro.valor || 0));
-      item.textContent = `${premioExibido} - ${new Date(giro.created_at).toLocaleTimeString()}`;
+      
+      // 1. Usa data_registro (corrigido do seu padrão)
+      const dataFormatada = new Date(giro.data_registro).toLocaleTimeString();
+      
+      // 2. Garante que o prêmio seja exibido corretamente no idioma correto
+      // O 'giro.pontos_ganhos' é o valor numérico que vem do banco
+      const valor = giro.pontos_ganhos || 0;
+      
+      let textoPremio;
+      if (userLang === "pt") {
+        textoPremio = giro.premio;
+      } else {
+        // Tradução manual para inglês usando o valor do banco
+        textoPremio = valor > 0 ? `${valor.toFixed(2)} Points` : "Try Again";
+      }
+
+      item.textContent = `${textoPremio} - ${dataFormatada}`;
       lista.appendChild(item);
     });
-  } catch (err) { console.error(err); }
+  } catch (err) { 
+    console.error("Erro ao carregar histórico:", err); 
+  }
 }
-
 // 📢 BANNERS
 async function carregarBannersRoleta() {
   try {
