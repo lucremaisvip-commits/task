@@ -1207,52 +1207,38 @@ app.get("/api/usuarios/:telegram_id", async (req, res) => {
   }
 });
 // 🔹 Rota de Status do Usuário (Otimizada para o HUD do RPG)
-app.get("/api/status-usuario", async (req, res) => {
-  try {
-    const { id } = req.query; // Recebe o id via query string (conforme seu front)
+app.get('/api/status-usuario', async (req, res) => {
+    const { telegram_id } = req.query;
 
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: "telegram_id não informado"
-      });
+    if (!telegram_id) {
+        return res.status(400).json({ error: "telegram_id é obrigatório" });
     }
 
-    // Consulta SQL unindo a tabela de usuários com os dados de progresso (RPG)
-    // Ajuste os nomes das colunas conforme o seu schema real do banco
-    const query = `
-      SELECT 
-        nivel, 
-        titulo, 
-        xp, 
-        xp_proximo, 
-        meta_externa, 
-        meta_roleta, 
-        meta_tarefa, 
-        vip AS is_vip
-      FROM usuarios 
-      WHERE telegram_id = $1
-    `;
+    try {
+        const query = `
+            SELECT 
+                u.xp, 
+                u.nivel, 
+                u.vip,
+                s.streak_atual,
+                s.bau_disponivel,
+                COALESCE(s.escudos, 0) as escudos
+            FROM usuarios u
+            LEFT JOIN usuarios_streaks s ON u.telegram_id = s.telegram_id
+            WHERE u.telegram_id = $1
+        `;
 
-    const result = await pool.query(query, [id]);
+        const result = await pool.query(query, [telegram_id]);
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        error: "Usuário não encontrado"
-      });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        console.error("Erro ao buscar status do usuário:", err);
+        res.status(500).json({ error: "Erro interno no servidor" });
     }
-
-    // Retorna o objeto direto, compatível com o que o seu frontend espera
-    return res.json(result.rows[0]);
-
-  } catch (err) {
-    console.error("Erro /api/status-usuario:", err);
-    return res.status(500).json({
-      success: false,
-      error: "Erro interno no servidor"
-    });
-  }
 });
 
 
