@@ -1248,6 +1248,68 @@ app.get("/api/status-usuario", async (req, res) => {
   }
 });
 
+
+
+// Tabela de Níveis e Benefícios (Configuração Mestre)
+const TABELA_NIVEIS = {
+    1: { xp_min: 0, titulo: "Novato", limite_saque: 1, giros: 5, tempo_ad: 15 },
+    2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 1 } },
+    3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 2, escudo: 1 } },
+    4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 3 } },
+    5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 5 } }
+};
+
+// Função para processar ganho de XP e verificar Level UP
+async function adicionarXP(telegram_id, xpGanho, client) {
+    // 1. Pega o XP atual e Nível atual
+    const userRes = await client.query("SELECT xp, nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+    if (userRes.rows.length === 0) return;
+
+    let { xp, nivel } = userRes.rows[0];
+    let novoXp = xp + xpGanho;
+    let novoNivel = nivel;
+    let subiuDeNivel = false;
+
+    // 2. Descobre qual deveria ser o nível dele agora
+    for (let n = 5; n >= 1; n--) {
+        if (novoXp >= TABELA_NIVEIS[n].xp_min) {
+            if (n > nivel) {
+                novoNivel = n;
+                subiuDeNivel = true;
+            }
+            break;
+        }
+    }
+
+    // 3. Atualiza o banco com o novo XP (e novo nível, se subiu)
+    await client.query("UPDATE usuarios SET xp = $1, nivel = $2 WHERE telegram_id = $3", [novoXp, novoNivel, telegram_id]);
+
+    // 4. Entrega os prêmios instantâneos da subida de nível
+    if (subiuDeNivel) {
+        const beneficios = TABELA_NIVEIS[novoNivel].premios;
+        
+        if (beneficios.tickets) {
+            // Insere os tickets na roleta
+            let valoresTickets = Array(beneficios.tickets).fill(`('${telegram_id}', false, CURRENT_DATE)`).join(',');
+            await client.query(`INSERT INTO roleta_tickets (telegram_id, usado, data_registro) VALUES ${valoresTickets}`);
+        }
+        
+        if (beneficios.escudo) {
+            // Adiciona um escudo de streak
+            await client.query("UPDATE usuarios_streaks SET escudos = escudos + $1 WHERE telegram_id = $2", [beneficios.escudo, telegram_id]);
+        }
+        
+        console.log(`🎉 Usuário ${telegram_id} subiu para o Nível ${novoNivel}!`);
+    }
+
+    return { novoXp, novoNivel, subiuDeNivel };
+}
+
+
+
+
+
+
 // 🔹 5. Ranking Otimizado com critérios de desempate
 app.get("/api/ranking", async (req, res) => {
   try {
