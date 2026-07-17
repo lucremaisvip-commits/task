@@ -399,23 +399,25 @@ const resultadoXp = await adicionarXP(telegram_id, 15, client);
         "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
       );
-if (parseInt(tarefasRes.rows[0].count) >= 3) {
-    await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
-    
-    // Atualiza pontos e a contagem de indicações (XP removido daqui)
-    await client.query(
-      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
-      [indicacao.id_indicador]
-    );
 
-    // Chama a função centralizada para o indicante
-    await adicionarXP(indicacao.id_indicador, 20, client);
+      if (parseInt(tarefasRes.rows[0].count) >= 3) {
+        await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
+        
+        // Atualiza pontos e a contagem de indicações
+        await client.query(
+          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
+          [indicacao.id_indicador]
+        );
 
-    await client.query(
-      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
-      [indicacao.id_indicador, String(telegram_id)]
-    );
-}
+        // Chama a função centralizada para o indicante
+        await adicionarXP(indicacao.id_indicador, 20, client);
+
+        await client.query(
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
+          [indicacao.id_indicador, String(telegram_id)]
+        );
+      } // Fim do if (count >= 3)
+    } // Fim do if (indicacaoRes.rows.length > 0)
 
     await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
