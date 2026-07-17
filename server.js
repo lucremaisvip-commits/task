@@ -399,18 +399,23 @@ const resultadoXp = await adicionarXP(telegram_id, 15, client);
         "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
       );
-      if (parseInt(tarefasRes.rows[0].count) >= 3) {
-        await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
-        await client.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, xp = COALESCE(xp, 0) + 20, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
-          [indicacao.id_indicador]
-        );
-        await client.query(
-          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
-          [indicacao.id_indicador, String(telegram_id)]
-        );
-      }
-    }
+if (parseInt(tarefasRes.rows[0].count) >= 3) {
+    await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
+    
+    // Atualiza pontos e a contagem de indicações (XP removido daqui)
+    await client.query(
+      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
+      [indicacao.id_indicador]
+    );
+
+    // Chama a função centralizada para o indicante
+    await adicionarXP(indicacao.id_indicador, 20, client);
+
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
+      [indicacao.id_indicador, String(telegram_id)]
+    );
+}
 
     await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
@@ -1314,7 +1319,32 @@ async function adicionarXP(telegram_id, xpGanho, client) {
     return { novoXp, novoNivel, subiuDeNivel };
 }
 
+app.get("/api/indicacoes-info", async (req, res) => {
+  const { telegram_id } = req.query;
+  if (!telegram_id) return res.status(400).json({ erro: "ID necessário" });
 
+  try {
+    // Busca o total de indicações validadas pelo sistema (pontos_ativados = true)
+    const totalRes = await pool.query(
+      "SELECT COUNT(*) FROM indicacoes WHERE id_indicador = $1 AND pontos_ativados = true",
+      [telegram_id]
+    );
+
+    // Busca apenas o evento mais recente de premiação de indicação para o front comparar
+    const historicoRes = await pool.query(
+      "SELECT id, data_registro FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'indicacao' ORDER BY data_registro DESC LIMIT 1",
+      [telegram_id]
+    );
+
+    res.json({
+      totalAprovadas: parseInt(totalRes.rows[0].count),
+      ultimaPremiacao: historicoRes.rows.length > 0 ? historicoRes.rows[0].data_registro : null
+    });
+  } catch (err) {
+    console.error("Erro ao buscar indicações:", err);
+    res.status(500).json({ erro: "Erro ao buscar dados" });
+  }
+});
 
 
 
