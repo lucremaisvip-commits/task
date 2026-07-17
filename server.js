@@ -518,7 +518,7 @@ app.post("/api/roleta/girar", async (req, res) => {
     await client.query("BEGIN");
 
     const userRes = await client.query(
-      "SELECT pontos, vip FROM usuarios WHERE telegram_id = $1 FOR UPDATE",
+      "SELECT pontos, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE",
       [telegram_id]
     );
 
@@ -528,22 +528,17 @@ app.post("/api/roleta/girar", async (req, res) => {
     }
 
     const user = userRes.rows[0];
-    // Define o limite baseado no nível do usuário
     const nivelAtual = user.nivel || 1;
     const limiteGiros = TABELA_NIVEIS[nivelAtual].giros;
 
-    // Verifica quantos giros o usuário já fez hoje
     const girosHoje = await client.query(
       `SELECT COUNT(*) FROM roleta_giros WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
 
-    // Valida se atingiu o limite dinâmico
     if (parseInt(girosHoje.rows[0].count) >= limiteGiros) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ 
-        erro: `Limite diário de ${limiteGiros} giros atingido` 
-      });
+      return res.status(400).json({ erro: `Limite diário de ${limiteGiros} giros atingido` });
     }
 
     const ticketCheck = await client.query(
@@ -579,14 +574,12 @@ app.post("/api/roleta/girar", async (req, res) => {
 
     const premio = sortearPremio();
     
-// 1. Atualiza apenas os Pontos (remova o 'xp = ...' daqui)
-await client.query(
-  "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
-  [premio.valor.toFixed(2), telegram_id]
-);
+    await client.query(
+      "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
+      [premio.valor.toFixed(2), telegram_id]
+    );
 
-// 2. Chama a função que processa o XP e o Level Up automaticamente
-const resultadoXp = await adicionarXP(telegram_id, 30, client);
+    const resultadoXp = await adicionarXP(telegram_id, 30, client);
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
@@ -603,16 +596,17 @@ const resultadoXp = await adicionarXP(telegram_id, 30, client);
     );
 
     await client.query("COMMIT");
+    
     res.json({ 
-    success: true, 
-    premio: nomePremio, 
-    valor: premio.valor, 
-    tipo: premio.tipo, 
-    gratis, 
-    xp: 30,
-    subiuDeNivel: resultadoXp.subiuDeNivel, // Útil para o front-end saber se deve mostrar algo
-    novoNivel: resultadoXp.novoNivel 
-});
+      success: true, 
+      premio: nomePremio, 
+      valor: premio.valor, 
+      tipo: premio.tipo, 
+      gratis, 
+      xp: 30,
+      subiuDeNivel: resultadoXp.subiuDeNivel,
+      novoNivel: resultadoXp.novoNivel 
+    });
 
   } catch (err) {
     await client.query("ROLLBACK");
@@ -621,7 +615,7 @@ const resultadoXp = await adicionarXP(telegram_id, 30, client);
   } finally {
     client.release();
   }
-});
+}); 
 
     
 
@@ -815,7 +809,6 @@ app.get("/cpalead-postback", async (req, res) => {
   const { subid, payout, offer_id, campaign_name } = req.query;
   const telegram_id = subid.replace("telegram_", "");
   
-  // Garantimos que pontos seja tratado como NUMERIC no SQL
   const pontos = (parseFloat(payout) * 50) * 0.4;
 
   try {
@@ -842,7 +835,7 @@ app.get("/cpalead-postback", async (req, res) => {
         [telegram_id, pontos, campaign_name, offer_id]
       );
 
-// 3. Update saldo e tarefas (Remova a atualização de XP daqui)
+      // 3. Update saldo e tarefas
       await client.query(
         `UPDATE usuarios 
           SET pontos = COALESCE(pontos, 0) + $1, 
@@ -852,12 +845,23 @@ app.get("/cpalead-postback", async (req, res) => {
       );
 
       // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
-      // Adicionamos 5 XP conforme o seu código original
       await adicionarXP(telegram_id, 5, client);
       // ---------------------------------------
 
       await client.query("COMMIT");
       res.status(200).send("✅ Sucesso.");
+
+    } catch (dbErr) {
+      await client.query("ROLLBACK");
+      throw dbErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error("Erro CPALead:", err.message);
+    res.status(500).send("❌ Erro interno.");
+  }
+});
 
 // moneyrain verificar secret
 
@@ -1222,6 +1226,7 @@ app.get("/api/usuarios/:telegram_id", async (req, res) => {
     });
   }
 });
+
 // 🔹 Rota de Status do Usuário (Otimizada para o HUD do RPG)
 app.get('/api/status-usuario', async (req, res) => {
     const { telegram_id } = req.query;
