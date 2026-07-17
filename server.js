@@ -1385,8 +1385,8 @@ app.post("/api/solicitar-saque", async (req, res) => {
     
     // 2. Regras de Limite de saque diário 
     // 2.1. Primeiro, certifique-se de buscar o nível do usuário no banco
-const userResult = await client.query("SELECT nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-const nivelUsuario = userResult.rows[0]?.nivel || 1;
+const nvResult = await client.query("SELECT nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+const nivelUsuario = nvResult.rows[0]?.nivel || 1;
 
 // 2.2. Busca o limite configurado na sua tabela mestre
 const limiteSaques = TABELA_NIVEIS[nivelUsuario]?.limite_saque || 1;
