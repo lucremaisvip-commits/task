@@ -1254,45 +1254,40 @@ const TABELA_NIVEIS = {
 
 // Função para processar ganho de XP e verificar Level UP
 async function adicionarXP(telegram_id, xpGanho, client) {
-    // 1. Pega o XP atual e Nível atual
     const userRes = await client.query("SELECT xp, nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
     if (userRes.rows.length === 0) return;
 
     let { xp, nivel } = userRes.rows[0];
     let novoXp = xp + xpGanho;
-    let novoNivel = nivel;
-    let subiuDeNivel = false;
+    let novoNivel = nivel; 
 
-    // 2. Descobre qual deveria ser o nível dele agora
+    // Procura o maior nível alcançável com o novo XP
     for (let n = 5; n >= 1; n--) {
         if (novoXp >= TABELA_NIVEIS[n].xp_min) {
-            if (n > nivel) {
-                novoNivel = n;
-                subiuDeNivel = true;
-            }
-            break;
+            novoNivel = n; // Define o maior nível atingido
+            break; 
         }
     }
 
-    // 3. Atualiza o banco com o novo XP (e novo nível, se subiu)
+    let subiuDeNivel = (novoNivel > nivel);
+
+    // 3. Atualiza o banco
     await client.query("UPDATE usuarios SET xp = $1, nivel = $2 WHERE telegram_id = $3", [novoXp, novoNivel, telegram_id]);
 
-    // 4. Entrega os prêmios instantâneos da subida de nível
+    // 4. Entrega os prêmios (apenas se realmente subiu)
     if (subiuDeNivel) {
         const beneficios = TABELA_NIVEIS[novoNivel].premios;
         
-        if (beneficios.tickets) {
-            // Insere os tickets na roleta
-            let valoresTickets = Array(beneficios.tickets).fill(`('${telegram_id}', false, CURRENT_DATE)`).join(',');
-            await client.query(`INSERT INTO roleta_tickets (telegram_id, usado, data_registro) VALUES ${valoresTickets}`);
+        if (beneficios?.tickets) {
+            // Verifica se a tabela existe e está recebendo os dados corretamente
+            for (let i = 0; i < beneficios.tickets; i++) {
+                await client.query("INSERT INTO roleta_tickets (telegram_id, usado, data_registro) VALUES ($1, false, CURRENT_DATE)", [telegram_id]);
+            }
         }
         
-        if (beneficios.escudo) {
-            // Adiciona um escudo de streak
+        if (beneficios?.escudo) {
             await client.query("UPDATE usuarios_streaks SET escudos = escudos + $1 WHERE telegram_id = $2", [beneficios.escudo, telegram_id]);
         }
-        
-        console.log(`🎉 Usuário ${telegram_id} subiu para o Nível ${novoNivel}!`);
     }
 
     return { novoXp, novoNivel, subiuDeNivel };
