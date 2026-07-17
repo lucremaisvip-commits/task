@@ -8,101 +8,30 @@
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="//libtl.com/sdk.js" data-zone="9579151" data-sdk="show_9579151"></script>
+  <link rel="preconnect" href="https://libtl.com" crossorigin>
+  <link rel="dns-prefetch" href="//libtl.com">
+  <link rel="preconnect" href="https://zerads.com" crossorigin>
+  <link rel="dns-prefetch" href="//zerads.com">  
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  text-align: center;
-  background: #f4f4f4;
-  padding: 20px;
-  max-width: 600px;
-  margin: auto;
-}
+body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; padding: 20px; max-width: 600px; margin: auto; }
+h1 { font-size: 20px; color: #111; margin-bottom: 15px; }
 
-h1 {
-  font-size: 20px;
-  color: #111;
-  margin-bottom: 15px;
-}
+.info { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; color: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 20px; font-size: 14px; text-align: left; box-shadow: 0 2px 8px rgba(0,0,0,0.1); line-height: 1.5; }
+.info b { color: #00ff88; }
 
-/* 🎯 CARD DE INFORMAÇÕES PREMIUM */
-.info {
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border: 1px solid #334155;
-  color: #f1f5f9;
-  padding: 15px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  font-size: 14px;
-  text-align: left;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  line-height: 1.5;
-}
+.timer { font-size: 24px; font-weight: bold; color: #e11d48; margin: 15px 0; background: #fff; display: inline-block; padding: 5px 20px; border-radius: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
 
-.info b {
-  color: #00ff88;
-}
+button { padding: 14px; border: none; border-radius: 8px; background: #cbd5e1; color: #64748b; font-weight: bold; width: 100%; margin-top: 20px; font-size: 16px; transition: all 0.3s ease; }
+button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 4px 12px rgba(42, 143, 67, 0.3); }
 
-/* ⏱️ CONTADOR REESTILIZADO */
-.timer {
-  font-size: 24px;
-  font-weight: bold;
-  color: #e11d48;
-  margin: 15px 0;
-  background: #fff;
-  display: inline-block;
-  padding: 5px 20px;
-  border-radius: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
+#status { margin-top: 15px; font-size: 15px; font-weight: bold; color: #1e293b; }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 15px;
-}
+.grid-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; justify-items: center; }
 
-.banner {
-  background: #fff;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
+.ad-item { width: 300px; height: 250px; overflow: hidden; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
-.banner img, iframe {
-  width: 100%;
-  height: 150px;
-  object-fit: cover;
-  display: block;
-}
-
-button {
-  padding: 14px;
-  border: none;
-  border-radius: 8px;
-  background: #cbd5e1;
-  color: #64748b;
-  font-weight: bold;
-  width: 100%;
-  margin-top: 20px;
-  font-size: 16px;
-  transition: all 0.3s ease;
-}
-
-button.ativo {
-  background: #2a8f43;
-  color: #fff;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(42, 143, 67, 0.3);
-}
-
-#status {
-  margin-top: 15px;
-  font-size: 15px;
-  font-weight: bold;
-  color: #1e293b;
-}
+.ad-item iframe, .ad-item img { width: 300px !important; height: 250px !important; object-fit: cover; border: none; }
 </style>
 </head>
 
@@ -115,7 +44,34 @@ button.ativo {
 
 <div id="timer" class="timer">5</div>
 
-<div class="grid" id="banners"></div>
+<div class="grid-banners">
+    <!-- Ad 1: iFrame -->
+    <div class="ad-item">
+        <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy"></iframe>
+    </div>
+
+    <!-- Ad 2: FaucetPay (Link) -->
+    <div class="ad-item">
+        <a href="https://faucetpay.io/?r=998373" target="_blank">
+            <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay" />
+        </a>
+    </div>
+
+    <!-- Ad 3: Script Dinâmico -->
+    <!-- Nota: Scripts geralmente renderizam o próprio container, 
+         se o script não seguir o tamanho, envolva-o em uma div -->
+    <div class="ad-item" id="container-script-ad">
+        <script>
+            (function(lvsk){
+                var d = document, s = d.createElement('script'), l = d.getElementById('container-script-ad');
+                s.settings = lvsk || {};
+                s.src = "//quarrelsomebitter.com/bZXJVAsBd.G/lC0/YZWAcw/yeWmF9guhZRUclvkQPpTRYN2_N/TvM/5VN/zAkmtBNSjlYb1tMTz/kG4qMHAC";
+                s.async = true;
+                l.appendChild(s);
+            })({});
+        </script>
+    </div>
+</div>
 
 <button id="btnAbrir" disabled>⏳ Aguarde...</button>
 
@@ -130,50 +86,72 @@ const token = params.get("token");
 const telegram_id = params.get("id");
 let userLang = params.get("lang") === "pt" ? "pt" : "en";
 
-// Dicionário de Idiomas
-const linguagens = {
-  pt: {
-    pageTitle: "Painel de Anúncios",
-    mainTitle: "🚀 Aguarde e desbloqueie sua tarefa",
-    invalidAccess: "Acesso inválido",
-    btnWait: "⏳ Aguarde...",
-    btnReady: "✔ Liberado!",
-    btnOpen: "👉 Abrir tarefa",
-    stayText: "⏳ Permaneça na tarefa... ",
-    successText: "✅ Tarefa concluída!",
-    instructions: `
-      📌 <b>1.</b> Visualize os anúncios abaixo por 5 segundos.<br>
-      👉 <b>2.</b> Clique no botão verde para abrir a tarefa externa.<br>
-      💰 <b>3.</b> Permaneça 15 segundos na tarefa para computar seus pontos automaticamente.
-    `
-  },
-  en: {
-    pageTitle: "Ad Panel",
-    mainTitle: "🚀 Wait to unlock your task",
-    invalidAccess: "Invalid access",
-    btnWait: "⏳ Please wait...",
-    btnReady: "✔ Unlocked!",
-    btnOpen: "👉 Open task",
-    stayText: "⏳ Stay on the task page... ",
-    successText: "✅ Task completed!",
-    instructions: `
-      📌 <b>1.</b> View the ads below for 5 seconds.<br>
-      👉 <b>2.</b> Click the green button to open the external task.<br>
-      💰 <b>3.</b> Stay on the task for 15 seconds to automatically claim your points.
-    `
-  }
+const TABELA_NIVEIS = {
+    1: { tempo_ad: 15 },
+    2: { tempo_ad: 14 },
+    3: { tempo_ad: 13 },
+    4: { tempo_ad: 10 },
+    5: { tempo_ad: 8 }
 };
 
-// Configuração inicial de idioma
+let tempoValidacao = 15; // Valor padrão
+
+// Função para buscar o nível do usuário
+async function carregarConfiguracaoNivel() {
+    try {
+        const res = await fetch(`/api/usuarios/${telegram_id}`);
+        const data = await res.json();
+        if (data.success && data.data) {
+            const nivel = data.data.nivel || 1;
+            tempoValidacao = TABELA_NIVEIS[nivel]?.tempo_ad || 15;
+        }
+    } catch (e) {
+        console.error("Erro ao buscar nível:", e);
+    }
+}
+
+// Dicionário de Idiomas
+const linguagens = {
+    pt: {
+        pageTitle: "Painel de Anúncios",
+        mainTitle: "🚀 Aguarde e desbloqueie sua tarefa",
+        invalidAccess: "Acesso inválido",
+        btnWait: "⏳ Aguarde...",
+        btnReady: "✔ Liberado!",
+        btnOpen: "👉 Abrir tarefa",
+        stayText: "⏳ Permaneça na tarefa... ",
+        successText: "✅ Tarefa concluída!",
+        instructions: `
+            📌 <b>1.</b> Visualize os anúncios abaixo por 5 segundos.<br>
+            👉 <b>2.</b> Clique no botão verde para abrir a tarefa externa.<br>
+            💰 <b>3.</b> Permaneça <span id="tempoDisplay">15</span> segundos na tarefa para computar pontos.`
+    },
+    en: {
+        pageTitle: "Ad Panel",
+        mainTitle: "🚀 Wait to unlock your task",
+        invalidAccess: "Invalid access",
+        btnWait: "⏳ Please wait...",
+        btnReady: "✔ Unlocked!",
+        btnOpen: "👉 Open task",
+        stayText: "⏳ Stay on the task page... ",
+        successText: "✅ Task completed!",
+        instructions: `
+            📌 <b>1.</b> View the ads below for 5 seconds.<br>
+            👉 <b>2.</b> Click the green button to open the external task.<br>
+            💰 <b>3.</b> Stay on the task for <span id="tempoDisplay">15</span> seconds to automatically claim your points.`
+    }
+};
+
+// Configuração inicial
 document.documentElement.lang = userLang;
 const t = linguagens[userLang];
 
 if (!tarefaId || !token || !telegram_id) {
-  alert(t.invalidAccess);
-  window.location.href = `tarefas.html?lang=${userLang}`;
+    alert(t.invalidAccess);
+    window.location.href = `tarefas.html?lang=${userLang}`;
 }
 
-// Tradução dos elementos da interface
+// Tradução dos elementos
 document.getElementById("pageTitle").innerText = t.pageTitle;
 document.getElementById("mainTitle").innerText = t.mainTitle;
 document.getElementById("instructionsBlock").innerHTML = t.instructions;
@@ -184,127 +162,71 @@ const statusEl = document.getElementById("status");
 
 btn.innerText = t.btnWait;
 
-// ⏱️ FASE 1 - CONTAGEM (5s)
+// ⏱️ FASE 1 - CONTAGEM (Fixa em 5s)
 let tempo = 5;
-
 const espera = setInterval(() => {
-  tempo--;
-  timerEl.innerText = tempo;
-
-  if (tempo <= 0) {
-    clearInterval(espera);
-    liberarBotao();
-  }
+    tempo--;
+    timerEl.innerText = tempo;
+    if (tempo <= 0) {
+        clearInterval(espera);
+        liberarBotao();
+    }
 }, 1000);
 
-// 🔓 LIBERA BOTÃO
 function liberarBotao() {
-  timerEl.style.color = "#2a8f43";
-  timerEl.innerText = t.btnReady;
-  btn.innerText = t.btnOpen;
-  btn.disabled = false;
-  btn.classList.add("ativo");
+    timerEl.style.color = "#2a8f43";
+    timerEl.innerText = t.btnReady;
+    btn.innerText = t.btnOpen;
+    btn.disabled = false;
+    btn.classList.add("ativo");
 }
 
-// 🚀 CLIQUE DO USUÁRIO
 btn.onclick = () => {
-  window.open(tarefaLink, "_blank");
-  iniciarValidacao();
+    window.open(tarefaLink, "_blank");
+    iniciarValidacao();
 };
 
-// ⏱️ FASE 2 - VALIDAÇÃO (15s)
+// ⏱️ FASE 2 - VALIDAÇÃO (Dinâmica)
 function iniciarValidacao() {
-  let segundos = 15;
-  btn.style.display = "none";
-  statusEl.innerText = t.stayText + segundos + "s";
-
-  const contador = setInterval(() => {
-    segundos--;
+    let segundos = tempoValidacao; 
+    btn.style.display = "none";
     statusEl.innerText = t.stayText + segundos + "s";
 
-    if (segundos <= 0) {
-      clearInterval(contador);
-      concluir();
-    }
-  }, 1000);
+    const contador = setInterval(() => {
+        segundos--;
+        statusEl.innerText = t.stayText + segundos + "s";
+        if (segundos <= 0) {
+            clearInterval(contador);
+            concluir();
+        }
+    }, 1000);
 }
 
-// ✅ CONCLUIR
 function concluir() {
-  fetch("/api/concluir-tarefa", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      telegram_id,
-      tarefa_id: tarefaId,
-      token,
-      fingerprint: navigator.userAgent
-    })
-  })
-  .then(r => r.json())
-  .then(data => {
-    statusEl.innerText = data.erro ? "❌ " + data.erro : t.successText;
-    
-    setTimeout(() => {
-      // Retorna propagando tanto o ID quanto o Idioma correto
-      window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}&t=${Date.now()}`;
-    }, 1500);
-  })
-  .catch(err => {
-    console.error(err);
-    window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}`;
-  });
-}
-
-// 📢 CARREGAR BANNERS DINÂMICOS
-async function carregarBanners() {
-  try {
-    const res = await fetch("/api/anuncios?posicao=ads%20panel");
-    const dados = await res.json();
-    const div = document.getElementById("banners");
-
-    dados.forEach(b => {
-      const el = document.createElement("div");
-      el.className = "banner";
-      el.innerHTML = `
-        <a href="${b.link_url}" target="_blank" onclick="registrarClique(${b.id})">
-          <img src="${b.imagem_url}">
-        </a>
-      `;
-      div.appendChild(el);
-
-      // registrar visita
-      fetch("/api/anuncio-evento", {
+    fetch("/api/concluir-tarefa", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({
-          anuncio_id: b.id,
-          tipo: "visita",
-          telegram_id: telegram_id
-        })
-      }).catch(e => console.error(e));
-    });
-
-  } catch (e) {
-    console.log("Erro banners:", e);
-  }
-}
-
-// 📊 CLIQUE
-function registrarClique(id) {
-  fetch("/api/anuncio-evento", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      anuncio_id: id,
-      tipo: "clique",
-      telegram_id: telegram_id
+        body: JSON.stringify({ telegram_id, tarefa_id: tarefaId, token, fingerprint: navigator.userAgent })
     })
-  }).catch(e => console.error(e));
+    .then(r => r.json())
+    .then(data => {
+        statusEl.innerText = data.erro ? "❌ " + data.erro : t.successText;
+        setTimeout(() => {
+            window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}&t=${Date.now()}`;
+        }, 1500);
+    })
+    .catch(err => {
+        console.error(err);
+        window.location.href = `tarefas.html?id=${telegram_id}&lang=${userLang}`;
+    });
 }
 
-// 🚀 INIT
-carregarBanners();
+// 🚀 INIT - Executa a busca de dados ao carregar
+(async () => {
+    await carregarConfiguracaoNivel();
+    const display = document.getElementById("tempoDisplay");
+    if (display) display.innerText = tempoValidacao;
+})();
 </script>
 
 </body>
