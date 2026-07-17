@@ -129,6 +129,20 @@
     
     // Salva no localStorage para uso em outras páginas
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
+
+const TABELA_NIVEIS = {
+    1: { xp_min: 0, titulo: "Novato", max_xp: 100 },
+    2: { xp_min: 100, titulo: "Explorador", max_xp: 300 },
+    3: { xp_min: 300, titulo: "Caçador", max_xp: 600 },
+    4: { xp_min: 600, titulo: "Mestre", max_xp: 1000 },
+    5: { xp_min: 1000, titulo: "Lenda", max_xp: 999999 }
+};
+
+
+
+
+
+    
 function exibirAvisoServidor(dados) {
     const modal = document.getElementById('modalAviso');
     const titulo = document.getElementById('modalTitulo');
@@ -147,18 +161,22 @@ function fecharModal() {
     const modal = document.getElementById('modalAviso');
     if (modal) modal.style.display = 'none';
 }
-    async function carregarDados() {
+    // ... (seu código de inicialização e constantes)
+
+
+    
+async function carregarDados() {
+    // 1. Carrega Checklist
     try {
         const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
-        if (!response.ok) throw new Error("Erro na rede");
+        if (!response.ok) throw new Error("Erro no checklist");
         const data = await response.json();
 
-        // 1. Atualizar Barras de Progresso
         atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
         atualizarProgresso('progZero', data.progresso.zerads, 3);
         atualizarProgresso('progDireta', data.progresso.tarefas, 1);
 
-        // 2. Atualizar Círculos de Streak
+        // Lógica de Streak e Baú...
         const streak = data.streak.streak_atual || 0;
         const container = document.getElementById('streakContainer');
         if (container) {
@@ -170,42 +188,71 @@ function fecharModal() {
                 container.appendChild(div);
             }
         }
-
-        // 3. Gerenciar Botão Baú
         const btnBau = document.getElementById('btnAbrirBau');
         if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
 
-        // 4. LÓGICA DE AVISOS (Missão de Entrada vs Diária)
-        // Verifica se todas as tarefas foram batidas
+        // Lógica de Avisos...
         const terminouTudo = (data.progresso.zerads >= 3 && data.progresso.moneyrain >= 3 && data.progresso.tarefas >= 1);
-        
-        if (terminouTudo) {
-            const hoje = new Date().toISOString().split('T')[0]; // Data atual YYYY-MM-DD
-            const ehCadastroHoje = (data.data_criacao === hoje);
-            const userLang = localStorage.getItem('lang') || 'pt'; // Ajuste conforme seu sistema de idioma
-
-            // Verifica se este aviso de conclusão já foi exibido nesta sessão
-            if (sessionStorage.getItem('conclusao_exibida') !== 'true') {
-                
-                const aviso = ehCadastroHoje ? {
-                    pt: { titulo: "Sucesso!", mensagem: "Parabéns! Missão de entrada concluída com booster. Você já pode sacar!", icone: "🎉" },
-                    en: { titulo: "Success!", mensagem: "Congratulations! Entrance mission completed with booster. You can now withdraw!", icone: "🎉" }
-                } : {
-                    pt: { titulo: "Parabéns!", mensagem: "Missão diária concluída!", icone: "✅" },
-                    en: { titulo: "Congratulations!", mensagem: "Daily mission completed!", icone: "✅" }
-                };
-
-                // Exibe o aviso no idioma correto
-                const msgTraduzida = aviso[userLang] || aviso['pt'];
-                exibirAvisoServidor(msgTraduzida);
-                
-                sessionStorage.setItem('conclusao_exibida', 'true');
-            }
+        if (terminouTudo && sessionStorage.getItem('conclusao_exibida') !== 'true') {
+             // ... seu código de exibição do aviso ...
+             sessionStorage.setItem('conclusao_exibida', 'true');
         }
-
     } catch (err) {
         console.error("Erro ao carregar checklist:", err);
     }
+
+// 2. Carrega Status Usuário (XP e Nível)
+try {
+    const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+    const result = await res.json();
+
+    if (result.success) {
+        const data = result.data;
+        
+        // Verifica se é a primeira vez rodando para salvar o nível atual
+        const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario'));
+        if (!nivelSalvo) {
+            localStorage.setItem('nivel_usuario', data.nivel);
+        } else if (data.nivel > nivelSalvo) {
+            // Lógica de Subida de Nível
+            const novoNivelInfo = TABELA_NIVEIS[data.nivel];
+            
+            let msg = `Parabéns! Você alcançou o Nível ${data.nivel} - ${novoNivelInfo.titulo}!\n\n`;
+            msg += `Vantagens desbloqueadas:\n`;
+            msg += `• Limite de Saque: ${novoNivelInfo.limite_saque}\n`;
+            msg += `• Giros Diários: ${novoNivelInfo.giros}\n`;
+            msg += `• Tempo de AD: ${novoNivelInfo.tempo_ad}s`;
+            
+            if (novoNivelInfo.premios) {
+                msg += `\n• Prêmios: ${Object.keys(novoNivelInfo.premios).join(', ')}`;
+            }
+
+            exibirAvisoServidor({
+                titulo: "Subiu de Nível!",
+                mensagem: msg,
+                icone: "🏆"
+            });
+
+            // Atualiza o nível salvo
+            localStorage.setItem('nivel_usuario', data.nivel);
+        }
+
+        const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
+        document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
+
+        const nivelAnterior = infoNivel.xp_min;
+        const proximoNivelInfo = TABELA_NIVEIS[data.nivel + 1];
+        const proximoNivel = proximoNivelInfo ? proximoNivelInfo.xp_min : (infoNivel.xp_min + 500); 
+        
+        const xpNoNivel = data.xp - nivelAnterior;
+        const metaNivel = proximoNivel - nivelAnterior;
+        const progresso = Math.min((xpNoNivel / metaNivel) * 100, 100);
+
+        document.getElementById("barXp").style.width = progresso + "%";
+        document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proximoNivel} XP`;
+    }
+} catch (err) {
+    console.error("Erro ao carregar status do usuário:", err);
 }
 
     function atualizarProgresso(id, valor, max) {
