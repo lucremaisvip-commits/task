@@ -369,10 +369,14 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       [telegram_id, pontos, "Tarefa ID: " + tarefaId, String(tarefaId)]
     );
 
-    await client.query(
-      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, xp = COALESCE(xp, 0) + 15, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
-      [pontos, telegram_id]
-    );
+// 1. Atualiza pontos e tarefas
+await client.query(
+  `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
+  [pontos, telegram_id]
+);
+
+// 2. Chama a função que já temos para somar XP E subir de nível automaticamente
+const resultadoXp = await adicionarXP(telegram_id, 15, client);
 
     // 1. Verifica meta diária
     const metaBatida = await verificarMetaDiaria(client, telegram_id);
@@ -575,11 +579,14 @@ app.post("/api/roleta/girar", async (req, res) => {
 
     const premio = sortearPremio();
     
-    // Atualiza Pontos (se houver) e XP (30 fixos) no mesmo comando
-    await client.query(
-      "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC), xp = COALESCE(xp, 0) + 30 WHERE telegram_id = $2", 
-      [premio.valor.toFixed(2), telegram_id]
-    );
+// 1. Atualiza apenas os Pontos (remova o 'xp = ...' daqui)
+await client.query(
+  "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
+  [premio.valor.toFixed(2), telegram_id]
+);
+
+// 2. Chama a função que processa o XP e o Level Up automaticamente
+const resultadoXp = await adicionarXP(telegram_id, 30, client);
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
@@ -596,7 +603,16 @@ app.post("/api/roleta/girar", async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.json({ success: true, premio: nomePremio, valor: premio.valor, tipo: premio.tipo, gratis, xp: 30 });
+    res.json({ 
+    success: true, 
+    premio: nomePremio, 
+    valor: premio.valor, 
+    tipo: premio.tipo, 
+    gratis, 
+    xp: 30,
+    subiuDeNivel: resultadoXp.subiuDeNivel, // Útil para o front-end saber se deve mostrar algo
+    novoNivel: resultadoXp.novoNivel 
+});
 
   } catch (err) {
     await client.query("ROLLBACK");
@@ -732,7 +748,7 @@ app.get("/zeradsptc.php", async (req, res) => {
     return res.status(403).send("acesso negado");
   }
 
-  try {
+try {
     const valorZER = parseFloat(amount || 0);
     const totalClicks = parseInt(clicks || 0);
     const pontos = (((valorZER * 5.0) * 0.009) * 0.4) / 0.05;
@@ -742,16 +758,21 @@ app.get("/zeradsptc.php", async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // 3. Atualizar saldo e XP do usuário
+      // 3. Atualizar APENAS pontos do usuário (XP será tratado pela função)
       const updateResult = await client.query(
-        "UPDATE usuarios SET pontos = pontos + $1, xp = xp + $2 WHERE telegram_id = $3",
-        [pontos, xpGerado, user]
+        "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
+        [pontos, user]
       );
 
       if (updateResult.rowCount === 0) {
         await client.query("ROLLBACK");
         return res.send("usuario nao encontrado");
       }
+
+      // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
+      // Passamos o client da transação para garantir a consistência
+      await adicionarXP(user, xpGerado, client);
+      // ---------------------------------------
 
       // 4. Registrar no histórico
       await client.query(
@@ -821,29 +842,22 @@ app.get("/cpalead-postback", async (req, res) => {
         [telegram_id, pontos, campaign_name, offer_id]
       );
 
-      // 3. Update saldo e XP (5 fixos)
+// 3. Update saldo e tarefas (Remova a atualização de XP daqui)
       await client.query(
         `UPDATE usuarios 
           SET pontos = COALESCE(pontos, 0) + $1, 
-              xp = COALESCE(xp, 0) + 5,
               tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
           WHERE telegram_id = $2`,
         [pontos, telegram_id]
       );
 
+      // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
+      // Adicionamos 5 XP conforme o seu código original
+      await adicionarXP(telegram_id, 5, client);
+      // ---------------------------------------
+
       await client.query("COMMIT");
       res.status(200).send("✅ Sucesso.");
-    } catch (e) {
-      await client.query("ROLLBACK");
-      throw e;
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error("Erro Postback:", err.message);
-    res.status(500).send("❌ Erro interno.");
-  }
-});
 
 // moneyrain verificar secret
 
@@ -888,7 +902,6 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
         if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
 
         try {
-            // Verificação de duplicação fora da transação é ok, mas dentro seria ideal
             const check = await pool.query(
                 "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'moneyrain'", 
                 [viewId.toString()]
@@ -908,26 +921,29 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                     [userId, pontos, nomeTarefa, viewId.toString()]
                 );
 
+                // --- ATUALIZAÇÃO DE SALDO ---
+                // XP removido daqui, pois será gerido pela função adicionarXP
                 await client.query(
                     `UPDATE usuarios 
-                     SET pontos = COALESCE(pontos, 0) + $1,
-                         xp = COALESCE(xp, 0) + 5 
+                     SET pontos = COALESCE(pontos, 0) + $1
                      WHERE telegram_id = $2`,
                     [pontos, userId]
                 );
 
+                // --- INTEGRAÇÃO DE NÍVEL ---
+                // Agora o nível é calculado automaticamente e prêmios são entregues
+                const resultadoXp = await adicionarXP(userId, 5, client);
+
                 // --- DISPARO DE METAS E BOOSTERS ---
-                // Agora o callback do MoneyRain também contribui para o seu sistema de checklist
                 const metaBatida = await verificarMetaDiaria(client, userId);
                 
                 let infoBooster = { liberado: false };
                 if (metaBatida) {
                     infoBooster = await verificarMissaoEntrada(client, userId);
                 }
-                // ------------------------------------
 
                 await client.query('COMMIT');
-                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e 5 XP | Meta batida: ${metaBatida} | Booster: ${infoBooster.liberado}`);
+                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e ${resultadoXp.subiuDeNivel ? 'subiu de nível para ' + resultadoXp.novoNivel : '5 XP'} | Meta: ${metaBatida} | Booster: ${infoBooster.liberado}`);
                 return res.status(200).send('OK');
 
             } catch (dbErr) {
