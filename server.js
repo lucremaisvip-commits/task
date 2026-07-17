@@ -1397,19 +1397,29 @@ app.post("/api/solicitar-saque", async (req, res) => {
 
     const { pontos, vip, lang } = userResult.rows[0];
     
-    // 2. Regras de Limite (VIP: 5/dia, Não-VIP: 1/dia)
-    const saquesHojeResult = await client.query(`
-      SELECT COUNT(*) as total FROM saques
-      WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
-    `, [telegram_id]);
+    // 2. Regras de Limite de saque diário 
+    // 2.1. Primeiro, certifique-se de buscar o nível do usuário no banco
+const userResult = await client.query("SELECT nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+const nivelUsuario = userResult.rows[0]?.nivel || 1;
 
-    const totalSaquesHoje = parseInt(saquesHojeResult.rows[0].total);
-    const limiteSaques = vip ? 5 : 1;
+// 2.2. Busca o limite configurado na sua tabela mestre
+const limiteSaques = TABELA_NIVEIS[nivelUsuario]?.limite_saque || 1;
 
-    if (totalSaquesHoje >= limiteSaques) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ error: `Você atingiu seu limite diário de ${limiteSaques} saque(s).` });
-    }
+// 2.3. Regras de Limite (Dinâmico conforme Nível)
+const saquesHojeResult = await client.query(`
+    SELECT COUNT(*) as total FROM saques
+    WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
+`, [telegram_id]);
+
+const totalSaquesHoje = parseInt(saquesHojeResult.rows[0].total);
+
+// 2.4. Validação
+if (totalSaquesHoje >= limiteSaques) {
+    await client.query("ROLLBACK");
+    return res.status(400).json({ 
+        error: `Você atingiu seu limite diário de ${limiteSaques} saque(s) para o nível ${TABELA_NIVEIS[nivelUsuario].titulo}.` 
+    });
+}
 
     // 3. Regras de Valor Mínimo (VIP: 1.01401, Não-VIP: 2.02802)
     const pontosMinimos = vip ? 1.01401 : 2.02802;
