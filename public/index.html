@@ -127,146 +127,107 @@
     const tg = window.Telegram?.WebApp;
     const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
     
-    // Salva no localStorage para uso em outras páginas
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
-const TABELA_NIVEIS = {
-    1: { xp_min: 0, titulo: "Novato", max_xp: 100 },
-    2: { xp_min: 100, titulo: "Explorador", max_xp: 300 },
-    3: { xp_min: 300, titulo: "Caçador", max_xp: 600 },
-    4: { xp_min: 600, titulo: "Mestre", max_xp: 1000 },
-    5: { xp_min: 1000, titulo: "Lenda", max_xp: 999999 }
-};
+    const TABELA_NIVEIS = {
+        1: { xp_min: 0, titulo: "Novato", limite_saque: 1, giros: 5, tempo_ad: 15 },
+        2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 1 } },
+        3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 2, escudo: 1 } },
+        4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 3 } },
+        5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 5 } }
+    };
 
+    function exibirAvisoServidor(dados) {
+        const modal = document.getElementById('modalAviso');
+        const titulo = document.getElementById('modalTitulo');
+        const msg = document.getElementById('modalMensagem');
+        const icone = document.getElementById('modalIcon');
 
-
-
-
-    
-function exibirAvisoServidor(dados) {
-    const modal = document.getElementById('modalAviso');
-    const titulo = document.getElementById('modalTitulo');
-    const msg = document.getElementById('modalMensagem');
-    const icone = document.getElementById('modalIcon');
-
-    if (modal && titulo && msg) {
-        titulo.innerText = dados.titulo;
-        msg.innerText = dados.mensagem;
-        icone.innerText = dados.icone;
-        modal.style.display = 'flex'; // Torna o modal visível
+        if (modal && titulo && msg) {
+            titulo.innerText = dados.titulo;
+            msg.innerText = dados.mensagem;
+            icone.innerText = dados.icone;
+            modal.style.display = 'flex';
+        }
     }
-}
 
-function fecharModal() {
-    const modal = document.getElementById('modalAviso');
-    if (modal) modal.style.display = 'none';
-}
-    // ... (seu código de inicialização e constantes)
+    function fecharModal() {
+        const modal = document.getElementById('modalAviso');
+        if (modal) modal.style.display = 'none';
+    }
 
+    async function carregarDados() {
+        // 1. Carrega Checklist
+        try {
+            const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+            if (!response.ok) throw new Error("Erro no checklist");
+            const data = await response.json();
 
-    
-async function carregarDados() {
-    // 1. Carrega Checklist
-    try {
-        const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
-        if (!response.ok) throw new Error("Erro no checklist");
-        const data = await response.json();
+            atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
+            atualizarProgresso('progZero', data.progresso.zerads, 3);
+            atualizarProgresso('progDireta', data.progresso.tarefas, 1);
 
-        atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
-        atualizarProgresso('progZero', data.progresso.zerads, 3);
-        atualizarProgresso('progDireta', data.progresso.tarefas, 1);
-
-        // Lógica de Streak e Baú...
-        const streak = data.streak.streak_atual || 0;
-        const container = document.getElementById('streakContainer');
-        if (container) {
-            container.innerHTML = ''; 
-            for (let i = 1; i <= 7; i++) {
-                const div = document.createElement('div');
-                div.className = `day-circle ${i <= streak ? 'active' : ''}`;
-                div.innerText = i;
-                container.appendChild(div);
+            const streak = data.streak.streak_atual || 0;
+            const container = document.getElementById('streakContainer');
+            if (container) {
+                container.innerHTML = ''; 
+                for (let i = 1; i <= 7; i++) {
+                    const div = document.createElement('div');
+                    div.className = `day-circle ${i <= streak ? 'active' : ''}`;
+                    div.innerText = i;
+                    container.appendChild(div);
+                }
             }
+            const btnBau = document.getElementById('btnAbrirBau');
+            if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+
+        } catch (err) {
+            console.error("Erro ao carregar checklist:", err);
         }
-        const btnBau = document.getElementById('btnAbrirBau');
-        if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
 
-        // Lógica de Avisos...
-        const terminouTudo = (data.progresso.zerads >= 3 && data.progresso.moneyrain >= 3 && data.progresso.tarefas >= 1);
-        if (terminouTudo && sessionStorage.getItem('conclusao_exibida') !== 'true') {
-             // ... seu código de exibição do aviso ...
-             sessionStorage.setItem('conclusao_exibida', 'true');
-        }
-    } catch (err) {
-        console.error("Erro ao carregar checklist:", err);
-    }
+        // 2. Carrega Status Usuário (XP e Nível)
+        try {
+            const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+            const result = await res.json();
 
-// 2. Carrega Status Usuário (XP e Nível)
-try {
-    const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
-    const result = await res.json();
+            if (result.success) {
+                const data = result.data;
+                const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
 
-    if (result.success) {
-        const data = result.data;
-        
-        // Verifica se é a primeira vez rodando para salvar o nível atual
-        const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario'));
-        if (!nivelSalvo) {
-            localStorage.setItem('nivel_usuario', data.nivel);
-        } else if (data.nivel > nivelSalvo) {
-            // Lógica de Subida de Nível
-            const novoNivelInfo = TABELA_NIVEIS[data.nivel];
-            
-            let msg = `Parabéns! Você alcançou o Nível ${data.nivel} - ${novoNivelInfo.titulo}!\n\n`;
-            msg += `Vantagens desbloqueadas:\n`;
-            msg += `• Limite de Saque: ${novoNivelInfo.limite_saque}\n`;
-            msg += `• Giros Diários: ${novoNivelInfo.giros}\n`;
-            msg += `• Tempo de AD: ${novoNivelInfo.tempo_ad}s`;
-            
-            if (novoNivelInfo.premios) {
-                msg += `\n• Prêmios: ${Object.keys(novoNivelInfo.premios).join(', ')}`;
+                if (data.nivel > nivelSalvo) {
+                    const novoNivelInfo = TABELA_NIVEIS[data.nivel];
+                    let msg = `Parabéns! Você alcançou o Nível ${data.nivel} - ${novoNivelInfo.titulo}!\n\n`;
+                    msg += `Vantagens:\n• Limite Saque: ${novoNivelInfo.limite_saque}\n• Giros: ${novoNivelInfo.giros}\n• Tempo AD: ${novoNivelInfo.tempo_ad}s`;
+                    
+                    exibirAvisoServidor({ titulo: "Subiu de Nível!", mensagem: msg, icone: "🏆" });
+                    localStorage.setItem('nivel_usuario', data.nivel);
+                }
+
+                const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
+                document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
+
+                const nivelAnterior = infoNivel.xp_min;
+                const proximoNivelInfo = TABELA_NIVEIS[data.nivel + 1];
+                const proximoNivel = proximoNivelInfo ? proximoNivelInfo.xp_min : (infoNivel.xp_min + 500); 
+                
+                const xpNoNivel = data.xp - nivelAnterior;
+                const metaNivel = proximoNivel - nivelAnterior;
+                const progresso = Math.min((xpNoNivel / metaNivel) * 100, 100);
+
+                document.getElementById("barXp").style.width = progresso + "%";
+                document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proximoNivel} XP`;
             }
-
-            exibirAvisoServidor({
-                titulo: "Subiu de Nível!",
-                mensagem: msg,
-                icone: "🏆"
-            });
-
-            // Atualiza o nível salvo
-            localStorage.setItem('nivel_usuario', data.nivel);
+        } catch (err) {
+            console.error("Erro ao carregar status:", err);
         }
-
-        const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
-        document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
-
-        const nivelAnterior = infoNivel.xp_min;
-        const proximoNivelInfo = TABELA_NIVEIS[data.nivel + 1];
-        const proximoNivel = proximoNivelInfo ? proximoNivelInfo.xp_min : (infoNivel.xp_min + 500); 
-        
-        const xpNoNivel = data.xp - nivelAnterior;
-        const metaNivel = proximoNivel - nivelAnterior;
-        const progresso = Math.min((xpNoNivel / metaNivel) * 100, 100);
-
-        document.getElementById("barXp").style.width = progresso + "%";
-        document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proximoNivel} XP`;
-    }
-} catch (err) {
-    console.error("Erro ao carregar status do usuário:", err);
-}
+    } // FECHAMENTO DA FUNÇÃO carregarDados()
 
     function atualizarProgresso(id, valor, max) {
         const el = document.getElementById(id);
         if (!el) return;
-        const percent = Math.min((valor / max) * 100, 100);
-        el.style.width = percent + '%';
-        
-        const parent = el.parentElement.parentElement;
-        const span = parent.querySelector('.task-header span');
-        if (span) {
-            const text = span.innerText.replace(/\(\d\/\d\)/, `(${valor}/${max})`);
-            span.innerText = text;
-        }
+        el.style.width = Math.min((valor / max) * 100, 100) + '%';
+        const span = el.parentElement.parentElement.querySelector('.task-header span');
+        if (span) span.innerText = span.innerText.replace(/\(\d\/\d\)/, `(${valor}/${max})`);
     }
 
     async function abrirBau() {
@@ -276,17 +237,11 @@ try {
             body: JSON.stringify({ telegram_id })
         });
         const data = await res.json();
-        
-        if (data.success) {
-            alert(data.mensagem);
-            location.reload();
-        } else {
-            alert("Erro: " + data.error);
-        }
+        if (data.success) { alert(data.mensagem); location.reload(); }
+        else { alert("Erro: " + data.error); }
     }
 
     carregarDados();
-
 </script>
 </body>
 </html>
