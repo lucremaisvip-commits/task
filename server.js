@@ -524,15 +524,22 @@ app.post("/api/roleta/girar", async (req, res) => {
     }
 
     const user = userRes.rows[0];
-    const limiteGiros = 5;
+    // Define o limite baseado no nível do usuário
+    const nivelAtual = user.nivel || 1;
+    const limiteGiros = TABELA_NIVEIS[nivelAtual].giros;
+
+    // Verifica quantos giros o usuário já fez hoje
     const girosHoje = await client.query(
       `SELECT COUNT(*) FROM roleta_giros WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
     );
 
+    // Valida se atingiu o limite dinâmico
     if (parseInt(girosHoje.rows[0].count) >= limiteGiros) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ erro: "Limite diário de 5 giros atingido" });
+      return res.status(400).json({ 
+        erro: `Limite diário de ${limiteGiros} giros atingido` 
+      });
     }
 
     const ticketCheck = await client.query(
