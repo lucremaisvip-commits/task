@@ -2119,13 +2119,12 @@ cron.schedule("0 12 * * *", async () => {
 
 // 🔹 13. CRON MESTRE: Virada de Dia (Roda todo dia às 00:05)
 cron.schedule('5 0 * * *', async () => {
-    console.log("🕒 Iniciando processamento diário de streaks e XP...");
+    console.log("🕒 Iniciando processamento diário de streaks e XP com proteção de escudos...");
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
 
-        // 1. Atualiza Streaks (Incrementa quem cumpriu, reseta quem não cumpriu)
-        // Usamos uma única query para performance otimizada
+        // 1. Atualiza Streaks
         await client.query(`
             UPDATE usuarios_streaks 
             SET streak_atual = CASE WHEN meta_cumprida_hoje = TRUE THEN streak_atual + 1 ELSE 0 END,
@@ -2133,13 +2132,24 @@ cron.schedule('5 0 * * *', async () => {
                 meta_cumprida_hoje = FALSE
         `);
 
-        // 2. Degradação de XP (Sua lógica existente, agora dentro da transação)
+        // 2. Lógica de Proteção de Escudo e Degradação de XP
+        // Primeiro: Usuários que têm escudo perdem 1 escudo e mantêm o XP
+        await client.query(`
+            UPDATE usuarios 
+            SET escudos = escudos - 1
+            WHERE ultimo_checkin < NOW() - INTERVAL '48 hours'
+            AND (vip = false OR vip IS NULL)
+            AND escudos > 0
+        `);
+
+        // Segundo: Usuários que NÃO têm escudo sofrem a degradação
         await client.query(`
             UPDATE usuarios 
             SET xp = FLOOR(xp * 0.90),
                 nivel = FLOOR(SQRT(FLOOR(xp * 0.90) / 100)) + 1
             WHERE ultimo_checkin < NOW() - INTERVAL '48 hours'
             AND (vip = false OR vip IS NULL)
+            AND (escudos = 0 OR escudos IS NULL)
             AND xp > 0
         `);
 
@@ -2152,7 +2162,6 @@ cron.schedule('5 0 * * *', async () => {
         client.release();
     }
 });
-
 
 // 🔹 14. cron para consultar preço ltc uma vez por dia 
 
