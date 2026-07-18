@@ -1428,6 +1428,9 @@ app.get("/api/ltc-hoje", async (req, res) => {
 const { validate, parse } = require('@telegram-apps/init-data-node');
 
 app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
+  // Registra o ID de quem está tentando solicitar e o e-mail
+    console.log(`[LOG SAQUE] Tentativa de saque iniciada. Usuário: ${req.body.telegram_id || 'Não identificado'}, Email: ${req.body.chave_pix}`);
+  
   // 1. Recebe o initData vindo do front-end (deve ser enviado no body)
   const { initData, chave_pix, cpf } = req.body;
   
@@ -1522,6 +1525,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   } catch (err) {
     console.error("Erro na solicitação de saque:", err);
     res.status(500).json({ error: "Erro interno ou autenticação inválida." });
+    console.error(`[ERRO CRÍTICO SAQUE] Usuário: ${telegram_id}, Erro:`, err.message);
   }
 });
 
