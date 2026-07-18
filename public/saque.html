@@ -26,6 +26,10 @@
     #btnDuvidas { background: #334155; color: white; margin-top: 15px; }
     .historico-lista { list-style: none; padding: 0; margin-top: 10px; color: #94a3b8; font-size: 14px; }
     .historico-lista li { background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 5px; border-bottom: 1px solid #334155; }
+ .historico-lista li { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;} 
   </style>
 </head>
 <body>
@@ -62,14 +66,25 @@
     const urlParams = new URLSearchParams(window.location.search);
     const lang = urlParams.get("lang") === "en" ? "en" : "pt";
     const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
-    
+    const TABELA_NIVEIS = {
+    1: { xp_min: 0, titulo: "Novato", limite_saque: 1, giros: 5, tempo_ad: 15 },
+    2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 1 } },
+    3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 2, escudo: 1 } },
+    4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 3 } },
+    5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 5 } }
+};
     const traducoes = {
   pt: { 
     titulo: "💰 Solicitar Saque", 
     regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.", 
+    limiteDiario: "• Seu limite diário atual: ",
+    saques: " saques",
+    comp: "Comprovante",
     saldo: "Seu Saldo Disponível", 
     equiv: "Aproximadamente equivale a",
     pts: "Pts", 
+    pago: "Pago",
+    waiting: "Aguardando",
     link: "Não tem FaucetPay? Clique aqui.", 
     btnSacar: "Solicitar Saque", 
     btnDuvidas: "❓ Dúvidas", 
@@ -85,9 +100,15 @@
   en: { 
     titulo: "💰 Request Withdrawal", 
     regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.", 
+    limiteDiario: "• Your current daily limit: ",
+    saques: " withdrawals",
+    comp: "Receipt",
     saldo: "Your Available Balance", 
     equiv: "Approximately equivalent to",
     pts: "Pts", 
+    pago: "Paid",
+    waiting: "Waiting",
+    ok: "Paid",
     link: "Don't have FaucetPay? Click here.", 
     btnSacar: "Request Withdrawal", 
     btnDuvidas: "❓ FAQs", 
@@ -123,29 +144,64 @@ t.menu.forEach((text, index) => {
 
     let saldoUsuario = 0;
     if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
+const elementos = {
+  "txtTitulo": t.titulo,
+  "txtRegras": t.regras,
+  "txtSaldo": t.saldo,
+  "txtLTC": t.equiv,
+  "emailFaucet": t.alEmail, // Para o placeholder
+  "txtLink": t.link,
+  "btnSacar": t.btnSacar,
+  "btnDuvidas": t.btnDuvidas,
+  "txtHist": t.hist
+};
 
-    async function carregarDados() {
+Object.keys(elementos).forEach(id => {
+  const el = document.getElementById(id);
+  if (el) {
+    if (id === "emailFaucet") {
+      el.placeholder = elementos[id];
+    } else if (id === "txtRegras") {
+      el.innerHTML = elementos[id];
+    } else {
+      el.innerText = elementos[id];
+    }
+  }
+});
+    
+async function carregarDados() {
     if (!telegram_id) {
-    document.querySelector(".saldo-valor").innerText = "ID não encontrado";
-    return;
-}
+        document.querySelector(".saldo-valor").innerText = "ID não encontrado";
+        return;
+    }
 
     try {
         // 1. Carrega Dados do Usuário
         const resUser = await fetch(`/api/usuarios/${telegram_id}`);
         const userData = await resUser.json();
         
-        // 2. Carrega Cotações (Nova Rota)
+        // 2. Carrega Cotações
         const resCot = await fetch("/api/ltc-hoje");
         const c = await resCot.json();
 
-        // Processa Saldo
+        // Processa Saldo e Regras de Nível
         if (userData && userData.success) {
             saldoUsuario = parseFloat(userData.data.pontos) || 0;
+            const nivel = userData.data.nivel || 1;
+            
+            // Atualiza exibição de Saldo
             document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
             window.isVip = userData.data.vip === true;
 
-            // Calcula e exibe o valor em LTC usando a cotação vinda do banco
+            // EXIBE LIMITE DINÂMICO
+            const limite = TABELA_NIVEIS[nivel]?.limite_saque || 1;
+            const txtRegrasBase = lang === "pt" 
+                ? `Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.`
+                : `Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.`;
+            
+            document.getElementById("txtRegras").innerHTML = `${txtRegrasBase}<br><strong>• ${t.limiteDiario || "Limite diário:"} ${limite}${t.saques || " saques"}</strong>`;
+
+            // Calcula valor em LTC
             if (c && c.valor_ltc) {
                 const totalLtc = saldoUsuario * parseFloat(c.valor_ltc);
                 document.getElementById("valorLTC").innerText = `≈ ${totalLtc.toFixed(8)} LTC`;
@@ -164,10 +220,23 @@ t.menu.forEach((text, index) => {
                 lista.innerHTML = historico.map(s => {
                     const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
                     const pts = Number(s.pontos_solicitados || 0).toFixed(8);
-                    return `<li>${data} | ${pts} ${t.pts} | <strong>${s.status || 'Pending'}</strong></li>`;
+                    
+                    // Lógica de Tradução Dinâmica
+                    const statusKey = s.status ? s.status.toLowerCase() : 'waiting';
+                    const statusTraduzido = t[statusKey] || s.status;
+                    
+                    // Lógica do Comprovante
+                    const statusOuComp = (s.status === 'ok' && s.comprovante) 
+                        ? `<a href="https://faucetpay.io/payout/${s.comprovante}" target="_blank" style="color:#00ff88; text-decoration:none;">✅ ${statusTraduzido}</a>` 
+                        : `<strong>${statusTraduzido}</strong>`;
+                        
+                    return `<li style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>${data} | ${pts} ${t.pts}</span>
+                                <span>${statusOuComp}</span>
+                            </li>`;
                 }).join('');
             } else {
-                lista.innerHTML = `<li>No transactions yet.</li>`;
+                lista.innerHTML = `<li>${lang === 'pt' ? 'Nenhuma transação ainda.' : 'No transactions yet.'}</li>`;
             }
         }
 
@@ -175,20 +244,46 @@ t.menu.forEach((text, index) => {
         console.error("Erro ao carregar dados:", err);
     }
 }
-    async function solicitarSaque() {
-        const btn = document.getElementById("btnSacar");
-        const email = document.getElementById("emailFaucet").value;
-        if (!email) return alert(t.alEmail);
-        const limite = window.isVip ? 1.01401 : 2.02802;
-        if (saldoUsuario < limite) return alert(t.alMin);
+async function solicitarSaque() {
+    const btn = document.getElementById("btnSacar");
+    const email = document.getElementById("emailFaucet").value.trim(); // .trim() remove espaços em branco
 
-        btn.disabled = true; btn.innerText = t.alProc;
-        try {
-            const res = await fetch("/api/solicitar-saque", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ telegram_id, chave_pix: email }) });
-            const data = await res.json();
-            if (data.success) { alert(t.alSucesso); carregarDados(); } else { alert(t.alErro + data.error); }
-        } catch (e) { alert("Error"); } finally { btn.disabled = false; btn.innerText = t.btnSacar; }
+    // 1. Validação de formato de e-mail (Regex)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    if (!email) {
+        return alert(t.alEmail);
     }
+    if (!emailRegex.test(email)) {
+        return alert(lang === 'pt' ? "E-mail inválido!" : "Invalid email format!");
+    }
+
+    const limite = window.isVip ? 1.01401 : 2.02802;
+    if (saldoUsuario < limite) return alert(t.alMin);
+
+    btn.disabled = true; 
+    btn.innerText = t.alProc;
+
+    try {
+        const res = await fetch("/api/solicitar-saque", { 
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ telegram_id, chave_pix: email }) 
+        });
+        const data = await res.json();
+        if (data.success) { 
+            alert(t.alSucesso); 
+            carregarDados(); 
+        } else { 
+            alert(t.alErro + data.error); 
+        }
+    } catch (e) { 
+        alert("Error"); 
+    } finally { 
+        btn.disabled = false; 
+        btn.innerText = t.btnSacar; 
+    }
+}
     
 /**
  * Atualiza os links do menu inferior dinamicamente
