@@ -1147,7 +1147,18 @@ app.post("/api/abrir-bau", async (req, res) => {
 });
 
 
-
+app.post("/api/limpar-aviso-reset", async (req, res) => {
+    const { telegram_id } = req.body;
+    try {
+        await pool.query(
+            "UPDATE usuarios_streaks SET streak_quebrado = FALSE WHERE telegram_id = $1",
+            [telegram_id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false });
+    }
+});
 
 
 
@@ -2158,32 +2169,60 @@ cron.schedule('5 0 * * *', async () => {
     try {
         await client.query("BEGIN");
 
-        // 1. Atualiza Streaks
+        // 1. Atualiza Streaks, Escudos e Status de quebra
+        // O streak só quebra se: não bateu meta, o streak atual > 0 E ele NÃO tem escudos.
         await client.query(`
-            UPDATE usuarios_streaks 
-            SET streak_atual = CASE WHEN meta_cumprida_hoje = TRUE THEN streak_atual + 1 ELSE 0 END,
-                bau_disponivel = CASE WHEN (streak_atual + (CASE WHEN meta_cumprida_hoje = TRUE THEN 1 ELSE 0 END)) >= 7 THEN TRUE ELSE bau_disponivel END,
+            UPDATE usuarios_streaks us
+            SET 
+                streak_quebrado = CASE 
+                    WHEN us.meta_cumprida_hoje = FALSE 
+                         AND us.streak_atual > 0 
+                         AND (u.escudos = 0 OR u.escudos IS NULL) THEN TRUE 
+                    ELSE FALSE 
+                END,
+                
+                streak_atual = CASE 
+                    WHEN us.meta_cumprida_hoje = TRUE THEN us.streak_atual + 1 
+                    WHEN (u.escudos > 0 AND us.meta_cumprida_hoje = FALSE) THEN us.streak_atual 
+                    ELSE 0 
+                END,
+                
+                bau_disponivel = CASE 
+                    WHEN (us.streak_atual + (CASE WHEN us.meta_cumprida_hoje = TRUE THEN 1 ELSE 0 END)) >= 7 THEN TRUE 
+                    ELSE us.bau_disponivel 
+                END,
+                
                 meta_cumprida_hoje = FALSE
+            FROM usuarios u
+            WHERE us.telegram_id = u.telegram_id
         `);
 
-        // 2. Lógica de Proteção de Escudo e Degradação de XP
-        // Primeiro: Usuários que têm escudo perdem 1 escudo e mantêm o XP
+        // 2. Consome 1 escudo daqueles que não bateram a meta
+        // (Apenas se o streak foi "salvo" pela presença de escudo)
         await client.query(`
             UPDATE usuarios 
             SET escudos = escudos - 1
-            WHERE ultimo_checkin < NOW() - INTERVAL '48 hours'
-            AND (vip = false OR vip IS NULL)
-            AND escudos > 0
+            WHERE telegram_id IN (
+                SELECT us.telegram_id 
+                FROM usuarios_streaks us 
+                WHERE us.meta_cumprida_hoje = FALSE 
+                AND us.streak_atual > 0 
+                AND escudos > 0
+            )
         `);
 
-        // Segundo: Usuários que NÃO têm escudo sofrem a degradação
+        // 3. Degradação de XP para quem não tem escudo e falhou no streak
         await client.query(`
             UPDATE usuarios 
             SET xp = FLOOR(xp * 0.90),
                 nivel = FLOOR(SQRT(FLOOR(xp * 0.90) / 100)) + 1
-            WHERE ultimo_checkin < NOW() - INTERVAL '48 hours'
-            AND (vip = false OR vip IS NULL)
-            AND (escudos = 0 OR escudos IS NULL)
+            WHERE (escudos = 0 OR escudos IS NULL)
+            AND telegram_id IN (
+                SELECT us.telegram_id 
+                FROM usuarios_streaks us 
+                WHERE us.meta_cumprida_hoje = FALSE 
+                AND us.streak_atual > 0
+            )
             AND xp > 0
         `);
 
