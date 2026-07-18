@@ -119,7 +119,6 @@
         5: { xp_min: 1000, titulo: "Lenda" }
     };
 
-    // Fila de Avisos Global
     let filaDeAvisos = [];
     let processandoAviso = false;
 
@@ -159,11 +158,12 @@
     }
 
     async function carregarDados() {
-        // Checklist
+        // 1. Checklist e Eventos de Conclusão
         try {
             const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
             if (response.ok) {
                 const data = await response.json();
+                
                 atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
                 atualizarProgresso('progZero', data.progresso.zerads, 3);
                 atualizarProgresso('progDireta', data.progresso.tarefas, 1);
@@ -172,8 +172,22 @@
                 document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
                 document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
                 
+                // Aviso de Checklist Completo (respeita fila e repetição)
+                const hoje = new Date().toDateString();
+                if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
+                    exibirAvisoServidor({ titulo: "Parabéns!", mensagem: "Todas as tarefas diárias concluídas com sucesso!", icone: "✅" });
+                    localStorage.setItem('aviso_checklist', hoje);
+                }
+
+                // Aviso de Baú Disponível
                 const btnBau = document.getElementById('btnAbrirBau');
-                if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+                if (btnBau) {
+                    btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+                    if (data.streak.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
+                        exibirAvisoServidor({ titulo: "Baú Disponível", mensagem: "Você tem um baú de recompensa esperando!", icone: "🎁" });
+                        localStorage.setItem('aviso_bau', hoje);
+                    }
+                }
 
                 if (data.streak.streak_quebrado) {
                     exibirAvisoServidor({ titulo: "Ops! Streak Perdido", mensagem: "Sua sequência foi reiniciada.", icone: "⚠️" });
@@ -182,7 +196,7 @@
             }
         } catch (err) { console.error("Erro checklist:", err); }
 
-        // Status
+        // 2. Status do Usuário
         try {
             const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
             const result = await res.json();
@@ -208,11 +222,16 @@
     async function abrirBau() {
         const res = await fetch('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
         const data = await res.json();
-        if (data.success) { alert(data.mensagem); location.reload(); }
-        else { alert("Erro: " + data.error); }
+        if (data.success) { 
+            // Mostra o resultado do baú como um aviso na fila
+            exibirAvisoServidor({ titulo: "Baú Aberto!", mensagem: data.mensagem, icone: "🎉" });
+            document.getElementById('btnAbrirBau').style.display = 'none';
+        } else { 
+            alert("Erro: " + data.error); 
+        }
     }
 
     document.addEventListener("DOMContentLoaded", carregarDados);
-  </script>
+</script>
 </body>
 </html>
