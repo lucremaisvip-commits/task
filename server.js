@@ -43,6 +43,17 @@ const limiter = rateLimitLib({
 
 app.use(limiter);
 
+const rateLimit = require("express-rate-limit");
+
+const saqueLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  max: 3, // Limite de 3 tentativas de saque por IP por hora
+  message: "Muitas tentativas. Tente novamente mais tarde."
+});
+
+// Aplique apenas na rota de saque
+app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => { ... });
+
 // 🔒 4. Limite de JSON (anti ataque)
 app.use(express.json({
   limit: "10kb"
@@ -1414,112 +1425,103 @@ app.get("/api/ltc-hoje", async (req, res) => {
     res.json(result.rows[0]); 
 });
 
-app.post("/api/solicitar-saque", async (req, res) => {
-  const { telegram_id, chave_pix, cpf } = req.body;
+const { validate, parse } = require('@telegram-apps/init-data-node');
 
-  if (!telegram_id) {
-    return res.status(400).json({ error: "O campo telegram_id é obrigatório." });
+app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
+  // 1. Recebe o initData vindo do front-end (deve ser enviado no body)
+  const { initData, chave_pix, cpf } = req.body;
+  
+  if (!initData) {
+    return res.status(401).json({ error: "Dados de autenticação ausentes." });
   }
 
-  const client = await pool.connect();
-
   try {
-    await client.query("BEGIN");
+    // 2. Valida o hash do Telegram usando seu BOT_TOKEN do .env
+    validate(initData, process.env.BOT_TOKEN);
+    const parsedData = parse(initData);
+    const telegram_id = parsedData.user.id.toString(); // ID real extraído do hash validado
 
-    // 1. Busca dados do usuário (incluindo VIP)
-    const userResult = await client.query(
-      "SELECT pontos, vip, lang FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
-      [telegram_id]
-    );
-
-    if (userResult.rows[0].status_conta === 'banido') {
-  await client.query("ROLLBACK");
-  return res.status(400).json({ error: "Erro interno ao processar saque." }); // Mensagem genérica para não entregar o banimento
-}
-    
-    if (userResult.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Usuário não encontrado." });
+    // 3. Sanitização do E-mail
+    const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailLimpo)) {
+      return res.status(400).json({ error: "Formato de e-mail inválido." });
     }
 
-    const { pontos, vip, lang } = userResult.rows[0];
-    
-    // 2. Regras de Limite de saque diário 
-    // 2.1. Primeiro, certifique-se de buscar o nível do usuário no banco
-const nvResult = await client.query("SELECT nivel FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-const nivelUsuario = nvResult.rows[0]?.nivel || 1;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-// 2.2. Busca o limite configurado na sua tabela mestre
-const limiteSaques = TABELA_NIVEIS[nivelUsuario]?.limite_saque || 1;
+      // 4. Busca dados com segurança (verificando antes de acessar propriedades)
+      const userResult = await client.query(
+        "SELECT pontos, vip, lang, status_conta, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
+        [telegram_id]
+      );
 
-// 2.3. Regras de Limite (Dinâmico conforme Nível)
-const saquesHojeResult = await client.query(`
-    SELECT COUNT(*) as total FROM saques
-    WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
-`, [telegram_id]);
+      if (userResult.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Usuário não encontrado." });
+      }
 
-const totalSaquesHoje = parseInt(saquesHojeResult.rows[0].total);
+      const user = userResult.rows[0];
+      
+      // Verificação de banimento segura
+      if (user.status_conta === 'banido') {
+        await client.query("ROLLBACK");
+        return res.status(403).json({ error: "Erro ao processar saque." });
+      }
+      
+      const { pontos, vip, lang, nivel } = user;
 
-// 2.4. Validação
-if (totalSaquesHoje >= limiteSaques) {
-    await client.query("ROLLBACK");
-    return res.status(400).json({ 
-        error: `Você atingiu seu limite diário de ${limiteSaques} saque(s) para o nível ${TABELA_NIVEIS[nivelUsuario].titulo}.` 
-    });
-}
+      // 5. Validação de Limite Diário
+      const limiteSaques = TABELA_NIVEIS[nivel]?.limite_saque || 1;
+      const saquesHojeResult = await client.query(`
+        SELECT COUNT(*) as total FROM saques
+        WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
+      `, [telegram_id]);
 
-    // 3. Regras de Valor Mínimo (VIP: 1.01401, Não-VIP: 2.02802)
-    const pontosMinimos = vip ? 1.01401 : 2.02802;
+      if (parseInt(saquesHojeResult.rows[0].total) >= limiteSaques) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: `Limite diário de ${limiteSaques} saque(s) atingido.` });
+      }
 
-    if (pontos < pontosMinimos) {
+      // 6. Regras de Valor Mínimo
+      const pontosMinimos = vip ? 1.01401 : 2.02802;
+      if (pontos < pontosMinimos) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Pontos insuficientes." });
+      }
+
+      // 7. Processamento
+      const VALOR_DO_PONTO_EM_BRL = 0.05;
+      const COTACAO_DOLAR = 5.50;
+      let valorCalculado = (lang === "pt") ? (pontos * VALOR_DO_PONTO_EM_BRL) : (pontos * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
+      
+      const saqueInsert = await client.query(`
+        INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
+        VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW())
+        RETURNING id
+      `, [telegram_id, pontos, valorCalculado.toFixed(2), emailLimpo, cpf || null]);
+
+      await client.query(`
+        INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+        VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
+      `, [telegram_id, -Math.abs(pontos), saqueInsert.rows[0].id.toString()]);
+
+      await client.query("UPDATE usuarios SET pontos = 0 WHERE telegram_id = $1", [telegram_id]);
+
+      await client.query("COMMIT");
+      res.json({ success: true, message: "Saque solicitado com sucesso." });
+
+    } catch (err) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ error: `Pontos insuficientes. Mínimo para seu nível: ${pontosMinimos.toFixed(5)}` });
+      throw err;
+    } finally {
+      client.release();
     }
-
-    // 4. Processamento do Saque
-    // Ajustado para permitir sacar todo o saldo disponível acima do mínimo ou o total
-    const pontosParaSacar = pontos; 
-    const pontosQueFicam = 0; // O usuário saca o saldo total acumulado
-
-    const VALOR_DO_PONTO_EM_BRL = 0.05;
-    const COTACAO_DOLAR = 5.50;
-    let valorCalculado = (lang === "pt") ? (pontosParaSacar * VALOR_DO_PONTO_EM_BRL) : (pontosParaSacar * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
-    const valorFinalFormatado = valorCalculado.toFixed(2);
-
-    // 5. Registra no histórico de saques
-    const saqueInsert = await client.query(`
-      INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
-      VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW())
-      RETURNING id
-    `, [telegram_id, pontosParaSacar, valorFinalFormatado, chave_pix || null, cpf || null]);
-
-    // 6. REGISTRO NO HISTÓRICO UNIFICADO
-    await client.query(`
-      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-    `, [telegram_id, -Math.abs(pontosParaSacar), saqueInsert.rows[0].id.toString()]);
-
-    // 7. Atualiza usuário
-    await client.query(
-      "UPDATE usuarios SET pontos = $1 WHERE telegram_id = $2", 
-      [pontosQueFicam, telegram_id]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({ 
-      success: true, 
-      message: "Saque solicitado com sucesso.", 
-      valor: valorFinalFormatado,
-      pontos_restantes: pontosQueFicam
-    });
-
   } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Erro ao solicitar saque:", err);
-    res.status(500).json({ error: "Erro interno do servidor." });
-  } finally {
-    client.release();
+    console.error("Erro na solicitação de saque:", err);
+    res.status(500).json({ error: "Erro interno ou autenticação inválida." });
   }
 });
 
