@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
   <title id="pageTitle">CashTaskBot</title>
@@ -20,37 +20,23 @@
 
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 80px; }
-
-    /* MENU INFERIOR FIXO */
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
     .bottom-nav a { color: #aaa; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
     .bottom-nav a.active { color: #00ff88; }
     .bottom-nav a span { font-size: 18px; }
-
-    /* HUD DE RPG */
     .user-status-card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 16px; padding: 20px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 15px; }
     .xp-bar-container { background: #334155; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; }
     .xp-bar-fill { background: #3b82f6; width: 0%; height: 100%; transition: width 0.5s ease; }
-
     .checklist-card { background: #1e293b; padding: 20px; border-radius: 16px; border: 1px solid #334155; color: #f1f5f9; margin-bottom: 20px; }
     h2 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
-    
     .task-row { margin-bottom: 15px; }
     .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; font-size: 14px; }
     .btn-go { background: #3b82f6; border: none; color: white; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-    
     .progress-bar { background: #0f172a; height: 10px; border-radius: 5px; overflow: hidden; }
     .progress-fill { background: #00ff88; height: 100%; width: 0%; transition: width 0.3s; }
-
-    .streak-container { display: flex; justify-content: space-between; margin-top: 20px; padding: 10px; background: #0f172a; border-radius: 12px; }
-    .day-circle { width: 30px; height: 30px; border: 2px solid #334155; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #64748b; }
-    .day-circle.active { border-color: #00ff88; color: #00ff88; background: #064e3b; }
-    
     .btn-bau { width: 100%; margin-top: 15px; padding: 12px; background: #f59e0b; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    
     .lang-toggle-btn { width: auto; padding: 4px 10px; font-size: 10px; border-radius: 12px; }
     button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; }
-    
   </style>
 </head>
 <body>
@@ -70,120 +56,95 @@
       </div>
       <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
     </div>
-<p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
-    
+    <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
   </div>
-  
 
-
-<!-- Modal Genérico de Avisos -->
-<div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-  <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 25px; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
-    <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
-    <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
-    <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
-    <button onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+  <div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+    <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 25px; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
+      <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+      <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
+      <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
+      <button onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+    </div>
   </div>
-</div>
 
-
-<!-- Tarefas Diárias e Streak -->
-<div class="checklist-card">
-  <h2>⚔️ Tarefas diárias</h2>
-  
-  <!-- Lista de Tarefas -->
-  <div class="task-list" style="margin-bottom: 20px;">
-    <div class="task-row">
-      <div class="task-header">
-        <span>MoneyRain (0/3)</span>
-        <button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button>
+  <div class="checklist-card">
+    <h2>⚔️ Tarefas diárias</h2>
+    <div class="task-list" style="margin-bottom: 20px;">
+      <div class="task-row">
+        <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
-    </div>
-
-    <div class="task-row">
-      <div class="task-header">
-        <span>ZeroAds (0/3)</span>
-        <button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button>
+      <div class="task-row">
+        <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
-    </div>
-
-    <div class="task-row">
-      <div class="task-header">
-        <span>Tarefa Direta (0/1)</span>
-        <button class="btn-go" onclick="location.href='tarefas.html'">Ir</button>
+      <div class="task-row">
+        <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
       </div>
-      <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
     </div>
+    <div class="streak-section">
+      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+      <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
+        <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+        <span id="txtStreakDias">0 / 7 dias</span>
+        <span id="txtStatusStreak">Mantenha o ritmo!</span>
+      </div>
+    </div>
+    <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
   </div>
 
-  <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
-
-  <!-- Progresso da Semana (Streak) -->
-  <div class="streak-section">
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
-    <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
-      <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
-    </div>
-    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
-      <span id="txtStreakDias">0 / 7 dias</span>
-      <span id="txtStatusStreak">Mantenha o ritmo!</span>
-    </div>
-  </div>
-
-  <!-- Botão Baú -->
-  <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none; margin-top: 20px;">
-    Abrir Baú
-  </button>
-</div>
-
-  
-
-  
-  
   <nav class="bottom-nav">
-    <a href="index.html" class="active" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
-    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
-    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
-    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
-    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+    <a href="index.html" class="active"><span>🏠</span><span>Home</span></a>
+    <a href="tarefas.html"><span>🚀</span><span>Tasks</span></a>
+    <a href="indicacoes.html"><span>👥</span><span>Invites</span></a>
+    <a href="tarefas-externas.html"><span>🧩</span><span>Offerwalls</span></a>
+    <a href="saque.html"><span>💰</span><span>Withdraw</span></a>
   </nav>
 
-<script>
-    // Recupera ID de forma robusta
+  <script>
     const urlParams = new URLSearchParams(window.location.search);
     const tg = window.Telegram?.WebApp;
     const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
-    
     if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
     const TABELA_NIVEIS = {
-        1: { xp_min: 0, titulo: "Novato", limite_saque: 1, giros: 5, tempo_ad: 15 },
-        2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 1 } },
-        3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 2, escudo: 1 } },
-        4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 3 } },
-        5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 5 } }
+        1: { xp_min: 0, titulo: "Novato" },
+        2: { xp_min: 100, titulo: "Explorador" },
+        3: { xp_min: 300, titulo: "Caçador" },
+        4: { xp_min: 600, titulo: "Mestre" },
+        5: { xp_min: 1000, titulo: "Lenda" }
     };
 
-    function exibirAvisoServidor(dados) {
-        console.log("Exibindo modal:", dados);
-        const modal = document.getElementById('modalAviso');
-        const titulo = document.getElementById('modalTitulo');
-        const msg = document.getElementById('modalMensagem');
-        const icone = document.getElementById('modalIcon');
+    // Fila de Avisos Global
+    let filaDeAvisos = [];
+    let processandoAviso = false;
 
-        if (modal && titulo && msg) {
-            titulo.innerText = dados.titulo;
-            msg.innerText = dados.mensagem;
-            icone.innerText = dados.icone;
-            modal.style.display = 'flex';
+    function exibirAvisoServidor(dados) {
+        filaDeAvisos.push(dados);
+        if (!processandoAviso) processarFila();
+    }
+
+    function processarFila() {
+        if (filaDeAvisos.length === 0) {
+            processandoAviso = false;
+            return;
         }
+        processandoAviso = true;
+        const dados = filaDeAvisos.shift();
+        const modal = document.getElementById('modalAviso');
+        document.getElementById('modalTitulo').innerText = dados.titulo;
+        document.getElementById('modalMensagem').innerText = dados.mensagem;
+        document.getElementById('modalIcon').innerText = dados.icone;
+        modal.style.display = 'flex';
     }
 
     function fecharModal() {
-        const modal = document.getElementById('modalAviso');
-        if (modal) modal.style.display = 'none';
+        document.getElementById('modalAviso').style.display = 'none';
+        processarFila();
     }
 
     function atualizarProgresso(id, valor, max) {
@@ -198,84 +159,60 @@
     }
 
     async function carregarDados() {
-        // 1. Carrega Checklist e Streak
+        // Checklist
         try {
             const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
             if (response.ok) {
                 const data = await response.json();
-                
                 atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
                 atualizarProgresso('progZero', data.progresso.zerads, 3);
                 atualizarProgresso('progDireta', data.progresso.tarefas, 1);
 
                 const streak = data.streak.streak_atual || 0;
-                const progBar = document.getElementById('progStreak');
-                const txtDias = document.getElementById('txtStreakDias');
+                document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
+                document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
                 
-                if (progBar) {
-                    progBar.style.width = Math.min((streak / 7) * 100, 100) + '%';
-                    txtDias.innerText = `${streak} / 7 dias`;
-                }
-
                 const btnBau = document.getElementById('btnAbrirBau');
                 if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
 
                 if (data.streak.streak_quebrado) {
-                    exibirAvisoServidor({ 
-                        titulo: "Ops! Streak Perdido", 
-                        mensagem: "Você não completou as tarefas ontem e sua sequência foi reiniciada.", 
-                        icone: "⚠️" 
-                    });
+                    exibirAvisoServidor({ titulo: "Ops! Streak Perdido", mensagem: "Sua sequência foi reiniciada.", icone: "⚠️" });
                     fetch('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
                 }
             }
-        } catch (err) {
-            console.error("Erro checklist:", err);
-        }
+        } catch (err) { console.error("Erro checklist:", err); }
 
-        // 2. Carrega Status Usuário
+        // Status
         try {
             const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
             const result = await res.json();
-
             if (result.success) {
                 const data = result.data;
                 const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
 
                 if (data.nivel > nivelSalvo) {
-                    const info = TABELA_NIVEIS[data.nivel];
                     exibirAvisoServidor({ titulo: "Subiu de Nível!", mensagem: `Você alcançou o Nível ${data.nivel}!`, icone: "🏆" });
                     localStorage.setItem('nivel_usuario', data.nivel);
                 }
 
                 const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
                 document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
-
-                const nivelAnterior = infoNivel.xp_min;
                 const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
-                const progresso = Math.min(((data.xp - nivelAnterior) / (proxInfo.xp_min - nivelAnterior)) * 100, 100);
-
+                const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
                 document.getElementById("barXp").style.width = progresso + "%";
                 document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
             }
-        } catch (err) {
-            console.error("Erro status:", err);
-        }
+        } catch (err) { console.error("Erro status:", err); }
     }
 
     async function abrirBau() {
-        const res = await fetch('/api/abrir-bau', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id })
-        });
+        const res = await fetch('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
         const data = await res.json();
         if (data.success) { alert(data.mensagem); location.reload(); }
         else { alert("Erro: " + data.error); }
     }
 
-    // Inicialização segura
     document.addEventListener("DOMContentLoaded", carregarDados);
-</script>
+  </script>
 </body>
 </html>
