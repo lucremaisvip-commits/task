@@ -1426,23 +1426,25 @@ app.get("/api/ltc-hoje", async (req, res) => {
 const { validate, parse } = require('@telegram-apps/init-data-node');
 
 app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
-  // Registra o ID de quem está tentando solicitar e o e-mail
-    console.log(`[LOG SAQUE] Tentativa de saque iniciada. Usuário: ${req.body.telegram_id || 'Não identificado'}, Email: ${req.body.chave_pix}`);
-  
-  // 1. Recebe o initData vindo do front-end (deve ser enviado no body)
   const { initData, chave_pix, cpf } = req.body;
   
+  // Variável declarada fora do try para estar disponível no log de erro
+  let telegram_id = "Desconhecido"; 
+
   if (!initData) {
     return res.status(401).json({ error: "Dados de autenticação ausentes." });
   }
 
   try {
-    // 2. Valida o hash do Telegram usando seu BOT_TOKEN do .env
+    // 1. Validação do Telegram
     validate(initData, process.env.BOT_TOKEN);
     const parsedData = parse(initData);
-    const telegram_id = parsedData.user.id.toString(); // ID real extraído do hash validado
+    telegram_id = parsedData.user.id.toString();
 
-    // 3. Sanitização do E-mail
+    // Log seguro
+    console.log(`[LOG SAQUE] Tentativa iniciada. Usuário: ${telegram_id}`);
+
+    // 2. Sanitização
     const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailLimpo)) {
@@ -1453,77 +1455,76 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     try {
       await client.query("BEGIN");
 
-      // 4. Busca dados com segurança (verificando antes de acessar propriedades)
+      // 3. Verificação de usuário
       const userResult = await client.query(
         "SELECT pontos, vip, lang, status_conta, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
         [telegram_id]
       );
 
       if (userResult.rows.length === 0) {
-        await client.query("ROLLBACK");
-        return res.status(404).json({ error: "Usuário não encontrado." });
+        throw new Error("USUARIO_NAO_ENCONTRADO");
       }
 
       const user = userResult.rows[0];
-      
-      // Verificação de banimento segura
       if (user.status_conta === 'banido') {
-        await client.query("ROLLBACK");
-        return res.status(403).json({ error: "Erro ao processar saque." });
+        throw new Error("USUARIO_BANIDO");
       }
       
       const { pontos, vip, lang, nivel } = user;
 
-      // 5. Validação de Limite Diário
+      // 4. Regras de Negócio (Limite e Mínimo)
       const limiteSaques = TABELA_NIVEIS[nivel]?.limite_saque || 1;
-      const saquesHojeResult = await client.query(`
-        SELECT COUNT(*) as total FROM saques
+      const saquesHoje = await client.query(`
+        SELECT COUNT(*) FROM saques 
         WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
       `, [telegram_id]);
 
-      if (parseInt(saquesHojeResult.rows[0].total) >= limiteSaques) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ error: `Limite diário de ${limiteSaques} saque(s) atingido.` });
+      if (parseInt(saquesHoje.rows[0].count) >= limiteSaques) {
+        throw new Error("LIMITE_ATINGIDO");
       }
 
-      // 6. Regras de Valor Mínimo
       const pontosMinimos = vip ? 1.01401 : 2.02802;
       if (pontos < pontosMinimos) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ error: "Pontos insuficientes." });
+        throw new Error("PONTOS_INSUFICIENTES");
       }
 
-      // 7. Processamento
+      // 5. Execução
       const VALOR_DO_PONTO_EM_BRL = 0.05;
       const COTACAO_DOLAR = 5.50;
       let valorCalculado = (lang === "pt") ? (pontos * VALOR_DO_PONTO_EM_BRL) : (pontos * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
       
       const saqueInsert = await client.query(`
         INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
-        VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW())
-        RETURNING id
+        VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW()) RETURNING id
       `, [telegram_id, pontos, valorCalculado.toFixed(2), emailLimpo, cpf || null]);
 
       await client.query(`
         INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
         VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-      `, [telegram_id, -Math.abs(pontos), saqueInsert.rows[0].id.toString()]);
+      `, [telegram_id, -Math.abs(pontos), saqueInsert.rows[0].id]);
 
       await client.query("UPDATE usuarios SET pontos = 0 WHERE telegram_id = $1", [telegram_id]);
 
       await client.query("COMMIT");
       res.json({ success: true, message: "Saque solicitado com sucesso." });
 
-    } catch (err) {
+    } catch (dbErr) {
       await client.query("ROLLBACK");
-      throw err;
+      throw dbErr; // Repassa o erro para o catch principal tratar
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error("Erro na solicitação de saque:", err);
-    res.status(500).json({ error: "Erro interno ou autenticação inválida." });
-    console.error(`[ERRO CRÍTICO SAQUE] Usuário: ${telegram_id}, Erro:`, err.message);
+    // Log estruturado que não quebra o servidor
+    console.error(`[ERRO CRÍTICO SAQUE] Usuário: ${telegram_id}, Erro: ${err.message}`);
+    
+    // Tratamento de mensagens amigáveis
+    const msg = err.message === "USUARIO_NAO_ENCONTRADO" ? "Usuário não encontrado." :
+                err.message === "LIMITE_ATINGIDO" ? "Limite diário atingido." :
+                err.message === "PONTOS_INSUFICIENTES" ? "Pontos insuficientes." :
+                "Erro interno ao processar saque.";
+                
+    res.status(400).json({ error: msg });
   }
 });
 
