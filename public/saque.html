@@ -246,11 +246,10 @@ async function carregarDados() {
 }
 async function solicitarSaque() {
     const btn = document.getElementById("btnSacar");
-    const email = document.getElementById("emailFaucet").value.trim(); // .trim() remove espaços em branco
+    const email = document.getElementById("emailFaucet").value.trim();
 
-    // 1. Validação de formato de e-mail (Regex)
+    // 1. Validação de formato de e-mail
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
     if (!email) {
         return alert(t.alEmail);
     }
@@ -258,8 +257,17 @@ async function solicitarSaque() {
         return alert(lang === 'pt' ? "E-mail inválido!" : "Invalid email format!");
     }
 
+    // 2. Validação local de saldo (apenas para UX/agilidade)
     const limite = window.isVip ? 1.01401 : 2.02802;
     if (saldoUsuario < limite) return alert(t.alMin);
+
+    // 3. Captura do initData do Telegram
+    // O Telegram fornece isso automaticamente se rodando dentro do Mini App
+    const initData = window.Telegram?.WebApp?.initData || "";
+
+    if (!initData) {
+        return alert("Erro: Autenticação necessária. Tente abrir o bot novamente.");
+    }
 
     btn.disabled = true; 
     btn.innerText = t.alProc;
@@ -268,17 +276,23 @@ async function solicitarSaque() {
         const res = await fetch("/api/solicitar-saque", { 
             method: "POST", 
             headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ telegram_id, chave_pix: email }) 
+            body: JSON.stringify({ 
+                initData: initData, // Enviando o hash para validação no servidor
+                chave_pix: email    // O e-mail da FaucetPay
+            }) 
         });
+
         const data = await res.json();
+        
         if (data.success) { 
             alert(t.alSucesso); 
-            carregarDados(); 
+            carregarDados(); // Atualiza a tela após o sucesso
         } else { 
-            alert(t.alErro + data.error); 
+            alert(t.alErro + (data.error || "Erro desconhecido")); 
         }
     } catch (e) { 
-        alert("Error"); 
+        console.error("Erro na requisição:", e);
+        alert("Erro de conexão com o servidor."); 
     } finally { 
         btn.disabled = false; 
         btn.innerText = t.btnSacar; 
