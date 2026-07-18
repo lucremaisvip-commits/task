@@ -112,8 +112,6 @@
       <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
     </div>
 
-    <p style="font-size: 13px; color: #94a3b8; margin-top: 20px;">Sequência de dias:</p>
-    <div class="streak-container" id="streakContainer">
       </div>
     
   <p style="font-size: 13px; color: #94a3b8; margin-top: 20px;">Progresso da Semana (Streak):</p>
@@ -140,7 +138,7 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
-  <script>
+<script>
     // Recupera ID de forma robusta
     const urlParams = new URLSearchParams(window.location.search);
     const tg = window.Telegram?.WebApp;
@@ -157,6 +155,7 @@
     };
 
     function exibirAvisoServidor(dados) {
+        console.log("Exibindo modal:", dados);
         const modal = document.getElementById('modalAviso');
         const titulo = document.getElementById('modalTitulo');
         const msg = document.getElementById('modalMensagem');
@@ -175,54 +174,54 @@
         if (modal) modal.style.display = 'none';
     }
 
-    async function carregarDados() {
-try {
-        // 1. Carrega Status Completo do Checklist e Streak
-        const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
-        if (!response.ok) throw new Error("Erro no checklist");
-        const data = await response.json();
-        console.log("Dados recebidos da API:", data);
-
-        // Atualiza progresso das tarefas
-        atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
-        atualizarProgresso('progZero', data.progresso.zerads, 3);
-        atualizarProgresso('progDireta', data.progresso.tarefas, 1);
-
-        // Atualiza barra de streak
-        const streak = data.streak.streak_atual || 0;
-        const progBar = document.getElementById('progStreak');
-        const txtDias = document.getElementById('txtStreakDias');
-        
-        if (progBar) {
-            progBar.style.width = Math.min((streak / 7) * 100, 100) + '%';
-            txtDias.innerText = `${streak} / 7 dias`;
+    function atualizarProgresso(id, valor, max) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.width = Math.min((valor / max) * 100, 100) + '%';
+        const span = el.parentElement.parentElement.querySelector('.task-header span');
+        if (span) {
+            const nomeBase = span.innerText.replace(/\(\d\/\d\)/, '');
+            span.innerText = `${nomeBase} (${valor}/${max})`;
         }
-
-        // Exibe botão do baú se disponível
-        const btnBau = document.getElementById('btnAbrirBau');
-        if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
-
-        // Lógica do Modal de Aviso de Streak Quebrado
-        if (data.streak.streak_quebrado === true || data.streak.streak_quebrado === 1) {
-            exibirAvisoServidor({ 
-                titulo: "Ops! Streak Perdido", 
-                mensagem: "Você não completou as tarefas ontem e sua sequência foi reiniciada. Complete hoje para começar uma nova!", 
-                icone: "⚠️" 
-            });
-            
-            // Limpa o aviso no servidor para não mostrar novamente ao recarregar
-            fetch('/api/limpar-aviso-reset', { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ telegram_id }) 
-            });
-        }
-
-    } catch (err) {
-        console.error("Erro ao carregar checklist:", err);
     }
 
-        // 2. Carrega Status Usuário (XP e Nível)
+    async function carregarDados() {
+        // 1. Carrega Checklist e Streak
+        try {
+            const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+            if (response.ok) {
+                const data = await response.json();
+                
+                atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
+                atualizarProgresso('progZero', data.progresso.zerads, 3);
+                atualizarProgresso('progDireta', data.progresso.tarefas, 1);
+
+                const streak = data.streak.streak_atual || 0;
+                const progBar = document.getElementById('progStreak');
+                const txtDias = document.getElementById('txtStreakDias');
+                
+                if (progBar) {
+                    progBar.style.width = Math.min((streak / 7) * 100, 100) + '%';
+                    txtDias.innerText = `${streak} / 7 dias`;
+                }
+
+                const btnBau = document.getElementById('btnAbrirBau');
+                if (btnBau) btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+
+                if (data.streak.streak_quebrado) {
+                    exibirAvisoServidor({ 
+                        titulo: "Ops! Streak Perdido", 
+                        mensagem: "Você não completou as tarefas ontem e sua sequência foi reiniciada.", 
+                        icone: "⚠️" 
+                    });
+                    fetch('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
+                }
+            }
+        } catch (err) {
+            console.error("Erro checklist:", err);
+        }
+
+        // 2. Carrega Status Usuário
         try {
             const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
             const result = await res.json();
@@ -232,11 +231,8 @@ try {
                 const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
 
                 if (data.nivel > nivelSalvo) {
-                    const novoNivelInfo = TABELA_NIVEIS[data.nivel];
-                    let msg = `Parabéns! Você alcançou o Nível ${data.nivel} - ${novoNivelInfo.titulo}!\n\n`;
-                    msg += `Vantagens:\n• Limite Saque: ${novoNivelInfo.limite_saque}\n• Giros: ${novoNivelInfo.giros}\n• Tempo AD: ${novoNivelInfo.tempo_ad}s`;
-                    
-                    exibirAvisoServidor({ titulo: "Subiu de Nível!", mensagem: msg, icone: "🏆" });
+                    const info = TABELA_NIVEIS[data.nivel];
+                    exibirAvisoServidor({ titulo: "Subiu de Nível!", mensagem: `Você alcançou o Nível ${data.nivel}!`, icone: "🏆" });
                     localStorage.setItem('nivel_usuario', data.nivel);
                 }
 
@@ -244,27 +240,15 @@ try {
                 document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
 
                 const nivelAnterior = infoNivel.xp_min;
-                const proximoNivelInfo = TABELA_NIVEIS[data.nivel + 1];
-                const proximoNivel = proximoNivelInfo ? proximoNivelInfo.xp_min : (infoNivel.xp_min + 500); 
-                
-                const xpNoNivel = data.xp - nivelAnterior;
-                const metaNivel = proximoNivel - nivelAnterior;
-                const progresso = Math.min((xpNoNivel / metaNivel) * 100, 100);
+                const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
+                const progresso = Math.min(((data.xp - nivelAnterior) / (proxInfo.xp_min - nivelAnterior)) * 100, 100);
 
                 document.getElementById("barXp").style.width = progresso + "%";
-                document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proximoNivel} XP`;
+                document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
             }
         } catch (err) {
-            console.error("Erro ao carregar status:", err);
+            console.error("Erro status:", err);
         }
-    } // FECHAMENTO DA FUNÇÃO carregarDados()
-
-    function atualizarProgresso(id, valor, max) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.width = Math.min((valor / max) * 100, 100) + '%';
-        const span = el.parentElement.parentElement.querySelector('.task-header span');
-        if (span) span.innerText = span.innerText.replace(/\(\d\/\d\)/, `(${valor}/${max})`);
     }
 
     async function abrirBau() {
@@ -278,7 +262,8 @@ try {
         else { alert("Erro: " + data.error); }
     }
 
-    carregarDados();
+    // Inicialização segura
+    document.addEventListener("DOMContentLoaded", carregarDados);
 </script>
 </body>
 </html>
