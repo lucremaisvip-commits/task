@@ -2006,8 +2006,11 @@ bot.on('callback_query', async (query) => {
   const indicadoId = query.from.id;
   const nome = query.from.first_name;
 
-  try {
-    // 1. Registro do Usuário (Upsert conforme Dossiê)
+try {
+    // Inicia uma transação para garantir que ambos os inserts ocorram
+    await pool.query('BEGIN');
+
+    // 1. Registro do Usuário (Upsert)
     await pool.query(
       `INSERT INTO usuarios (telegram_id, nome, lang, data_registro)
        VALUES ($1, $2, $3, NOW())
@@ -2015,7 +2018,15 @@ bot.on('callback_query', async (query) => {
       [indicadoId, nome, lang]
     );
 
-    // 2. Registro de Indicação (Só se não existir)
+    // 2. Garante o registro na tabela de streaks (Se não existir)
+    await pool.query(
+      `INSERT INTO usuarios_streaks (telegram_id, streak_atual, meta_cumprida_hoje, bau_disponivel, data_registro)
+       VALUES ($1, 0, FALSE, FALSE, NOW())
+       ON CONFLICT (telegram_id) DO NOTHING`,
+      [indicadoId]
+    );
+
+    // 3. Registro de Indicação
     const check = await pool.query("SELECT id FROM indicacoes WHERE id_indicado = $1", [indicadoId]);
     if (check.rowCount === 0) {
       await pool.query(
@@ -2024,6 +2035,8 @@ bot.on('callback_query', async (query) => {
         [indicadorId, indicadoId]
       );
     }
+
+    await pool.query('COMMIT');
 
     // 3. Montagem da Mensagem (Nova ou Recorrente)
     const saldo = await getSaldoUsuario(indicadoId);
