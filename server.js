@@ -987,88 +987,90 @@ async function verificarMetaDiaria(client, telegram_id) {
             COUNT(*) FILTER (WHERE origem = 'tarefa') as total_tarefas,
             SUM(pontos) as total_pontos
         FROM historico_ganhos 
-        WHERE telegram_id = $1 
-        AND data_registro::date = CURRENT_DATE
+        WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE
     `, [telegram_id]);
 
     const stats = res.rows[0];
-    
-    // Converte os valores do banco para números para comparação segura
     const zerads = parseInt(stats.total_zerads) || 0;
     const moneyrain = parseInt(stats.total_moneyrain) || 0;
     const tarefas = parseInt(stats.total_tarefas) || 0;
     const pontos = parseFloat(stats.total_pontos) || 0;
 
-    const metaCumprida = 
-        zerads >= 3 && 
-        moneyrain >= 3 && 
-        tarefas >= 1 && 
-        pontos >= 1.01401;
+    const metaCumprida = zerads >= 3 && moneyrain >= 3 && tarefas >= 1 && pontos >= 1.01401;
 
     if (metaCumprida) {
-        await client.query(`
-            UPDATE usuarios_streaks 
-            SET meta_cumprida_hoje = TRUE 
-            WHERE telegram_id = $1
+        // Usamos FOR UPDATE para bloquear a linha e evitar concorrência
+        const check = await client.query(`
+            SELECT meta_cumprida_hoje FROM usuarios_streaks WHERE telegram_id = $1 FOR UPDATE
         `, [telegram_id]);
+
+        if (check.rows.length > 0 && !check.rows[0].meta_cumprida_hoje) {
+            await client.query(`
+                UPDATE usuarios_streaks 
+                SET meta_cumprida_hoje = TRUE, streak_atual = streak_atual + 1
+                WHERE telegram_id = $1
+            `, [telegram_id]);
+        }
     }
-    
     return metaCumprida;
 }
 
+
 async function verificarMissaoEntrada(client, telegram_id) {
     try {
-        // 1. Verifica condições: Meta batida, cadastro hoje, booster não usado e nenhum saque aprovado
+        // 1. Verifica se o usuário cumpre os requisitos e trava a linha para update (FOR UPDATE)
         const query = `
-            SELECT u.telegram_id
+            SELECT u.pontos
             FROM usuarios u
             JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
-            LEFT JOIN saques s ON u.telegram_id = s.telegram_id AND s.status = 'ok'
             WHERE u.telegram_id = $1 
             AND u.booster_usado = FALSE
             AND us.meta_cumprida_hoje = TRUE
-            AND u.data_registro::date = CURRENT_DATE
-            AND s.id IS NULL
-            LIMIT 1
+            FOR UPDATE
         `;
 
         const res = await client.query(query, [telegram_id]);
 
         if (res.rows.length > 0) {
-            // Inicia uma transação para garantir que os dados não fiquem inconsistentes
-            await client.query('BEGIN');
+            const saldoAtual = parseFloat(res.rows[0].pontos) || 0;
+            const metaSaque = 2.02802;
+            const pontosParaCompletar = metaSaque > saldoAtual ? (metaSaque - saldoAtual) : 0;
 
-            // Atualiza os pontos e marca como usado
-            await client.query(`
-                UPDATE usuarios 
-                SET pontos = 2.02802,
-                    booster_usado = TRUE 
-                WHERE telegram_id = $1
-            `, [telegram_id]);
+            // 2. Se faltam pontos, aplica o ajuste (booster)
+            if (pontosParaCompletar > 0) {
+                await client.query(`
+                    UPDATE usuarios 
+                    SET pontos = pontos + $1, 
+                        booster_usado = TRUE 
+                    WHERE telegram_id = $2
+                `, [pontosParaCompletar, telegram_id]);
 
-            // Registra no histórico para controle (isso ajuda a saber que o ganho veio do booster)
-            await client.query(`
-                INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
-                VALUES ($1, 'booster_entrada', 2.02802, 'Missão de Entrada', NOW())
-            `, [telegram_id]);
-
-            await client.query('COMMIT');
+                await client.query(`
+                    INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
+                    VALUES ($1, 'booster_entrada', $2, 'Missão de Entrada (Ajuste)', NOW())
+                `, [telegram_id, pontosParaCompletar]);
+            } else {
+                // 3. Caso ele já tenha atingido o mínimo sozinho, apenas marca o booster como usado
+                await client.query(`
+                    UPDATE usuarios 
+                    SET booster_usado = TRUE 
+                    WHERE telegram_id = $1
+                `, [telegram_id]);
+            }
 
             return { 
                 liberado: true, 
-                mensagem: "🎉 Parabéns! Missão de entrada concluída com booster. Você já pode sacar!" 
+                mensagem: "🎉 Parabéns! Missão de entrada concluída com sucesso." 
             };
         }
         
         return { liberado: false };
 
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error("Erro na Missão de Entrada:", error);
-        return { liberado: false, erro: "Erro ao processar booster." };
+        throw error; // Propaga o erro para que a rota pai saiba que precisa fazer o ROLLBACK
     }
 }
-
 
 app.post("/api/abrir-bau", async (req, res) => {
     const { telegram_id } = req.body;
