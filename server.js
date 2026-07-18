@@ -51,8 +51,6 @@ const saqueLimiter = rateLimit({
   message: "Muitas tentativas. Tente novamente mais tarde."
 });
 
-// Aplique apenas na rota de saque
-app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => { ... });
 
 // 🔒 4. Limite de JSON (anti ataque)
 app.use(express.json({
