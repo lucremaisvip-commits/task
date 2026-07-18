@@ -87,9 +87,12 @@
 </div>
 
 
-  <!-- tarefas diárias  -->
-  <div class="checklist-card">
-    <h2>⚔️ Tarefas diárias</h2>
+<!-- Tarefas Diárias e Streak -->
+<div class="checklist-card">
+  <h2>⚔️ Tarefas diárias</h2>
+  
+  <!-- Lista de Tarefas -->
+  <div class="task-list" style="margin-bottom: 20px;">
     <div class="task-row">
       <div class="task-header">
         <span>MoneyRain (0/3)</span>
@@ -97,6 +100,7 @@
       </div>
       <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
     </div>
+
     <div class="task-row">
       <div class="task-header">
         <span>ZeroAds (0/3)</span>
@@ -104,6 +108,7 @@
       </div>
       <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
     </div>
+
     <div class="task-row">
       <div class="task-header">
         <span>Tarefa Direta (0/1)</span>
@@ -111,20 +116,27 @@
       </div>
       <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
     </div>
+  </div>
 
-      </div>
-    
-  <p style="font-size: 13px; color: #94a3b8; margin-top: 20px;">Progresso da Semana (Streak):</p>
-    <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 5px;">
-        <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
+  <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
+
+  <!-- Progresso da Semana (Streak) -->
+  <div class="streak-section">
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+    <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
+      <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
     </div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
-        <span id="txtStreakDias">0 / 7 dias</span>
-        <span id="txtStatusStreak">Mantenha o ritmo!</span>
+      <span id="txtStreakDias">0 / 7 dias</span>
+      <span id="txtStatusStreak">Mantenha o ritmo!</span>
     </div>
-
-    <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
   </div>
+
+  <!-- Botão Baú -->
+  <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none; margin-top: 20px;">
+    Abrir Baú
+  </button>
+</div>
 
   
 
