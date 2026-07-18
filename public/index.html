@@ -181,6 +181,7 @@ try {
         const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
         if (!response.ok) throw new Error("Erro no checklist");
         const data = await response.json();
+        console.log("Dados recebidos da API:", data);
 
         // Atualiza progresso das tarefas
         atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
