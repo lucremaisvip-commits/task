@@ -111,6 +111,23 @@
   button:hover {
     opacity: 0.9;
   }
+.banner-box {
+    width: 300px; /* Define largura fixa para não desalinhar */
+    height: 250px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+  
+  /* Ajuste para telas muito pequenas */
+  @media (max-width: 620px) {
+    .banner-box {
+      width: 100%;
+      height: auto;
+    }
+  }
+  
 </style>
 </head>
 <body>
@@ -142,22 +159,29 @@
    💰 Complete and Earn: Points and XP credited automatically within 5 minutes. The more you interact, the more you level up!
   </p>
 
-  <div class="card" style="text-align:center;">
-    <h3 id="txtSponsorship">📢 Sponsorship</h3>
-    <div id="adsterra-banner" style="margin:15px 0;">
+<div class="card" style="text-align:center;">
+  <h3 id="txtSponsorship">📢 Sponsorship</h3>
+  
+  <!-- Container Flex para alinhar os dois serviços -->
+  <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 15px; flex-wrap: wrap;">
+    
+    <!-- Lado Esquerdo: Adsterra (Script) -->
+    <div class="banner-box">
       <script type="text/javascript">
-        atOptions = {
-          'key' : 'c85343a2d64da08f92bed539a913497d',
-          'format' : 'iframe',
-          'height' : 300,
-          'width' : 160,
-          'params' : {}
-        };
+        atOptions = { 'key' : 'c85343a2d64da08f92bed539a913497d', 'format' : 'iframe', 'height' : 250, 'width' : 300, 'params' : {} };
       </script>
       <script type="text/javascript" src="//www.highperformanceformat.com/c85343a2d64da08f92bed539a913497d/invoke.js"></script>
     </div>
-  </div>
 
+<!-- Lado Direito: FaucetPay (Imagem/Link) -->
+    <div class="banner-box">
+      <a href="https://faucetpay.io/?r=998373" target="_blank">
+        <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay" style="width: 300px; height: 250px; border-radius: 8px;">
+      </a>
+    </div>
+
+  </div>
+</div>
   
 
 <script>
