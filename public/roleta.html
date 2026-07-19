@@ -104,11 +104,12 @@
     </ul>
 </div>
 
+
 <!-- Painel de Status -->
 <div class="card">
-    <p style="margin: 5px 0;">🎡 Giros hoje: <span id="girosHoje">0</span> / <span id="limiteDiario">5</span></p>
-    <p style="margin: 5px 0;">🎟️ Tickets Disponíveis: <span id="ticketsDisponiveis" style="color: #00ff88; font-weight: bold;">0</span></p>
-    <p style="margin: 5px 0;">⭐ Saldo: <span id="pontos">...</span></p>
+    <p style="margin: 5px 0;"><span id="labelGiros">🎡 Giros hoje:</span> <span id="girosHoje">0</span> / <span id="limiteDiario">5</span></p>
+    <p style="margin: 5px 0;"><span id="labelTickets">🎟️ Tickets Disponíveis:</span> <span id="ticketsDisponiveis" style="color: #00ff88; font-weight: bold;">0</span></p>
+    <p style="margin: 5px 0;"><span id="labelPontos">⭐ Saldo:</span> <span id="pontos">...</span></p>
 </div>
 
   <!-- Loja de Tickets -->
@@ -158,10 +159,26 @@
  <script> 
 // --- PARTE 1: Configurações, Traduções e UI ---
 
-let telegram_id = "";
-let userLang = "en";
-let rotacaoAtual = 0;
-let usuarioVip = false; 
+  // Recupera instantaneamente do localStorage ou URL para evitar qualquer "piscar" de idioma incorreto
+  let telegram_id = String(
+      new URLSearchParams(window.location.search).get("id") || 
+      window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
+      localStorage.getItem("telegram_id") || 
+      ""
+  );
+
+  let userLang = 
+      new URLSearchParams(window.location.search).get("lang") || 
+      localStorage.getItem("userLang") || 
+      "en";
+
+  // Se encontrou dados válidos, já guarda no storage para as próximas páginas
+  if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
+  if (userLang) localStorage.setItem("userLang", userLang);
+
+  let rotacaoAtual = 0;
+  let usuarioVip = false;
+
 
 const tradutorPremios = {
   pt: {
@@ -249,9 +266,9 @@ function aplicarTraducoes() {
     if (el && el.parentElement) el.parentElement.firstChild.textContent = text + " ";
   };
 
-  updateLabel("girosHoje", t.girosHoje);
-  updateLabel("ticketsDisponiveis", t.ticketsText);
-  updateLabel("pontos", t.pointsText);
+setElText("labelGiros", t.girosHoje);
+setElText("labelTickets", t.ticketsText);
+setElText("labelPontos", t.pointsText);
 
   const cardLojaH3 = document.querySelector("#cardLoja h3");
   if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
@@ -282,14 +299,22 @@ function aplicarTraducoes() {
   }
 }
 // --- PARTE 2: Inicialização e Carregamento de Dados ---
-
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // 1. Configura idioma e ID
-    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+    // 1. Extrai e valida a linguagem (Prioriza a URL, depois o que está salvo, padrão "en")
+    const langUrl = urlParams.get("lang");
+    if (langUrl === "pt" || langUrl === "en") {
+        userLang = langUrl;
+    } else {
+        userLang = localStorage.getItem("userLang") || "en";
+    }
+    
+    // Salva o idioma atualizado para carregar rápido nas próximas páginas
+    localStorage.setItem("userLang", userLang);
     document.documentElement.lang = userLang;
     
+    // 2. Extrai e valida o telegram_id (URL -> Telegram SDK -> LocalStorage)
     telegram_id = String(
         urlParams.get("id") || 
         window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
@@ -301,14 +326,16 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("telegram_id", telegram_id);
     }
 
-    // 2. Ajusta links do menu inferior
+    // 3. Ajusta os links do menu inferior para passarem o ID e o Idioma correntes
     document.querySelectorAll(".bottom-nav a").forEach(link => {
         let baseHref = link.getAttribute("href").split("?")[0];
         link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
     });
 
-    // 3. Aplica textos e carrega dados
+    // 4. Aplica as traduções imediatamente na tela (evita o "piscar" de idioma)
     aplicarTraducoes();
+
+    // 5. Busca os dados do backend em segundo plano
     if (telegram_id) {
         carregarDadosUsuario();
     }
@@ -317,48 +344,43 @@ document.addEventListener("DOMContentLoaded", () => {
 async function carregarDadosUsuario() {
     if (!telegram_id) return;
 
-    const limitesPorNivel = {
-        1: 5, 2: 6, 3: 7, 4: 8, 5: 10
-    };
-
+    // 1. Carregar Status (Nível/VIP)
     try {
-        // 1. Busca os dados de Nível e VIP da rota nova
-        const statusRes = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
-        const statusData = await statusRes.json();
-        
-        // 2. Busca o saldo da rota original (mantendo a compatibilidade)
-        const userRes = await fetch(`/api/usuarios/${telegram_id}`);
-        const userData = await userRes.json();
-
-        let limiteAtual = 5;
-
-        if (statusData.success && statusData.data) {
-            usuarioVip = statusData.data.vip === true;
-            const nivelAtual = statusData.data.nivel || 1;
-            limiteAtual = limitesPorNivel[nivelAtual] || 5;
-
-            // Atualiza o DOM
-            document.getElementById("limiteDiario").textContent = limiteAtual;
-            document.getElementById("limiteDiarioText").textContent = limiteAtual;
+        const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+        const data = await res.json();
+        if (data.success) {
+            usuarioVip = data.data.vip;
+            const nivel = data.data.nivel || 1;
+            const limites = { 1: 5, 2: 6, 3: 7, 4: 8, 5: 10 };
+            const el = document.getElementById("limiteDiario");
+            if (el) el.textContent = limites[nivel] || 5;
         }
+    } catch (e) { console.error("Erro status:", e); }
 
-        if (userData.success && userData.data) {
-            document.getElementById("pontos").textContent = userData.data.pontos ?? 0;
-            aplicarTraducoes(); // Atualiza textos dependentes de VIP
+    // 2. Carregar Saldo
+    try {
+        const res = await fetch(`/api/usuarios/${telegram_id}`);
+        const data = await res.json();
+        if (data.success) {
+            const el = document.getElementById("pontos");
+            if (el) el.textContent = data.data.pontos ?? 0;
         }
+    } catch (e) { console.error("Erro saldo:", e); }
 
-        // 3. Busca giros e tickets (continua igual)
-        const hojeRes = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
-        const hoje = await hojeRes.json();
+    // 3. Carregar Giros do Dia
+    try {
+        const res = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
+        const data = await res.json();
+        const elG = document.getElementById("girosHoje");
+        const elT = document.getElementById("ticketsDisponiveis");
+        if (elG) elG.textContent = data.giros ?? 0;
+        if (elT) elT.textContent = data.tickets ?? 0;
+    } catch (e) { console.error("Erro giros:", e); }
 
-        document.getElementById("girosHoje").textContent = hoje.giros ?? 0;
-        document.getElementById("ticketsDisponiveis").textContent = hoje.tickets ?? 0;
-
-        await carregarHistorico();
-
-    } catch (err) {
-        console.error("Erro ao carregar dados:", err);
-    }
+    // 4. Carregar Histórico
+    await carregarHistorico();
+    
+    aplicarTraducoes(); // Atualiza textos no final
 }
 // --- PARTE 3: Lógica de Negócio, Roleta e Monetag ---
 
