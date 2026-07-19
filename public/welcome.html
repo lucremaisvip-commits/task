@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bem-vindo ao CashTask</title>
+  <style>
+    body { background: #0f172a; color: #f1f5f9; font-family: 'Segoe UI', sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; }
+    .card { background: #1e293b; padding: 25px; border-radius: 20px; max-width: 400px; width: 100%; border: 1px solid #334155; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+    
+    #content-container { transition: opacity 0.3s ease; }
+    h2 { color: #3b82f6; margin-top: 15px; }
+    p { font-size: 15px; color: #cbd5e1; min-height: 60px; line-height: 1.5; }
+    
+    .preview-box { transform: scale(0.75); transform-origin: top; margin: -10px auto; pointer-events: none; }
+    .user-status-card { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 15px; text-align: left; }
+    .xp-bar-container { background: #334155; width: 100%; height: 10px; border-radius: 5px; margin-top: 5px; }
+    .xp-bar-fill { background: #3b82f6; width: 60%; height: 100%; border-radius: 5px; }
+
+    .btn-next { background: #3b82f6; border: none; padding: 14px; border-radius: 10px; color: white; font-weight: bold; cursor: pointer; width: 100%; margin-top: 20px; }
+    .btn-skip { background: transparent; color: #64748b; border: none; margin-top: 15px; font-size: 12px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div id="previewArea" class="preview-box" style="display:none;">
+    <div class="user-status-card">
+      <span style="color: #94a3b8; font-size: 10px;">STATUS DO HERÓI</span>
+      <div style="font-size: 14px; font-weight: bold;">Nível 1 - Novato</div>
+      <div class="xp-bar-container"><div class="xp-bar-fill"></div></div>
+      <p style="font-size: 10px; color: #e11d48; margin-top: 10px; font-weight: bold; margin-bottom: 0;">⚠️ XP em risco: Complete o checklist!</p>
+    </div>
+  </div>
+
+  <div id="content-container">
+    <div id="icon" style="font-size: 50px;">🚀</div>
+    <h2 id="title">Bem-vindo!</h2>
+    <p id="desc">...</p>
+  </div>
+  
+  <button id="btnAction" class="btn-next" onclick="navegar()">Próximo</button>
+  <button id="btnSkip" class="btn-skip" onclick="pularTutorial()">Pular tutorial</button>
+</div>
+
+<script>
+  let step = 0;
+  let userLang = new URLSearchParams(window.location.search).get("lang") || localStorage.getItem("userLang") || "pt";
+
+  const data = {
+    pt: {
+      title: ["Bem-vindo!", "Formas de Ganho", "Indique e Ganhe", "Seja VIP", "Atenção ao XP", "Baú de 7 Dias", "Missão de Entrada"],
+      desc: [
+        "O CashTask transforma seu tempo em dinheiro direto na FaucetPay.",
+        "Use Roleta, MoneyRain, ZeroAds e Tarefas Diretas. Muitas opções para você!",
+        "Convide amigos e ganhe bônus em cima de cada ação deles!",
+        "Saques antecipados, tarefas exclusivas e prioridade total para você.",
+        "Complete seu checklist diário ou perderá experiência por inatividade.",
+        "7 dias seguidos de tarefas garantem um Baú Surpresa com prêmios incríveis!",
+        "Complete suas tarefas com o booster de entrada e saque HOJE!"
+      ],
+      btnNext: ["Próximo", "Bora ganhar!"],
+      skip: "Pular tutorial"
+    },
+    en: {
+      title: ["Welcome!", "Earning Methods", "Refer & Earn", "Go VIP", "XP Warning", "7-Day Chest", "Entry Mission"],
+      desc: [
+        "CashTask turns your time into money directly to your FaucetPay.",
+        "Use Roulette, MoneyRain, ZeroAds and Direct Tasks. Many options for you!",
+        "Invite friends and earn bonuses on every action they take!",
+        "Early withdrawals, exclusive tasks, and priority support for you.",
+        "Complete your daily checklist or you will lose XP due to inactivity.",
+        "7 consecutive days of tasks grant a Surprise Chest with incredible prizes!",
+        "Complete your tasks with the entry booster and withdraw TODAY!"
+      ],
+      btnNext: ["Next", "Let's win!"],
+      skip: "Skip tutorial"
+    }
+  };
+
+  const slides = [
+    { icon: "🚀", preview: false }, { icon: "💸", preview: false }, { icon: "👥", preview: false },
+    { icon: "⭐", preview: false }, { icon: "⚠️", preview: true }, { icon: "🎁", preview: false }, { icon: "🏁", preview: false }
+  ];
+
+  function aplicarTexto() {
+    const t = data[userLang];
+    document.getElementById('icon').innerText = slides[step].icon;
+    document.getElementById('title').innerText = t.title[step];
+    document.getElementById('desc').innerText = t.desc[step];
+    document.getElementById('btnAction').innerText = (step === slides.length - 1) ? t.btnNext[1] : t.btnNext[0];
+    document.getElementById('btnSkip').innerText = t.skip;
+    document.getElementById('previewArea').style.display = slides[step].preview ? 'block' : 'none';
+  }
+
+  function navegar() {
+    step++;
+    if (step < slides.length) {
+      document.getElementById('content-container').style.opacity = 0;
+      setTimeout(() => {
+        aplicarTexto();
+        document.getElementById('content-container').style.opacity = 1;
+      }, 200);
+    } else {
+      pularTutorial();
+    }
+  }
+
+  function pularTutorial() {
+    localStorage.setItem('first_access', 'done');
+    window.location.href = "index.html";
+  }
+
+  // Iniciar
+  aplicarTexto();
+</script>
+</body>
+</html>
