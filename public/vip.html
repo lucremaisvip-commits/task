@@ -5,165 +5,43 @@
   <title id="pageTitle">Become VIP</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      max-width: 600px;
-      margin: auto;
-      padding: 20px;
-      padding-bottom: 90px;
-      text-align: center;
-    }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #0f172a; color: #f8fafc; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 90px; text-align: center; }
+    
+    .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #1e293b; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 9999; }
+    .bottom-nav a { color: #94a3b8; text-decoration: none; font-size: 11px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 20%; }
+    .bottom-nav a.active { color: #00ff88; }
+    .bottom-nav a span { font-size: 18px; }
 
-    /* 📱 MENU INFERIOR FIXO ESTILO MOBILE */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: #1a1a1a;
-      display: flex;
-      justify-content: space-around;
-      padding: 10px 0;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
-      z-index: 9999;
-    }
+    .header-vip { background: linear-gradient(135deg, #0f172a, #1e3a8a); padding: 30px 20px; border-radius: 16px; margin-bottom: 25px; border: 1px solid #3b82f6; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3); }
+    .header-vip h1 { margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 1px; color: #ffffff; }
+    .price-box { background: rgba(59, 130, 246, 0.15); padding: 15px; border-radius: 12px; margin: 20px 0 0 0; display: inline-block; border: 1px solid #3b82f6; }
+    .old-price { text-decoration: line-through; color: #94a3b8; font-size: 14px; }
+    .current-price { font-size: 36px; font-weight: 800; color: #00ff88; display: block; margin-top: 5px; }
+    .lifetime-badge { font-size: 11px; background: #3b82f6; color: #ffffff; padding: 4px 10px; border-radius: 20px; font-weight: bold; text-transform: uppercase; }
 
-    .bottom-nav a {
-      color: #aaa;
-      text-decoration: none;
-      font-size: 11px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      width: 20%;
-    }
+    .features-list { text-align: left; background: #1e293b; padding: 25px; border-radius: 16px; border: 1px solid #334155; margin-bottom: 25px; }
+    .features-list li { list-style: none; margin-bottom: 18px; font-size: 15px; display: flex; align-items: flex-start; gap: 12px; }
+    .features-list li b { color: #fff; }
 
-    .bottom-nav a.active {
-      color: #00ff88;
-    }
-
-    .bottom-nav a span {
-      font-size: 18px;
-    }
-
-    .header-vip {
-      background: linear-gradient(135deg, #1e6e34, #00ff88);
-      padding: 30px 20px;
-      border-radius: 12px;
-      margin-bottom: 25px;
-      box-shadow: 0 4px 15px rgba(0, 255, 136, 0.2);
-    }
-
-    .header-vip h1 {
-      margin: 0;
-      font-size: 26px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-
-    .price-box {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 15px;
-      border-radius: 8px;
-      margin: 15px 0 0 0;
-      display: inline-block;
-    }
-
-    .old-price {
-      text-decoration: line-through;
-      color: #ffa4a4;
-      font-size: 14px;
-    }
-
-    .current-price {
-      font-size: 32px;
-      font-weight: bold;
-      color: #00ff88;
-      display: block;
-      margin-top: 5px;
-    }
-
-    .lifetime-badge {
-      font-size: 11px;
-      background: #00ff88;
-      color: #111;
-      padding: 3px 8px;
-      border-radius: 20px;
-      font-weight: bold;
-      text-transform: uppercase;
-    }
-
-    .features-list {
-      text-align: left;
-      background: #1a1a1a;
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid #333;
-      margin-bottom: 25px;
-    }
-
-    .features-list li {
-      list-style: none;
-      margin-bottom: 15px;
-      font-size: 15px;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-    }
-
-    .features-list li:last-child {
-      margin-bottom: 0;
-    }
-
-    .btn-buy {
-      background: linear-gradient(90deg, #00ff88, #00b35e);
-      color: #111;
-      font-size: 18px;
-      font-weight: bold;
-      padding: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      width: 100%;
-      box-shadow: 0 4px 12px rgba(0, 255, 136, 0.3);
-      transition: transform 0.2s, box-shadow 0.2s;
-      text-decoration: none;
-      display: block;
-      box-sizing: border-box;
-    }
-
-    .btn-buy:hover {
-      transform: scale(1.02);
-      box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
-    }
-
-    .guarantee-text {
-      font-size: 12px;
-      color: #888;
-      margin-top: 15px;
-    }
+    .btn-buy { background: linear-gradient(90deg, #3b82f6, #2563eb); color: white; font-size: 18px; font-weight: bold; padding: 18px; border: none; border-radius: 12px; cursor: pointer; width: 100%; text-decoration: none; display: block; box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: transform 0.2s; }
+    .btn-buy:hover { transform: scale(1.02); }
+    .guarantee-text { font-size: 12px; color: #64748b; margin-top: 15px; }
   </style>
 </head>
 <body>
 
   <div class="header-vip">
-    <h1 id="mainTitle">🚀 UPGRADE TO VIP</h1>
-    <p id="subTitle">Recover your investment on your very first withdrawal!</p>
-    
+    <h1 id="mainTitle">🚀 VIP ELITE ACCESS</h1>
+    <p id="subTitle" style="color: #cbd5e1;">Maximize your earnings and get paid faster than anyone else.</p>
     <div class="price-box">
-      <span class="old-price" id="oldPrice">R$ 29,90</span>
-      <span class="current-price" id="currentPrice">R$ 7,90</span>
-      <span class="lifetime-badge" id="badgeLifetime">LIFETIME ACCESS</span>
+      <span class="old-price" id="oldPrice">$ 5.99</span>
+      <span class="current-price" id="currentPrice">$ 1.49</span>
+      <span class="lifetime-badge" id="badgeLifetime">ONE-TIME PAYMENT</span>
     </div>
   </div>
 
   <div class="features-list">
-    <ul style="padding: 0; margin: 0;" id="listBenefits">
-      </ul>
+    <ul style="padding: 0; margin: 0;" id="listBenefits"></ul>
   </div>
 
   <a href="#" id="btnCheckout" target="_blank" class="btn-buy">👉 ACTIVATE VIP NOW</a>
@@ -180,62 +58,48 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script>
     const urlParams = new URLSearchParams(window.location.search);
-    let userLang = "en";
+    const telegram_id = (urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "").toString();
 
-    // 🔗 LINKS DE CHECKOUT DAS PLATAFORMAS (Sem parâmetros adicionados manualmente no final)
     const LINK_CHECKOUT_BRASIL = "https://pay.cakto.com.br/b8e4bmk_970523"; 
     const LINK_CHECKOUT_MUNDIAL = "https://buy.stripe.com/aFadRb1Kte2pbBk93N6c000"; 
 
-    const telegram_id = (
-      urlParams.get("id") ||
-      window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
-      localStorage.getItem("telegram_id") ||
-      ""
-    ).toString();
-
     const textos = {
       pt: {
-        pageTitle: "Seja VIP Vitalício",
-        mainTitle: "🚀 VIRAR VIP VITALÍCIO",
-        subTitle: "Recupere o valor investido logo no seu primeiro saque!",
-        oldPrice: "R$ 29,90",
-        currentPrice: "R$ 7,90",
-        badgeLifetime: "ACESSO VITALÍCIO",
-        btnText: "👉 ATIVAR MEU VIP AGORA",
-        guarantee: "🔒 Ativação automática e instantânea após o pagamento.",
-        navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
+        pageTitle: "Seja VIP Elite",
+        mainTitle: "🚀 ACESSO VIP ELITE",
+        subTitle: "Maximize seus ganhos e receba seus pagamentos na velocidade da luz.",
+        oldPrice: "R$ 29,90", currentPrice: "R$ 7,90", badgeLifetime: "PAGAMENTO ÚNICO",
+        btnText: "👉 ATIVAR VIP AGORA",
+        guarantee: "🔒 Ativação instantânea após a confirmação do pagamento.",
+        navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Ofertas", navWithdraw: "Saque",
         list: `
-          <li>✨ <b>Saque Mínimo Reduzido:</b> Saque com apenas 200 pontos (R$ 10,00) em vez de 400 pontos.</li>
-          <li>💸 <b>Aprovação Prioritária:</b> Seus saques entram na fila de pagamento acelerado.</li>
-          <li>🚀 <b>Tarefas VIPs Exclusivas:</b> Acesse tarefas ocultas com recompensas muito maiores.</li>
-          <li>📊 <b>Airdrops de Cripto:</b> Participe da distribuição gratuita de novos tokens parceiros.</li>
+          <li>⚡ <b>Saques Expressos:</b> Prioridade total na fila de pagamentos. Receba antes de todos.</li>
+          <li>💸 <b>Limite Ampliado:</b> Até 5 saques por dia para você girar seu saldo sem travas.</li>
+          <li>💎 <b>Tarefas de Elite:</b> Acesso a missões exclusivas com pagamentos superestimados.</li>
+          <li>🚀 <b>Retorno Rápido:</b> O valor do VIP é recuperado logo no seu primeiro saque.</li>
         `
       },
       en: {
-        pageTitle: "Lifetime VIP Upgrade",
-        mainTitle: "🚀 UPGRADE TO LIFETIME VIP",
-        subTitle: "Get your investment back on your very first withdrawal!",
-        oldPrice: "$ 5.99",
-        currentPrice: "$ 1.49",
-        badgeLifetime: "LIFETIME ACCESS",
+        pageTitle: "VIP Elite Access",
+        mainTitle: "🚀 VIP ELITE ACCESS",
+        subTitle: "Maximize your profits and get your payouts at lightning speed.",
+        oldPrice: "$ 5.99", currentPrice: "$ 1.49", badgeLifetime: "ONE-TIME PAYMENT",
         btnText: "👉 ACTIVATE VIP NOW",
-        guarantee: "🔒 Secure checkout. Instant activation after approval.",
-        navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+        guarantee: "🔒 Instant activation after payment approval.",
+        navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offers", navWithdraw: "Withdraw",
         list: `
-          <li>✨ <b>Lower Minimum Payout:</b> Withdraw at 200 points instead of 400 points.</li>
-          <li>💸 <b>Priority Cashout:</b> Get your payments processed ahead of everyone else.</li>
-          <li>🚀 <b>Exclusive VIP Tasks:</b> Unlock high-paying hidden offers and surveys.</li>
-          <li>📊 <b>Crypto Airdrops:</b> Get free access to premium token distribution events.</li>
+          <li>⚡ <b>Express Cashouts:</b> Top priority in the payment queue. Get paid first.</li>
+          <li>💸 <b>Daily Limit Boost:</b> Up to 5 withdrawals per day to move your money faster.</li>
+          <li>💎 <b>Elite Tasks:</b> Unlock exclusive, high-paying missions hidden from others.</li>
+          <li>🚀 <b>Instant ROI:</b> Recover your VIP investment on your very first withdrawal.</li>
         `
       }
     };
 
     document.addEventListener("DOMContentLoaded", () => {
-      userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
-      document.documentElement.lang = userLang;
+      const userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
       const t = textos[userLang];
-
-      // Atualiza textos na tela
+      
       document.getElementById("pageTitle").innerText = t.pageTitle;
       document.getElementById("mainTitle").innerText = t.mainTitle;
       document.getElementById("subTitle").innerText = t.subTitle;
@@ -246,14 +110,12 @@
       document.getElementById("txtGuarantee").innerText = t.guarantee;
       document.getElementById("listBenefits").innerHTML = t.list;
 
-      // Traduz Menu Inferior
       document.querySelector("#navHome .txt-nav").innerText = t.navHome;
       document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
       document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
       document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
       document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
 
-      // Sincroniza links do menu com ID e Idioma
       if (telegram_id) {
         localStorage.setItem("telegram_id", telegram_id);
         document.querySelectorAll(".bottom-nav a").forEach(link => {
@@ -261,20 +123,11 @@
           link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
         });
 
-        // 🛠️ MONTAGEM REVISADA DOS LINKS DE CHECKOUT DE ACORDO COM A REGRA DE CADA PLATAFORMA
-        let checkoutFinalUrl = "";
-
-        if (userLang === "pt") {
-          // Regra Cakto: injeta o id no ?utm_source=
-          const separador = LINK_CHECKOUT_BRASIL.includes("?") ? "&" : "?";
-          checkoutFinalUrl = `${LINK_CHECKOUT_BRASIL}${separador}utm_source=${telegram_id}`;
-        } else {
-          // Regra Stripe: injeta o id no ?client_reference_id=
-          const separador = LINK_CHECKOUT_MUNDIAL.includes("?") ? "&" : "?";
-          checkoutFinalUrl = `${LINK_CHECKOUT_MUNDIAL}${separador}client_reference_id=${telegram_id}`;
-        }
-
-        document.getElementById("btnCheckout").href = checkoutFinalUrl;
+        const checkoutUrl = userLang === "pt" 
+          ? `${LINK_CHECKOUT_BRASIL}${LINK_CHECKOUT_BRASIL.includes("?") ? "&" : "?"}utm_source=${telegram_id}`
+          : `${LINK_CHECKOUT_MUNDIAL}${LINK_CHECKOUT_MUNDIAL.includes("?") ? "&" : "?"}client_reference_id=${telegram_id}`;
+        
+        document.getElementById("btnCheckout").href = checkoutUrl;
       }
     });
   </script>
