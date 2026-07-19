@@ -244,10 +244,13 @@ function aplicarTraducoes() {
 }
   
 function atualizarUrlsMenu() {
-    document.querySelectorAll(".bottom-nav a, .btn-go, .btn-bau, .btn-roleta, .btn-vip").forEach(link => {
-        let base = link.getAttribute("href") ? link.getAttribute("href").split("?")[0] : null;
-        if (base && !base.startsWith("http")) {
-            link.href = `${base}?id=${telegram_id}&lang=${userLang}`;
+    document.querySelectorAll(".bottom-nav a").forEach(link => {
+        let href = link.getAttribute("href");
+        if (href) {
+            let base = href.split("?")[0];
+            if (base && !base.startsWith("http")) {
+                link.href = `${base}?id=${telegram_id}&lang=${userLang}`;
+            }
         }
     });
 }
