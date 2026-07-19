@@ -69,12 +69,23 @@
   </div>
 
   <div class="checklist-card">
-    <h2 id="txtDailyTasks">⚔️ Tarefas diárias</h2>
+    <h2>⚔️ Tarefas diárias</h2>
     <div class="task-list" style="margin-bottom: 20px;">
-      <!-- ... (mantive os IDs de progresso que já funcionam) ... -->
+      <div class="task-row">
+        <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
+      </div>
+      <div class="task-row">
+        <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
+      </div>
+      <div class="task-row">
+        <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
+        <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
+      </div>
     </div>
     <div class="streak-section">
-      <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
       <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
         <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
       </div>
@@ -139,6 +150,9 @@ const linguagens = {
         modalTitulo: "Sucesso!",
         btnFecharModal: "Fechar",
         txtDailyTasks: "⚔️ Tarefas diárias",
+        txtMoneyRain: "MoneyRain",
+        txtZeroAds: "ZeroAds",
+        txtTarefaDireta: "Tarefa Direta",
         txtStreakLabel: "Progresso da Semana (Streak):",
         txtStatusStreak: "Mantenha o ritmo!",
         btnAbrirBau: "Abrir Baú",
@@ -162,6 +176,9 @@ const linguagens = {
         modalTitulo: "Success!",
         btnFecharModal: "Close",
         txtDailyTasks: "⚔️ Daily Tasks",
+        txtMoneyRain: "MoneyRain",
+        txtZeroAds: "ZeroAds",
+        txtTarefaDireta: "Tarefa Direta",
         txtStreakLabel: "Weekly Progress (Streak):",
         txtStatusStreak: "Keep it up!",
         btnAbrirBau: "Open Chest",
@@ -205,6 +222,11 @@ function aplicarTraducoes() {
     document.getElementById("vip4").innerText = t.vip4;
     document.getElementById("vip5").innerText = t.vip5;
 
+    const spans = document.querySelectorAll(".task-header span");
+    if(spans[0]) spans[0].innerText = spans[0].innerText.replace(/^[^\(]+/, t.txtMoneyRain);
+    if(spans[1]) spans[1].innerText = spans[1].innerText.replace(/^[^\(]+/, t.txtZeroAds);
+    if(spans[2]) spans[2].innerText = spans[2].innerText.replace(/^[^\(]+/, t.txtTarefaDireta);
+  
     const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
     t.nav.forEach((text, i) => { if(navSpans[i]) navSpans[i].innerText = text; });
     document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
