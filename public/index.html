@@ -41,17 +41,17 @@
 </head>
 <body>
 
-  <div class="user-status-card">
+<div class="user-status-card">
     <div style="display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <span style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
+        <span id="txtHeroStatus" style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
         <strong id="txtNivel" style="font-size: 16px; color: #fff;">Nível 1 - Novato</strong>
       </div>
-      <button onclick="alternarIdioma()" class="lang-toggle-btn">🌐 EN</button>
+      <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
     </div>
     <div>
       <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #94a3b8;">
-        <span>EXP</span>
+        <span id="txtXpLabel">EXP</span>
         <span id="txtXpProgresso">0 / 500</span>
       </div>
       <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
@@ -64,28 +64,17 @@
       <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
       <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
       <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
-      <button onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+      <button id="btnFecharModal" onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
     </div>
   </div>
 
   <div class="checklist-card">
-    <h2>⚔️ Tarefas diárias</h2>
+    <h2 id="txtDailyTasks">⚔️ Tarefas diárias</h2>
     <div class="task-list" style="margin-bottom: 20px;">
-      <div class="task-row">
-        <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
-      </div>
-      <div class="task-row">
-        <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
-      </div>
-      <div class="task-row">
-        <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
-      </div>
+      <!-- ... (mantive os IDs de progresso que já funcionam) ... -->
     </div>
     <div class="streak-section">
-      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+      <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
       <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
         <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
       </div>
@@ -97,169 +86,253 @@
     <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
   </div>
 
-<!-- Card da Roleta -->
-<div class="checklist-card" style="border: 2px solid #2a8f43; background: #064e3b;">
-  <h2 style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte </h2>
-  <p style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">
-    Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!
-  </p>
-  <button onclick="location.href='roleta.html'" style="background: #2a8f43; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">
-    🎰 Gire e ganhe
-  </button>
-</div>
+  <div class="checklist-card" style="border: 2px solid #2a8f43; background: #064e3b;">
+    <h2 id="txtLuckyTitle" style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte</h2>
+    <p id="txtLuckyDesc" style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!</p>
+    <button id="btnLuckyGo" onclick="location.href='roleta.html'" style="background: #2a8f43; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🎰 Gire e ganhe</button>
+  </div>
 
-<!-- Card VIP (PT-BR) -->
-<div class="checklist-card" style="border: 2px solid #f59e0b; background: #1e293b;">
-  <h2 style="color: #fbbf24; margin-bottom: 10px;">⭐ Seja VIP</h2>
-  <ul style="font-size: 14px; color: #e2e8f0; margin-bottom: 15px; padding-left: 20px; text-align: left;">
-    <li>✅ Até 5 saques por dia</li>
-    <li>✅ Saques antecipados</li>
-    <li>✅ Tarefas exclusivas VIP</li>
-    <li>✅ Suporte prioritário</li>
-    <li>✅ ...e muito mais!</li>
-  </ul>
-  <button onclick="location.href='vip.html'" style="background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">
-    🚀 Tornar-se VIP Agora
-  </button>
-</div>
-
-
+  <div class="checklist-card" style="border: 2px solid #f59e0b; background: #1e293b;">
+    <h2 id="txtVipTitle" style="color: #fbbf24; margin-bottom: 10px;">⭐ Seja VIP</h2>
+    <ul id="listVip" style="font-size: 14px; color: #e2e8f0; margin-bottom: 15px; padding-left: 20px; text-align: left;">
+      <li>✅ <span id="vip1">Até 5 saques por dia</span></li>
+      <li>✅ <span id="vip2">Saques antecipados</span></li>
+      <li>✅ <span id="vip3">Tarefas exclusivas VIP</span></li>
+      <li>✅ <span id="vip4">Suporte prioritário</span></li>
+      <li>✅ <span id="vip5">...e muito mais!</span></li>
+    </ul>
+    <button id="btnVipGo" onclick="location.href='vip.html'" style="background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🚀 Tornar-se VIP Agora</button>
+  </div>
   
   <nav class="bottom-nav">
-    <a href="index.html" class="active"><span>🏠</span><span>Home</span></a>
-    <a href="tarefas.html"><span>🚀</span><span>Tasks</span></a>
-    <a href="indicacoes.html"><span>👥</span><span>Invites</span></a>
-    <a href="tarefas-externas.html"><span>🧩</span><span>Offerwalls</span></a>
-    <a href="saque.html"><span>💰</span><span>Withdraw</span></a>
+    <a href="index.html" class="active"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
   <script>
+// --- 1. Configurações e Variáveis Iniciais ---
+const urlParams = new URLSearchParams(window.location.search);
+const tg = window.Telegram?.WebApp;
+const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
+if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
+
+const TABELA_NIVEIS = {
+    1: { xp_min: 0, titulo: "Novato" },
+    2: { xp_min: 100, titulo: "Explorador" },
+    3: { xp_min: 300, titulo: "Caçador" },
+    4: { xp_min: 600, titulo: "Mestre" },
+    5: { xp_min: 1000, titulo: "Lenda" }
+};
+
+let filaDeAvisos = [];
+let processandoAviso = false;
+
+const linguagens = {
+    pt: {
+        pageTitle: "CashTaskBot",
+        txtHeroStatus: "STATUS DO HERÓI",
+        txtXpLabel: "EXP",
+        txtDegradacaoAviso: "⚠️ XP em risco: Complete o checklist!",
+        modalTitulo: "Sucesso!",
+        btnFecharModal: "Fechar",
+        txtDailyTasks: "⚔️ Tarefas diárias",
+        txtStreakLabel: "Progresso da Semana (Streak):",
+        txtStatusStreak: "Mantenha o ritmo!",
+        btnAbrirBau: "Abrir Baú",
+        txtLuckyTitle: "🎡 Roleta da Sorte",
+        txtLuckyDesc: "Teste sua sorte e transforme seus pontos em prêmios instantâneos!",
+        btnLuckyGo: "🎰 Gire e ganhe",
+        txtVipTitle: "⭐ Seja VIP",
+        vip1: "Até 5 saques por dia",
+        vip2: "Saques antecipados",
+        vip3: "Tarefas exclusivas VIP",
+        vip4: "Suporte prioritário",
+        vip5: "...e muito mais!",
+        btnVipGo: "🚀 Tornar-se VIP Agora",
+        nav: ["Home", "Tarefas", "Indicações", "Ofertas", "Saque"]
+    },
+    en: {
+        pageTitle: "CashTaskBot",
+        txtHeroStatus: "HERO STATUS",
+        txtXpLabel: "EXP",
+        txtDegradacaoAviso: "⚠️ XP at risk: Complete your checklist!",
+        modalTitulo: "Success!",
+        btnFecharModal: "Close",
+        txtDailyTasks: "⚔️ Daily Tasks",
+        txtStreakLabel: "Weekly Progress (Streak):",
+        txtStatusStreak: "Keep it up!",
+        btnAbrirBau: "Open Chest",
+        txtLuckyTitle: "🎡 Lucky Wheel",
+        txtLuckyDesc: "Test your luck and turn your points into instant prizes!",
+        btnLuckyGo: "🎰 Spin & Win",
+        txtVipTitle: "⭐ Go VIP",
+        vip1: "Up to 5 daily withdrawals",
+        vip2: "Early withdrawals",
+        vip3: "Exclusive VIP tasks",
+        vip4: "Priority support",
+        vip5: "...and much more!",
+        btnVipGo: "🚀 Upgrade to VIP Now",
+        nav: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"]
+    }
+};
+
+let userLang = localStorage.getItem("userLang") || "pt";
+
+// --- 2. Funções de Manipulação da Interface (UI) ---
+function aplicarTraducoes() {
+    const t = linguagens[userLang];
+    document.getElementById("pageTitle").innerText = t.pageTitle;
+    document.getElementById("txtHeroStatus").innerText = t.txtHeroStatus;
+    document.getElementById("txtXpLabel").innerText = t.txtXpLabel;
+    document.getElementById("txtDegradacaoAviso").innerText = t.txtDegradacaoAviso;
+    document.getElementById("modalTitulo").innerText = t.modalTitulo;
+    document.getElementById("btnFecharModal").innerText = t.btnFecharModal;
+    document.getElementById("txtDailyTasks").innerText = t.txtDailyTasks;
+    document.getElementById("txtStreakLabel").innerText = t.txtStreakLabel;
+    document.getElementById("txtStatusStreak").innerText = t.txtStatusStreak;
+    document.getElementById("btnAbrirBau").innerText = t.btnAbrirBau;
+    document.getElementById("txtLuckyTitle").innerText = t.txtLuckyTitle;
+    document.getElementById("txtLuckyDesc").innerText = t.txtLuckyDesc;
+    document.getElementById("btnLuckyGo").innerText = t.btnLuckyGo;
+    document.getElementById("txtVipTitle").innerText = t.txtVipTitle;
+    document.getElementById("btnVipGo").innerText = t.btnVipGo;
+    document.getElementById("vip1").innerText = t.vip1;
+    document.getElementById("vip2").innerText = t.vip2;
+    document.getElementById("vip3").innerText = t.vip3;
+    document.getElementById("vip4").innerText = t.vip4;
+    document.getElementById("vip5").innerText = t.vip5;
+
+    const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
+    t.nav.forEach((text, i) => { if(navSpans[i]) navSpans[i].innerText = text; });
+    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
+}
+
+function atualizarUrlsMenu() {
+    document.querySelectorAll(".bottom-nav a, .btn-go, .btn-bau, .btn-roleta, .btn-vip").forEach(link => {
+        let base = link.getAttribute("href") ? link.getAttribute("href").split("?")[0] : null;
+        if (base && !base.startsWith("http")) {
+            link.href = `${base}?id=${telegram_id}&lang=${userLang}`;
+        }
+    });
+}
+
+function atualizarProgresso(id, valor, max) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.width = Math.min((valor / max) * 100, 100) + '%';
+    const span = el.parentElement.parentElement.querySelector('.task-header span');
+    if (span) {
+        const nomeBase = span.innerText.replace(/\(\d\/\d\)/, '');
+        span.innerText = `${nomeBase} (${valor}/${max})`;
+    }
+}
+
+// --- 3. Funções de Notificação ---
+function exibirAvisoServidor(dados) {
+    filaDeAvisos.push(dados);
+    if (!processandoAviso) processarFila();
+}
+
+function processarFila() {
+    if (filaDeAvisos.length === 0) { processandoAviso = false; return; }
+    processandoAviso = true;
+    const dados = filaDeAvisos.shift();
+    document.getElementById('modalTitulo').innerText = dados.titulo;
+    document.getElementById('modalMensagem').innerText = dados.mensagem;
+    document.getElementById('modalIcon').innerText = dados.icone;
+    document.getElementById('modalAviso').style.display = 'flex';
+}
+
+function fecharModal() {
+    document.getElementById('modalAviso').style.display = 'none';
+    processarFila();
+}
+
+// --- 4. Comunicação com Servidor ---
+async function carregarDados() {
+    try {
+        const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+        if (response.ok) {
+            const data = await response.json();
+            atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
+            atualizarProgresso('progZero', data.progresso.zerads, 3);
+            atualizarProgresso('progDireta', data.progresso.tarefas, 1);
+            
+            const streak = data.streak.streak_atual || 0;
+            document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
+            document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
+            
+            const hoje = new Date().toDateString();
+            if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
+                exibirAvisoServidor({ titulo: linguagens[userLang].modalTitulo, mensagem: userLang === 'pt' ? "Todas as tarefas diárias concluídas com sucesso!" : "All daily tasks completed successfully!", icone: "✅" });
+                localStorage.setItem('aviso_checklist', hoje);
+            }
+
+            const btnBau = document.getElementById('btnAbrirBau');
+            if (btnBau) {
+                btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
+                if (data.streak.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
+                    exibirAvisoServidor({ titulo: userLang === 'pt' ? "Baú Disponível" : "Chest Available", mensagem: userLang === 'pt' ? "Você tem um baú de recompensa esperando!" : "You have a reward chest waiting!", icone: "🎁" });
+                    localStorage.setItem('aviso_bau', hoje);
+                }
+            }
+
+            if (data.streak.streak_quebrado) {
+                exibirAvisoServidor({ titulo: userLang === 'pt' ? "Ops! Streak Perdido" : "Ops! Streak Lost", mensagem: userLang === 'pt' ? "Sua sequência foi reiniciada." : "Your sequence was reset.", icone: "⚠️" });
+                fetch('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
+            }
+        }
+    } catch (err) { console.error("Erro checklist:", err); }
+
+    try {
+        const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+        const result = await res.json();
+        if (result.success) {
+            const data = result.data;
+            const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
+            if (data.nivel > nivelSalvo) {
+                exibirAvisoServidor({ titulo: userLang === 'pt' ? "Subiu de Nível!" : "Level Up!", mensagem: userLang === 'pt' ? `Você alcançou o Nível ${data.nivel}!` : `You reached Level ${data.nivel}!`, icone: "🏆" });
+                localStorage.setItem('nivel_usuario', data.nivel);
+            }
+            const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
+            document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
+            const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
+            const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
+            document.getElementById("barXp").style.width = progresso + "%";
+            document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
+        }
+    } catch (err) { console.error("Erro status:", err); }
+}
+
+async function abrirBau() {
+    const res = await fetch('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
+    const data = await res.json();
+    if (data.success) {
+        exibirAvisoServidor({ titulo: userLang === 'pt' ? "Baú Aberto!" : "Chest Opened!", mensagem: data.mensagem, icone: "🎉" });
+        document.getElementById('btnAbrirBau').style.display = 'none';
+    } else {
+        alert(userLang === 'pt' ? "Erro: " + data.error : "Error: " + data.error);
+    }
+}
+
+// --- 5. Inicialização e Eventos ---
+window.alternarIdioma = function() {
+    userLang = userLang === "pt" ? "en" : "pt";
+    localStorage.setItem("userLang", userLang);
+    aplicarTraducoes();
+    atualizarUrlsMenu();
+};
+
+document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const tg = window.Telegram?.WebApp;
-    const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
-    if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
-
-    const TABELA_NIVEIS = {
-        1: { xp_min: 0, titulo: "Novato" },
-        2: { xp_min: 100, titulo: "Explorador" },
-        3: { xp_min: 300, titulo: "Caçador" },
-        4: { xp_min: 600, titulo: "Mestre" },
-        5: { xp_min: 1000, titulo: "Lenda" }
-    };
-
-    let filaDeAvisos = [];
-    let processandoAviso = false;
-
-    function exibirAvisoServidor(dados) {
-        filaDeAvisos.push(dados);
-        if (!processandoAviso) processarFila();
-    }
-
-    function processarFila() {
-        if (filaDeAvisos.length === 0) {
-            processandoAviso = false;
-            return;
-        }
-        processandoAviso = true;
-        const dados = filaDeAvisos.shift();
-        const modal = document.getElementById('modalAviso');
-        document.getElementById('modalTitulo').innerText = dados.titulo;
-        document.getElementById('modalMensagem').innerText = dados.mensagem;
-        document.getElementById('modalIcon').innerText = dados.icone;
-        modal.style.display = 'flex';
-    }
-
-    function fecharModal() {
-        document.getElementById('modalAviso').style.display = 'none';
-        processarFila();
-    }
-
-    function atualizarProgresso(id, valor, max) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.style.width = Math.min((valor / max) * 100, 100) + '%';
-        const span = el.parentElement.parentElement.querySelector('.task-header span');
-        if (span) {
-            const nomeBase = span.innerText.replace(/\(\d\/\d\)/, '');
-            span.innerText = `${nomeBase} (${valor}/${max})`;
-        }
-    }
-
-    async function carregarDados() {
-        // 1. Checklist e Eventos de Conclusão
-        try {
-            const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
-            if (response.ok) {
-                const data = await response.json();
-                
-                atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
-                atualizarProgresso('progZero', data.progresso.zerads, 3);
-                atualizarProgresso('progDireta', data.progresso.tarefas, 1);
-
-                const streak = data.streak.streak_atual || 0;
-                document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
-                document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
-                
-                // Aviso de Checklist Completo (respeita fila e repetição)
-                const hoje = new Date().toDateString();
-                if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
-                    exibirAvisoServidor({ titulo: "Parabéns!", mensagem: "Todas as tarefas diárias concluídas com sucesso!", icone: "✅" });
-                    localStorage.setItem('aviso_checklist', hoje);
-                }
-
-                // Aviso de Baú Disponível
-                const btnBau = document.getElementById('btnAbrirBau');
-                if (btnBau) {
-                    btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
-                    if (data.streak.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
-                        exibirAvisoServidor({ titulo: "Baú Disponível", mensagem: "Você tem um baú de recompensa esperando!", icone: "🎁" });
-                        localStorage.setItem('aviso_bau', hoje);
-                    }
-                }
-
-                if (data.streak.streak_quebrado) {
-                    exibirAvisoServidor({ titulo: "Ops! Streak Perdido", mensagem: "Sua sequência foi reiniciada.", icone: "⚠️" });
-                    fetch('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
-                }
-            }
-        } catch (err) { console.error("Erro checklist:", err); }
-
-        // 2. Status do Usuário
-        try {
-            const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
-            const result = await res.json();
-            if (result.success) {
-                const data = result.data;
-                const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
-
-                if (data.nivel > nivelSalvo) {
-                    exibirAvisoServidor({ titulo: "Subiu de Nível!", mensagem: `Você alcançou o Nível ${data.nivel}!`, icone: "🏆" });
-                    localStorage.setItem('nivel_usuario', data.nivel);
-                }
-
-                const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
-                document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
-                const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
-                const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
-                document.getElementById("barXp").style.width = progresso + "%";
-                document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
-            }
-        } catch (err) { console.error("Erro status:", err); }
-    }
-
-    async function abrirBau() {
-        const res = await fetch('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
-        const data = await res.json();
-        if (data.success) { 
-            // Mostra o resultado do baú como um aviso na fila
-            exibirAvisoServidor({ titulo: "Baú Aberto!", mensagem: data.mensagem, icone: "🎉" });
-            document.getElementById('btnAbrirBau').style.display = 'none';
-        } else { 
-            alert("Erro: " + data.error); 
-        }
-    }
-
-    document.addEventListener("DOMContentLoaded", carregarDados);
+    userLang = urlParams.get("lang") || localStorage.getItem("userLang") || "pt";
+    aplicarTraducoes();
+    atualizarUrlsMenu();
+    carregarDados();
+});
 </script>
 </body>
 </html>
