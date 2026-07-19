@@ -1160,6 +1160,11 @@ app.post("/api/abrir-bau", async (req, res) => {
 
 app.post("/api/limpar-aviso-reset", async (req, res) => {
     const { telegram_id } = req.body;
+    
+    if (!telegram_id) {
+        return res.status(400).json({ success: false, error: "telegram_id não informado" });
+    }
+
     try {
         await pool.query(
             "UPDATE usuarios_streaks SET streak_quebrado = FALSE WHERE telegram_id = $1",
@@ -1167,7 +1172,8 @@ app.post("/api/limpar-aviso-reset", async (req, res) => {
         );
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ success: false });
+        console.error("Erro ao limpar aviso de reset:", err);
+        res.status(500).json({ success: false, error: "Erro interno no servidor" });
     }
 });
 
@@ -1181,12 +1187,12 @@ app.get("/api/status-checklist", async (req, res) => {
     const { telegram_id } = req.query;
     const client = await pool.connect();
     try {
-        // Busca estatísticas, streak E a data de registro do usuário
         const result = await client.query(`
             SELECT 
                 u.data_registro::date as data_criacao,
                 us.streak_atual, 
                 us.bau_disponivel,
+                us.streak_quebrado,
                 (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'zerads' AND data_registro::date = CURRENT_DATE) as zerads,
                 (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain' AND data_registro::date = CURRENT_DATE) as moneyrain,
                 (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE) as tarefas
@@ -1197,23 +1203,34 @@ app.get("/api/status-checklist", async (req, res) => {
 
         const data = result.rows[0];
 
+        if (!data) {
+            return res.status(404).json({ error: "Usuário não encontrado" });
+        }
+
+        // Calcula se o checklist do dia foi concluído com base nas metas atingidas
+        const zeradsCount = parseInt(data.zerads) || 0;
+        const moneyrainCount = parseInt(data.moneyrain) || 0;
+        const tarefasCount = parseInt(data.tarefas) || 0;
+        const checklistConcluido = (zeradsCount >= 3 && moneyrainCount >= 3 && tarefasCount >= 1);
+
         res.json({
             progresso: { 
-                zerads: parseInt(data.zerads), 
-                moneyrain: parseInt(data.moneyrain), 
-                tarefas: parseInt(data.tarefas) 
+                zerads: zeradsCount, 
+                moneyrain: moneyrainCount, 
+                tarefas: tarefasCount 
             },
             streak: { 
                 streak_atual: data.streak_atual || 0, 
-                bau_disponivel: data.bau_disponivel || false 
+                bau_disponivel: data.bau_disponivel || false,
+                streak_quebrado: data.streak_quebrado || false
             },
-            data_criacao: data.data_criacao // Data ISO (ex: "2026-06-22")
+            checklist_concluido: checklistConcluido,
+            data_criacao: data.data_criacao
         });
     } finally {
         client.release();
     }
 });
-
 
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
@@ -1272,7 +1289,7 @@ app.get('/api/status-usuario', async (req, res) => {
                 u.vip,
                 s.streak_atual,
                 s.bau_disponivel,
-                COALESCE(s.escudos, 0) as escudos
+                COALESCE(u.escudos, 0) as escudos
             FROM usuarios u
             LEFT JOIN usuarios_streaks s ON u.telegram_id = s.telegram_id
             WHERE u.telegram_id = $1
@@ -1290,7 +1307,6 @@ app.get('/api/status-usuario', async (req, res) => {
         res.status(500).json({ error: "Erro interno no servidor" });
     }
 });
-
 
 
 // Tabela de Níveis e Benefícios (Configuração Mestre)
