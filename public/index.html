@@ -124,7 +124,15 @@
   </nav>
 
   <script>
-// --- 1. Configurações e Variáveis Iniciais ---
+<script>
+// 1. Verificação de Primeiro Acesso (Imediata)
+if (!localStorage.getItem('first_access')) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lang = urlParams.get("lang") || "pt";
+    window.location.href = `welcome.html?lang=${lang}`;
+}
+
+// 2. Variáveis Globais
 const urlParams = new URLSearchParams(window.location.search);
 const tg = window.Telegram?.WebApp;
 const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
@@ -140,6 +148,9 @@ const TABELA_NIVEIS = {
 
 let filaDeAvisos = [];
 let processandoAviso = false;
+let userLang = localStorage.getItem("userLang") || "pt";
+
+// 3. Dicionário de Traduções
 
 const linguagens = {
     pt: {
@@ -198,7 +209,7 @@ const linguagens = {
 
 let userLang = localStorage.getItem("userLang") || "pt";
 
-// --- 2. Funções de Manipulação da Interface (UI) ---
+// --- 4. Funções de Manipulação da Interface (UI) ---
 function aplicarTraducoes() {
     const t = linguagens[userLang];
     document.getElementById("pageTitle").innerText = t.pageTitle;
@@ -340,21 +351,27 @@ async function abrirBau() {
     }
 }
 
-// --- 5. Inicialização e Eventos ---
+// 5. Inicialização Única
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const langFromUrl = params.get("lang");
+
+    if (langFromUrl) {
+        userLang = langFromUrl;
+        localStorage.setItem("userLang", userLang);
+    }
+
+    aplicarTraducoes();
+    atualizarUrlsMenu();
+    carregarDados();
+});
+
 window.alternarIdioma = function() {
     userLang = userLang === "pt" ? "en" : "pt";
     localStorage.setItem("userLang", userLang);
     aplicarTraducoes();
     atualizarUrlsMenu();
 };
-
-document.addEventListener("DOMContentLoaded", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    userLang = urlParams.get("lang") || localStorage.getItem("userLang") || "pt";
-    aplicarTraducoes();
-    atualizarUrlsMenu();
-    carregarDados();
-});
 </script>
 </body>
 </html>
