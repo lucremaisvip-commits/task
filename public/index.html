@@ -30,86 +30,86 @@
 <body>
 
 <div class="user-status-card">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <span id="txtHeroStatus" style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
-        <strong id="txtNivel" style="font-size: 16px; color: #fff;">Nível 1 - Novato</strong>
-      </div>
-      <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
-    </div>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
     <div>
-      <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #94a3b8;">
-        <span id="txtXpLabel">EXP</span>
-        <span id="txtXpProgresso">0 / 500</span>
-      </div>
-      <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
+      <span id="txtHeroStatus" style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
+      <strong id="txtNivel" style="font-size: 16px; color: #fff;">Nível 1 - Novato</strong>
     </div>
-    <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
+    <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
   </div>
+  <div>
+    <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #94a3b8;">
+      <span id="txtXpLabel">EXP</span>
+      <span id="txtXpProgresso">0 / 500</span>
+    </div>
+    <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
+  </div>
+  <p id="txtDegradacaoAviso" style="font-size: 11px; color: #e11d48; margin-top: 15px; text-align: center; font-weight: bold;">⚠️ XP em risco: Complete o checklist!</p>
+</div>
 
-  <div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-    <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 25px; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
-      <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
-      <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
-      <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
-      <button id="btnFecharModal" onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+<div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 25px; max-width: 400px; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);">
+    <div id="modalIcon" style="font-size: 40px; margin-bottom: 10px;">🎉</div>
+    <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
+    <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
+    <button id="btnFecharModal" onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+  </div>
+</div>
+
+<div class="checklist-card">
+  <h2 id="txtDailyTasks">⚔️ Tarefas diárias</h2>
+  <div class="task-list" style="margin-bottom: 20px;">
+    <div class="task-row">
+      <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
+    </div>
+    <div class="task-row">
+      <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
+    </div>
+    <div class="task-row">
+      <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
+      <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
     </div>
   </div>
-
-  <div class="checklist-card">
-    <h2>⚔️ Tarefas diárias</h2>
-    <div class="task-list" style="margin-bottom: 20px;">
-      <div class="task-row">
-        <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
-      </div>
-      <div class="task-row">
-        <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
-      </div>
-      <div class="task-row">
-        <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
-        <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
-      </div>
+  <div class="streak-section">
+    <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+    <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
+      <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
     </div>
-    <div class="streak-section">
-      <p style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
-      <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
-        <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
-      </div>
-      <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
-        <span id="txtStreakDias">0 / 7 dias</span>
-        <span id="txtStatusStreak">Mantenha o ritmo!</span>
-      </div>
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+      <span id="txtStreakDias">0 / 7 dias</span>
+      <span id="txtStatusStreak">Mantenha o ritmo!</span>
     </div>
-    <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
   </div>
+  <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
+</div>
 
-  <div class="checklist-card" style="border: 2px solid #2a8f43; background: #064e3b;">
-    <h2 id="txtLuckyTitle" style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte</h2>
-    <p id="txtLuckyDesc" style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!</p>
-    <button id="btnLuckyGo" onclick="location.href='roleta.html'" style="background: #2a8f43; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🎰 Gire e ganhe</button>
-  </div>
+<div class="checklist-card" style="border: 2px solid #2a8f43; background: #064e3b;">
+  <h2 id="txtLuckyTitle" style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte</h2>
+  <p id="txtLuckyDesc" style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!</p>
+  <button id="btnLuckyGo" onclick="location.href='roleta.html'" style="background: #2a8f43; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🎰 Gire e ganhe</button>
+</div>
 
-  <div class="checklist-card" style="border: 2px solid #f59e0b; background: #1e293b;">
-    <h2 id="txtVipTitle" style="color: #fbbf24; margin-bottom: 10px;">⭐ Seja VIP</h2>
-    <ul id="listVip" style="font-size: 14px; color: #e2e8f0; margin-bottom: 15px; padding-left: 20px; text-align: left;">
-      <li>✅ <span id="vip1">Até 5 saques por dia</span></li>
-      <li>✅ <span id="vip2">Saques antecipados</span></li>
-      <li>✅ <span id="vip3">Tarefas exclusivas VIP</span></li>
-      <li>✅ <span id="vip4">Suporte prioritário</span></li>
-      <li>✅ <span id="vip5">...e muito mais!</span></li>
-    </ul>
-    <button id="btnVipGo" onclick="location.href='vip.html'" style="background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🚀 Tornar-se VIP Agora</button>
-  </div>
-  
-  <nav class="bottom-nav">
-    <a href="index.html" class="active"><span>🏠</span><span class="txt-nav">Home</span></a>
-    <a href="tarefas.html"><span>🚀</span><span class="txt-nav">Tasks</span></a>
-    <a href="indicacoes.html"><span>👥</span><span class="txt-nav">Invites</span></a>
-    <a href="tarefas-externas.html"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
-    <a href="saque.html"><span>💰</span><span class="txt-nav">Withdraw</span></a>
-  </nav>
+<div class="checklist-card" style="border: 2px solid #f59e0b; background: #1e293b;">
+  <h2 id="txtVipTitle" style="color: #fbbf24; margin-bottom: 10px;">⭐ Seja VIP</h2>
+  <ul id="listVip" style="font-size: 14px; color: #e2e8f0; margin-bottom: 15px; padding-left: 20px; text-align: left;">
+    <li>✅ <span id="vip1">Até 5 saques por dia</span></li>
+    <li>✅ <span id="vip2">Saques antecipados</span></li>
+    <li>✅ <span id="vip3">Tarefas exclusivas VIP</span></li>
+    <li>✅ <span id="vip4">Suporte prioritário</span></li>
+    <li>✅ <span id="vip5">...e muito mais!</span></li>
+  </ul>
+  <button id="btnVipGo" onclick="location.href='vip.html'" style="background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🚀 Tornar-se VIP Agora</button>
+</div>
+
+<nav class="bottom-nav">
+  <a href="index.html" class="active"><span>🏠</span><span class="txt-nav">Home</span></a>
+  <a href="tarefas.html"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+  <a href="indicacoes.html"><span>👥</span><span class="txt-nav">Invites</span></a>
+  <a href="tarefas-externas.html"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+  <a href="saque.html"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+</nav>
 
 <script>
 // 1. Verificação de Primeiro Acesso (Imediata)
@@ -175,7 +175,7 @@ const linguagens = {
         txtDailyTasks: "⚔️ Daily Tasks",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
-        txtTarefaDireta: "Tarefa Direta",
+        txtTarefaDireta: "Direct Task",
         txtStreakLabel: "Weekly Progress (Streak):",
         txtStatusStreak: "Keep it up!",
         btnAbrirBau: "Open Chest",
@@ -195,40 +195,54 @@ const linguagens = {
 
 let userLang = localStorage.getItem("userLang") || "pt";
 
-// --- 4. Funções de Manipulação da Interface (UI) ---
+// --- Função segura para aplicar traduções ---
 function aplicarTraducoes() {
     const t = linguagens[userLang];
-    document.getElementById("pageTitle").innerText = t.pageTitle;
-    document.getElementById("txtHeroStatus").innerText = t.txtHeroStatus;
-    document.getElementById("txtXpLabel").innerText = t.txtXpLabel;
-    document.getElementById("txtDegradacaoAviso").innerText = t.txtDegradacaoAviso;
-    document.getElementById("modalTitulo").innerText = t.modalTitulo;
-    document.getElementById("btnFecharModal").innerText = t.btnFecharModal;
-    document.getElementById("txtDailyTasks").innerText = t.txtDailyTasks;
-    document.getElementById("txtStreakLabel").innerText = t.txtStreakLabel;
-    document.getElementById("txtStatusStreak").innerText = t.txtStatusStreak;
-    document.getElementById("btnAbrirBau").innerText = t.btnAbrirBau;
-    document.getElementById("txtLuckyTitle").innerText = t.txtLuckyTitle;
-    document.getElementById("txtLuckyDesc").innerText = t.txtLuckyDesc;
-    document.getElementById("btnLuckyGo").innerText = t.btnLuckyGo;
-    document.getElementById("txtVipTitle").innerText = t.txtVipTitle;
-    document.getElementById("btnVipGo").innerText = t.btnVipGo;
-    document.getElementById("vip1").innerText = t.vip1;
-    document.getElementById("vip2").innerText = t.vip2;
-    document.getElementById("vip3").innerText = t.vip3;
-    document.getElementById("vip4").innerText = t.vip4;
-    document.getElementById("vip5").innerText = t.vip5;
 
+    // Função de proteção: só altera se o elemento existir
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.innerText = text;
+        }
+    };
+
+    // Aplicação segura de cada ID
+    set("pageTitle", t.pageTitle);
+    set("txtHeroStatus", t.txtHeroStatus);
+    set("txtXpLabel", t.txtXpLabel);
+    set("txtDegradacaoAviso", t.txtDegradacaoAviso);
+    set("modalTitulo", t.modalTitulo);
+    set("btnFecharModal", t.btnFecharModal);
+    set("txtDailyTasks", t.txtDailyTasks);
+    set("txtStreakLabel", t.txtStreakLabel);
+    set("txtStatusStreak", t.txtStatusStreak);
+    set("btnAbrirBau", t.btnAbrirBau);
+    set("txtLuckyTitle", t.txtLuckyTitle);
+    set("txtLuckyDesc", t.txtLuckyDesc);
+    set("btnLuckyGo", t.btnLuckyGo);
+    set("txtVipTitle", t.txtVipTitle);
+    set("btnVipGo", t.btnVipGo);
+    set("vip1", t.vip1);
+    set("vip2", t.vip2);
+    set("vip3", t.vip3);
+    set("vip4", t.vip4);
+    set("vip5", t.vip5);
+    set("btnLangToggle", userLang === "pt" ? "🌐 PT" : "🌐 EN");
+
+    // Tradução das tarefas com verificação de segurança
     const spans = document.querySelectorAll(".task-header span");
-    if(spans[0]) spans[0].innerText = spans[0].innerText.replace(/^[^\(]+/, t.txtMoneyRain);
-    if(spans[1]) spans[1].innerText = spans[1].innerText.replace(/^[^\(]+/, t.txtZeroAds);
-    if(spans[2]) spans[2].innerText = spans[2].innerText.replace(/^[^\(]+/, t.txtTarefaDireta);
-  
+    if (spans[0]) spans[0].innerText = spans[0].innerText.replace(/^[^\(]+/, t.txtMoneyRain);
+    if (spans[1]) spans[1].innerText = spans[1].innerText.replace(/^[^\(]+/, t.txtZeroAds);
+    if (spans[2]) spans[2].innerText = spans[2].innerText.replace(/^[^\(]+/, t.txtTarefaDireta);
+    
+    // Tradução da barra de navegação
     const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
-    t.nav.forEach((text, i) => { if(navSpans[i]) navSpans[i].innerText = text; });
-    document.getElementById("btnLangToggle").innerText = userLang === "pt" ? "🌐 PT" : "🌐 EN";
+    t.nav.forEach((text, i) => { 
+        if (navSpans[i]) navSpans[i].innerText = text; 
+    });
 }
-
+  
 function atualizarUrlsMenu() {
     document.querySelectorAll(".bottom-nav a, .btn-go, .btn-bau, .btn-roleta, .btn-vip").forEach(link => {
         let base = link.getAttribute("href") ? link.getAttribute("href").split("?")[0] : null;
