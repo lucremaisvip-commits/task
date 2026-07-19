@@ -5,19 +5,7 @@
   <title id="pageTitle">CashTaskBot</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Earn rewards by completing simple tasks on Telegram.">
-  <meta http-equiv="X-Content-Type-Options" content="nosniff">
-  <meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
-  <meta http-equiv="Referrer-Policy" content="no-referrer-when-downgrade">
-  
-  <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
-  <meta name="meroads-verification" content="b4da05181ebf7532">
-  <script src="//libtl.com/sdk.js" async data-zone="9579151" data-sdk="show_9579151"></script>
-
-  <link rel="preconnect" href="https://libtl.com" crossorigin>
-  <link rel="dns-prefetch" href="//libtl.com">
-  <link rel="preconnect" href="https://zerads.com" crossorigin>
-  <link rel="dns-prefetch" href="//zerads.com">
-
+   <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 80px; }
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
@@ -147,7 +135,6 @@ const TABELA_NIVEIS = {
 
 let filaDeAvisos = [];
 let processandoAviso = false;
-let userLang = localStorage.getItem("userLang") || "pt";
 
 // 3. Dicionário de Traduções
 
