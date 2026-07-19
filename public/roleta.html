@@ -317,52 +317,49 @@ document.addEventListener("DOMContentLoaded", () => {
 async function carregarDadosUsuario() {
     if (!telegram_id) return;
 
-    // Mapeamento dos limites conforme sua configuração no servidor
     const limitesPorNivel = {
-        1: 5,
-        2: 6,
-        3: 7,
-        4: 8,
-        5: 10
+        1: 5, 2: 6, 3: 7, 4: 8, 5: 10
     };
 
     try {
-        // 1. Busca status do usuário, VIP e NÍVEL
+        // 1. Busca os dados de Nível e VIP da rota nova
+        const statusRes = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+        const statusData = await statusRes.json();
+        
+        // 2. Busca o saldo da rota original (mantendo a compatibilidade)
         const userRes = await fetch(`/api/usuarios/${telegram_id}`);
-        const response = await userRes.json();
+        const userData = await userRes.json();
 
-        let limiteAtual = 5; // Valor padrão de fallback
+        let limiteAtual = 5;
 
-        if (response.success && response.data) {
-            usuarioVip = response.data.vip === true;
-            const nivelAtual = response.data.nivel || 1;
+        if (statusData.success && statusData.data) {
+            usuarioVip = statusData.data.vip === true;
+            const nivelAtual = statusData.data.nivel || 1;
             limiteAtual = limitesPorNivel[nivelAtual] || 5;
 
-            document.getElementById("pontos").textContent = response.data.pontos ?? 0;
-            
-            // Atualiza os campos de limite no HTML
+            // Atualiza o DOM
             document.getElementById("limiteDiario").textContent = limiteAtual;
             document.getElementById("limiteDiarioText").textContent = limiteAtual;
-
-            aplicarTraducoes(); // Atualiza texto do botão de compra baseado no VIP
         }
 
-        // 2. Busca giros e tickets
+        if (userData.success && userData.data) {
+            document.getElementById("pontos").textContent = userData.data.pontos ?? 0;
+            aplicarTraducoes(); // Atualiza textos dependentes de VIP
+        }
+
+        // 3. Busca giros e tickets (continua igual)
         const hojeRes = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
         const hoje = await hojeRes.json();
 
-        // 3. Atualiza contadores com os dados da API
         document.getElementById("girosHoje").textContent = hoje.giros ?? 0;
         document.getElementById("ticketsDisponiveis").textContent = hoje.tickets ?? 0;
 
-        // 4. Carrega o histórico
         await carregarHistorico();
 
     } catch (err) {
-        console.error("Erro ao carregar dados do usuário:", err);
+        console.error("Erro ao carregar dados:", err);
     }
 }
-   
 // --- PARTE 3: Lógica de Negócio, Roleta e Monetag ---
 
 const roleta = document.getElementById("roleta");
