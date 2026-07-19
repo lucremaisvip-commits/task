@@ -44,6 +44,14 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
 
 <div id="timer" class="timer">5</div>
 
+<div id="bannerVipAds" style="...">
+    <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;" id="vipTitle">🚫 Cansado de esperar?</p>
+    <p style="margin: 5px 0; font-size: 13px; color: #666;" id="vipDesc">👑 Assine o <b>VIP</b> e pule todos os anúncios!</p>
+    <button id="btnVip" onclick="window.Telegram.WebApp.openLink('vip.html?lang=' + userLang)" 
+            style="...">
+        Quero ser VIP agora
+    </button>
+</div>  
 <div class="grid-banners">
     <!-- Ad 1: iFrame -->
     <div class="ad-item">
@@ -116,6 +124,9 @@ const linguagens = {
         pageTitle: "Painel de Anúncios",
         mainTitle: "🚀 Aguarde e desbloqueie sua tarefa",
         invalidAccess: "Acesso inválido",
+        vipCansado: "🚫 Cansado de esperar?",
+        vipPule: "👑 Assine o <b>VIP</b> e pule todos os anúncios!",
+        vipBotao: "Quero ser VIP agora",
         btnWait: "⏳ Aguarde...",
         btnReady: "✔ Liberado!",
         btnOpen: "👉 Abrir tarefa",
@@ -130,6 +141,9 @@ const linguagens = {
         pageTitle: "Ad Panel",
         mainTitle: "🚀 Wait to unlock your task",
         invalidAccess: "Invalid access",
+        vipCansado: "🚫 Tired of waiting?",
+        vipPule: "👑 Subscribe to <b>VIP</b> and skip all ads!",
+        vipBotao: "I want to be VIP now",
         btnWait: "⏳ Please wait...",
         btnReady: "✔ Unlocked!",
         btnOpen: "👉 Open task",
@@ -155,7 +169,9 @@ if (!tarefaId || !token || !telegram_id) {
 document.getElementById("pageTitle").innerText = t.pageTitle;
 document.getElementById("mainTitle").innerText = t.mainTitle;
 document.getElementById("instructionsBlock").innerHTML = t.instructions;
-
+document.getElementById("vipTitle").innerText = t.vipCansado;
+document.getElementById("vipDesc").innerHTML = t.vipPule; // innerHTML pois tem o <b>
+document.getElementById("btnVip").innerText = t.vipBotao;
 const timerEl = document.getElementById("timer");
 const btn = document.getElementById("btnAbrir");
 const statusEl = document.getElementById("status");
