@@ -2112,15 +2112,56 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
     await ctx.answerCbQuery("Cancelando...");
   } catch (e) {}
 
+  const client = await pool.connect();
   try {
-    const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+    await client.query("BEGIN");
+
+    const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
     const isEn = userRes.rows[0]?.lang === 'en';
 
-    await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
-    
-    await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
+    // Busca o pedido de saque para saber quantos pontos foram solicitados/debitados
+    const saqueRes = await client.query(
+      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status IN ('Aguardando Chat', 'Waiting') FOR UPDATE",
+      [saqueId, telegram_id]
+    );
+
+    if (saqueRes.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request cannot be cancelled." : "⚠️ Este pedido de saque não pode mais ser cancelado.");
+    }
+
+    const saque = saqueRes.rows[0];
+
+    // Atualiza o status do saque para Cancelado
+    await client.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1", [saqueId]);
+
+    // 💰 Estorna os pontos de volta para o usuário
+    await client.query(
+      "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
+      [saque.pontos_solicitados, telegram_id]
+    );
+
+    // Registra o estorno no histórico de ganhos
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+      VALUES ($1, 'estorno_saque', $2, 'Saque Cancelado (Estorno)', $3, NOW())
+    `, [telegram_id, Math.abs(saque.pontos_solicitados), saqueId]);
+
+    await client.query("COMMIT");
+
+    await ctx.editMessageText(isEn 
+      ? "❌ Withdrawal request cancelled and points refunded to your balance." 
+      : "❌ Pedido de saque cancelado e pontos devolvidos para o seu saldo."
+    );
+
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Erro ao cancelar saque via chat:", err);
+    try {
+      await ctx.reply("❌ Ocorreu um erro ao cancelar o saque. Tente novamente.");
+    } catch (e) {}
+  } finally {
+    client.release();
   }
 });
 // =========================================================================
