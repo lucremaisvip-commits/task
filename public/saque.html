@@ -83,7 +83,7 @@
         pts: "Pts", 
         pago: "Pago",
         waiting: "Aguardando",
-        aguardando chat: "Aguardando Chat",
+        "aguardando chat": "Aguardando Chat",
         reprovado: "Reprovado",
         cancelado: "Cancelado",
         link: "Não tem FaucetPay? Clique aqui.", 
@@ -196,7 +196,7 @@
                         const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
                         const pts = Number(s.pontos_solicitados || 0).toFixed(8);
                         
-                        // Tradução correta do status
+                        // Tradução correta do status (tratado em minúsculas)
                         const statusKey = s.status ? s.status.toLowerCase() : 'waiting';
                         const statusTraduzido = t[statusKey] || s.status;
                         
