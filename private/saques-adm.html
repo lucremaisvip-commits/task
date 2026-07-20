@@ -64,14 +64,18 @@
     }
 
     async function carregarSaques() {
-      const sql = `SELECT id, telegram_id, chave_pix, valor_solicitado, status FROM saques WHERE status = 'pendente' ORDER BY data_solicitacao DESC`;
+      // 🎯 Alterado de 'pendente' para 'Waiting' para buscar os confirmados no chat
+      const sql = `SELECT id, telegram_id, chave_pix, valor_solicitado, pontos_solicitados, status FROM saques WHERE status = 'Waiting' ORDER BY data_solicitacao DESC`;
       try {
         const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql }) });
         const data = await res.json();
         const tbody = document.querySelector("#tabela-saques tbody");
         tbody.innerHTML = "";
 
-        if (data.length === 0) { tbody.innerHTML = "<tr><td colspan='6'>Nenhum saque pendente.</td></tr>"; return; }
+        if (data.length === 0) { 
+          tbody.innerHTML = "<tr><td colspan='6'>Nenhum saque pendente.</td></tr>"; 
+          return; 
+        }
 
         data.forEach(saque => {
           const tr = document.createElement("tr");
@@ -79,8 +83,7 @@
             <td>#${saque.id}</td>
             <td><code>${saque.telegram_id}</code></td>
             <td>${saque.chave_pix}</td>
-            
-            <td>${(Number(saque.pontos_solicitados) * 0.000001).toFixed(8)} LTC</td>
+            <td>${(Number(saque.pontos_solicitados) * 0.000001).toFixed(8)} LTC (${saque.pontos_solicitados} Pts)</td>
             <td>${saque.status}</td>
             <td>
               <button class="aprovar" onclick="processarPagamento(${saque.id})">Aprovar</button>
@@ -90,7 +93,9 @@
           `;
           tbody.appendChild(tr);
         });
-      } catch (err) { alert("Erro ao carregar saques."); }
+      } catch (err) { 
+        alert("Erro ao carregar saques."); 
+      }
     }
 
     // APROVAR (Pagamento Real)
