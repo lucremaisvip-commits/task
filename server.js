@@ -1243,8 +1243,9 @@ app.get("/api/usuarios/:telegram_id", async (req, res) => {
     }
 
     // A busca utiliza o índice B-Tree criado para telegram_id (performance otimizada)
+    // Incluídos u.nivel e u.xp para suportar o painel de saques e outras telas
     const result = await pool.query(
-      "SELECT telegram_id, nome, pontos, vip, lang, indicacoes FROM usuarios WHERE telegram_id = $1",
+      "SELECT telegram_id, nome, pontos, vip, lang, indicacoes, nivel, xp FROM usuarios WHERE telegram_id = $1",
       [telegram_id]
     );
 
