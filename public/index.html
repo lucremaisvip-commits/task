@@ -29,13 +29,13 @@
 </head>
 <body>
 
-<div class="user-status-card">
+<div class="user-status-card" onclick="abrirModalNiveis()" style="cursor: pointer;" title="Clique para ver os benefícios dos níveis">
   <div style="display: flex; justify-content: space-between; align-items: center;">
     <div>
-      <span id="txtHeroStatus" style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status</span>
+      <span id="txtHeroStatus" style="color: #94a3b8; font-size: 10px; text-transform: uppercase;">Hero Status ℹ️</span>
       <strong id="txtNivel" style="font-size: 16px; color: #fff;">Nível 1 - Novato</strong>
     </div>
-    <button onclick="alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
+    <button onclick="event.stopPropagation(); alternarIdioma()" id="btnLangToggle" class="lang-toggle-btn">🌐 EN</button>
   </div>
   <div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #94a3b8;">
@@ -53,6 +53,17 @@
     <h3 id="modalTitulo" style="color: #fff; margin-bottom: 10px;">Sucesso!</h3>
     <p id="modalMensagem" style="color: #cbd5e1; font-size: 14px; margin-bottom: 20px;"></p>
     <button id="btnFecharModal" onclick="fecharModal()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Fechar</button>
+  </div>
+</div>
+
+<!-- Modal de Vantagens dos Níveis -->
+<div id="modalNiveis" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10001; align-items: center; justify-content: center; padding: 20px;">
+  <div style="background: #1e293b; border: 2px solid #3b82f6; border-radius: 16px; padding: 20px; max-width: 450px; width: 100%; text-align: center; box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); max-height: 80vh; overflow-y: auto;">
+    <h3 id="txtModalNiveisTitulo" style="color: #fff; margin-bottom: 15px;">🏆 Sistema de Níveis & Vantagens</h3>
+    <div id="listaNiveisModal" style="text-align: left; font-size: 13px; color: #cbd5e1; display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+      <!-- Preenchido via JS -->
+    </div>
+    <button id="btnEntendidoNiveis" onclick="fecharModalNiveis()" style="background: #3b82f6; border: none; padding: 10px 20px; border-radius: 8px; color: white; font-weight: bold; width: 100%;">Entendido</button>
   </div>
 </div>
 
@@ -126,18 +137,45 @@ const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || local
 if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
 const TABELA_NIVEIS = {
-    1: { xp_min: 0, titulo: "Novato" },
-    2: { xp_min: 100, titulo: "Explorador" },
-    3: { xp_min: 300, titulo: "Caçador" },
-    4: { xp_min: 600, titulo: "Mestre" },
-    5: { xp_min: 1000, titulo: "Lenda" }
+    1: { xp_min: 0, titulo: { pt: "Novato", en: "Novice" }, limite_saque: 1, giros: 5, tempo_ad: 15 },
+    2: { xp_min: 100, titulo: { pt: "Explorador", en: "Explorer" }, limite_saque: 2, giros: 6, tempo_ad: 14, premios: "1 Ticket" },
+    3: { xp_min: 300, titulo: { pt: "Caçador", en: "Hunter" }, limite_saque: 3, giros: 7, tempo_ad: 13, premios: "2 Tickets + Escudo" },
+    4: { xp_min: 600, titulo: { pt: "Mestre", en: "Master" }, limite_saque: 4, giros: 8, tempo_ad: 10, premios: "3 Tickets" },
+    5: { xp_min: 1000, titulo: { pt: "Lenda", en: "Legend" }, limite_saque: 5, giros: 10, tempo_ad: 8, premios: "5 Tickets" }
 };
+
+function abrirModalNiveis() {
+    const container = document.getElementById('listaNiveisModal');
+    container.innerHTML = '';
+
+    const nivelAtual = parseInt(localStorage.getItem('nivel_usuario')) || 1;
+
+    for (let lvl in TABELA_NIVEIS) {
+        const info = TABELA_NIVEIS[lvl];
+        const isAtual = parseInt(lvl) === nivelAtual;
+        const nomeTitulo = info.titulo[userLang] || info.titulo['pt'];
+        
+        container.innerHTML += `
+            <div style="background: ${isAtual ? '#334155' : '#0f172a'}; border: 1px solid ${isAtual ? '#3b82f6' : '#334155'}; padding: 10px; border-radius: 8px;">
+                <strong>Nível ${lvl}: ${nomeTitulo}</strong> (${info.xp_min} XP)<br>
+                <span style="font-size: 11px; color: #94a3b8;">
+                    • ${userLang === 'pt' ? 'Saques' : 'Withdrawals'}: ${info.limite_saque}/dia | ${userLang === 'pt' ? 'Giros' : 'Spins'}: ${info.giros} | Timer Ad: ${info.tempo_ad}s
+                    ${info.premios ? `<br>• ${userLang === 'pt' ? 'Bônus' : 'Bonus'}: ${info.premios}` : ''}
+                </span>
+            </div>
+        `;
+    }
+    document.getElementById('modalNiveis').style.display = 'flex';
+}
+
+function fecharModalNiveis() {
+    document.getElementById('modalNiveis').style.display = 'none';
+}
 
 let filaDeAvisos = [];
 let processandoAviso = false;
 
 // 3. Dicionário de Traduções
-
 const linguagens = {
     pt: {
         pageTitle: "CashTaskBot",
@@ -146,6 +184,8 @@ const linguagens = {
         txtDegradacaoAviso: "⚠️ XP em risco: Complete o checklist!",
         modalTitulo: "Sucesso!",
         btnFecharModal: "Fechar",
+        txtModalNiveisTitulo: "🏆 Sistema de Níveis & Vantagens",
+        btnEntendidoNiveis: "Entendido",
         txtDailyTasks: "⚔️ Tarefas diárias",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
@@ -172,6 +212,8 @@ const linguagens = {
         txtDegradacaoAviso: "⚠️ XP at risk: Complete your checklist!",
         modalTitulo: "Success!",
         btnFecharModal: "Close",
+        txtModalNiveisTitulo: "🏆 Level System & Perks",
+        btnEntendidoNiveis: "Got it",
         txtDailyTasks: "⚔️ Daily Tasks",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
@@ -199,7 +241,6 @@ let userLang = localStorage.getItem("userLang") || "pt";
 function aplicarTraducoes() {
     const t = linguagens[userLang];
 
-    // Função de proteção: só altera se o elemento existir
     const set = (id, text) => {
         const el = document.getElementById(id);
         if (el) {
@@ -207,13 +248,14 @@ function aplicarTraducoes() {
         }
     };
 
-    // Aplicação segura de cada ID
     set("pageTitle", t.pageTitle);
     set("txtHeroStatus", t.txtHeroStatus);
     set("txtXpLabel", t.txtXpLabel);
     set("txtDegradacaoAviso", t.txtDegradacaoAviso);
     set("modalTitulo", t.modalTitulo);
     set("btnFecharModal", t.btnFecharModal);
+    set("txtModalNiveisTitulo", t.txtModalNiveisTitulo);
+    set("btnEntendidoNiveis", t.btnEntendidoNiveis);
     set("txtDailyTasks", t.txtDailyTasks);
     set("txtStreakLabel", t.txtStreakLabel);
     set("txtStatusStreak", t.txtStatusStreak);
@@ -230,13 +272,11 @@ function aplicarTraducoes() {
     set("vip5", t.vip5);
     set("btnLangToggle", userLang === "pt" ? "🌐 PT" : "🌐 EN");
 
-    // Tradução das tarefas com verificação de segurança
     const spans = document.querySelectorAll(".task-header span");
     if (spans[0]) spans[0].innerText = spans[0].innerText.replace(/^[^\(]+/, t.txtMoneyRain);
     if (spans[1]) spans[1].innerText = spans[1].innerText.replace(/^[^\(]+/, t.txtZeroAds);
     if (spans[2]) spans[2].innerText = spans[2].innerText.replace(/^[^\(]+/, t.txtTarefaDireta);
     
-    // Tradução da barra de navegação
     const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
     t.nav.forEach((text, i) => { 
         if (navSpans[i]) navSpans[i].innerText = text; 
@@ -330,11 +370,20 @@ async function carregarDados() {
             const data = result.data;
             const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
             if (data.nivel > nivelSalvo) {
-                exibirAvisoServidor({ titulo: userLang === 'pt' ? "Subiu de Nível!" : "Level Up!", mensagem: userLang === 'pt' ? `Você alcançou o Nível ${data.nivel}!` : `You reached Level ${data.nivel}!`, icone: "🏆" });
+                const info = TABELA_NIVEIS[data.nivel];
+                const nomeTitulo = info.titulo[userLang] || info.titulo['pt'];
+                exibirAvisoServidor({ 
+                    titulo: userLang === 'pt' ? "Subiu de Nível! 🎉" : "Level Up! 🎉", 
+                    mensagem: userLang === 'pt' 
+                        ? `Parabéns! Você agora é Nível ${data.nivel} (${nomeTitulo}).\n\nNovas Vantagens:\n• ${info.limite_saque} saques/dia\n• ${info.giros} giros na roleta\n• Timer de anúncio reduzido para ${info.tempo_ad}s!` 
+                        : `Congrats! You are now Level ${data.nivel} (${nomeTitulo}).`, 
+                    icone: "🏆" 
+                });
                 localStorage.setItem('nivel_usuario', data.nivel);
             }
             const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
-            document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${infoNivel.titulo}`;
+            const nomeTituloAtual = infoNivel.titulo[userLang] || infoNivel.titulo['pt'];
+            document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${nomeTituloAtual}`;
             const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
             const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
             document.getElementById("barXp").style.width = progresso + "%";
