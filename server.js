@@ -1441,107 +1441,163 @@ app.get("/api/ltc-hoje", async (req, res) => {
 
 const { validate, parse } = require('@telegram-apps/init-data-node');
 
+// 1. Rota que recebe o pedido feito na tela de saque
 app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
-  const { initData, chave_pix, cpf } = req.body;
+  const { telegram_id, chave_pix } = req.body;
   
-  // Variável declarada fora do try para estar disponível no log de erro
-  let telegram_id = "Desconhecido"; 
-
-  if (!initData) {
-    return res.status(401).json({ error: "Dados de autenticação ausentes." });
+  if (!telegram_id) {
+    return res.status(401).json({ error: "Identificação do usuário ausente." });
   }
 
+  const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(emailLimpo)) {
+    return res.status(400).json({ error: "Formato de e-mail inválido." });
+  }
+
+  const client = await pool.connect();
   try {
-    // 1. Validação do Telegram
-    validate(initData, process.env.BOT_TOKEN);
-    const parsedData = parse(initData);
-    telegram_id = parsedData.user.id.toString();
+    await client.query("BEGIN");
 
-    // Log seguro
-    console.log(`[LOG SAQUE] Tentativa iniciada. Usuário: ${telegram_id}`);
+    const userResult = await client.query(
+      "SELECT pontos, vip, lang, status_conta, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
+      [telegram_id]
+    );
 
-    // 2. Sanitização
-    const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(emailLimpo)) {
-      return res.status(400).json({ error: "Formato de e-mail inválido." });
-    }
-
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      // 3. Verificação de usuário
-      const userResult = await client.query(
-        "SELECT pontos, vip, lang, status_conta, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
-        [telegram_id]
-      );
-
-      if (userResult.rows.length === 0) {
-        throw new Error("USUARIO_NAO_ENCONTRADO");
-      }
-
-      const user = userResult.rows[0];
-      if (user.status_conta === 'banido') {
-        throw new Error("USUARIO_BANIDO");
-      }
-      
-      const { pontos, vip, lang, nivel } = user;
-
-      // 4. Regras de Negócio (Limite e Mínimo)
-      const limiteSaques = TABELA_NIVEIS[nivel]?.limite_saque || 1;
-      const saquesHoje = await client.query(`
-        SELECT COUNT(*) FROM saques 
-        WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
-      `, [telegram_id]);
-
-      if (parseInt(saquesHoje.rows[0].count) >= limiteSaques) {
-        throw new Error("LIMITE_ATINGIDO");
-      }
-
-      const pontosMinimos = vip ? 1.01401 : 2.02802;
-      if (pontos < pontosMinimos) {
-        throw new Error("PONTOS_INSUFICIENTES");
-      }
-
-      // 5. Execução
-      const VALOR_DO_PONTO_EM_BRL = 0.05;
-      const COTACAO_DOLAR = 5.50;
-      let valorCalculado = (lang === "pt") ? (pontos * VALOR_DO_PONTO_EM_BRL) : (pontos * VALOR_DO_PONTO_EM_BRL / COTACAO_DOLAR);
-      
-      const saqueInsert = await client.query(`
-        INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, cpf, status, data_solicitacao)
-        VALUES ($1, $2, $3, $4, $5, 'Waiting', NOW()) RETURNING id
-      `, [telegram_id, pontos, valorCalculado.toFixed(2), emailLimpo, cpf || null]);
-
-      await client.query(`
-        INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-        VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-      `, [telegram_id, -Math.abs(pontos), saqueInsert.rows[0].id]);
-
-      await client.query("UPDATE usuarios SET pontos = 0 WHERE telegram_id = $1", [telegram_id]);
-
-      await client.query("COMMIT");
-      res.json({ success: true, message: "Saque solicitado com sucesso." });
-
-    } catch (dbErr) {
-      await client.query("ROLLBACK");
-      throw dbErr; // Repassa o erro para o catch principal tratar
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    // Log estruturado que não quebra o servidor
-    console.error(`[ERRO CRÍTICO SAQUE] Usuário: ${telegram_id}, Erro: ${err.message}`);
+    if (userResult.rows.length === 0) throw new Error("USUARIO_NAO_ENCONTRADO");
+    const user = userResult.rows[0];
+    if (user.status_conta === 'banido') throw new Error("USUARIO_BANIDO");
     
-    // Tratamento de mensagens amigáveis
+    const { pontos, vip, lang, nivel } = user;
+    const isEn = lang === 'en';
+
+    // Regras de limite e mínimo
+    const limiteSaques = TABELA_NIVEIS[nivel]?.limite_saque || 1;
+    const saquesHoje = await client.query(`
+      SELECT COUNT(*) FROM saques 
+      WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
+    `, [telegram_id]);
+
+    if (parseInt(saquesHoje.rows[0].count) >= limiteSaques) throw new Error("LIMITE_ATINGIDO");
+
+    const pontosMinimos = vip ? 1.01401 : 2.02802;
+    if (pontos < pontosMinimos) throw new Error("PONTOS_INSUFICIENTES");
+
+    // Salva temporariamente como 'Aguardando Chat'
+    const VALOR_DO_PONTO_EM_BRL = 0.05;
+    let valorCalculado = pontos * VALOR_DO_PONTO_EM_BRL;
+    
+    const saqueInsert = await client.query(`
+      INSERT INTO saques (telegram_id, pontos_solicitados, valor_solicitado, chave_pix, status, data_solicitacao)
+      VALUES ($1, $2, $3, $4, 'Aguardando Chat', NOW()) RETURNING id
+    `, [telegram_id, pontos, valorCalculado.toFixed(2), emailLimpo]);
+
+    const saqueId = saqueInsert.rows[0].id;
+
+    await client.query("COMMIT");
+
+    // 2. Mensagem e botões dinâmicos de acordo com o idioma do usuário (pt/en)
+    const mensagemTexto = isEn
+      ? `⚠️ **Withdrawal Confirmation**\n\nYou requested a payout of **${pontos.toFixed(2)} Pts** to the email:\n\`${emailLimpo}\`\n\nDo you want to confirm this withdrawal?`
+      : `⚠️ **Confirmação de Saque**\n\nVocê solicitou o resgate de **${pontos.toFixed(2)} Pts** para o e-mail:\n\`${emailLimpo}\`\n\nDeseja confirmar este saque?`;
+
+    const btnConfirmar = isEn ? "✅ Confirm Withdrawal" : "✅ Confirmar Saque";
+    const btnCancelar = isEn ? "❌ Cancel" : "❌ Cancelar";
+
+    await bot.telegram.sendMessage(telegram_id, mensagemTexto, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: btnConfirmar, callback_data: `conf_saque_${saqueId}` },
+            { text: btnCancelar, callback_data: `canc_saque_${saqueId}` }
+          ]
+        ]
+      }
+    });
+
+    res.json({ success: true, message: "Verifique seu chat do Telegram para confirmar o saque." });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(`[ERRO SAQUE] Usuário: ${telegram_id}, Erro: ${err.message}`);
+    
     const msg = err.message === "USUARIO_NAO_ENCONTRADO" ? "Usuário não encontrado." :
                 err.message === "LIMITE_ATINGIDO" ? "Limite diário atingido." :
                 err.message === "PONTOS_INSUFICIENTES" ? "Pontos insuficientes." :
                 "Erro interno ao processar saque.";
                 
     res.status(400).json({ error: msg });
+  } finally {
+    client.release();
   }
+});
+
+// 3. Ouvinte dos botões no chat (Telegraf Action)
+bot.action(/conf_saque_(\d+)/, async (ctx) => {
+  const saqueId = ctx.match[1];
+  const telegram_id = ctx.from.id.toString();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Busca o usuário para checar o idioma e o saque pendente
+    const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+    const isEn = userRes.rows[0]?.lang === 'en';
+
+    const saqueRes = await client.query(
+      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
+      [saqueId, telegram_id]
+    );
+
+    if (saqueRes.rows.length === 0) {
+      await ctx.answerCbQuery(isEn ? "This request expired or was already processed." : "Este pedido de saque expirou ou já foi processado.");
+      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available." : "⚠️ Este pedido de saque não está mais disponível.");
+    }
+
+    const saque = saqueRes.rows[0];
+
+    // Desconta os pontos do usuário de vez
+    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [saque.pontos_solicitados, telegram_id]);
+
+    // Registra no histórico de ganhos/gastos
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
+    `, [telegram_id, -Math.abs(saque.pontos_solicitados), saqueId]);
+
+    // Altera o status para 'Waiting' (Aguardando pagamento FaucetPay)
+    await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
+
+    await client.query("COMMIT");
+
+    await ctx.answerCbQuery(isEn ? "Withdrawal confirmed successfully!" : "Saque confirmado com sucesso!");
+    await ctx.editMessageText(isEn 
+      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment. We will notify you here once it is paid!`
+      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento. Avisaremos aqui quando for pago!`
+    );
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Erro ao confirmar saque via chat:", err);
+    await ctx.answerCbQuery("Erro ao processar confirmação.");
+  } finally {
+    client.release();
+  }
+});
+
+bot.action(/canc_saque_(\d+)/, async (ctx) => {
+  const saqueId = ctx.match[1];
+  const telegram_id = ctx.from.id.toString();
+
+  const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+  const isEn = userRes.rows[0]?.lang === 'en';
+
+  await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
+  
+  await ctx.answerCbQuery(isEn ? "Withdrawal cancelled." : "Saque cancelado.");
+  await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
 });
 
 // 🔹 6. Busca de Histórico de Saques (Padronizada com Comprovante)
