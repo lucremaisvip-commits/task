@@ -2053,7 +2053,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
 
-  // ⚡ Responde o Telegram IMEDIATAMENTE para evitar timeout
   try {
     await ctx.answerCbQuery("Processando...");
   } catch (e) {}
@@ -2071,33 +2070,34 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     );
 
     if (saqueRes.rows.length === 0) {
+      await client.query("ROLLBACK");
       return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available or was already processed." : "⚠️ Este pedido de saque não está mais disponível ou já foi processado.");
     }
 
     const saque = saqueRes.rows[0];
 
+    // 1. Debita os pontos do usuário de verdade AGORA que ele confirmou
     await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [saque.pontos_solicitados, telegram_id]);
 
+    // 2. Registra a saída no histórico de ganhos
     await client.query(`
       INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
       VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
     `, [telegram_id, -Math.abs(saque.pontos_solicitados), saqueId]);
 
+    // 3. Altera o status para 'Waiting' (Exatamente como o seu painel admin espera encontrar)
     await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
 
     await client.query("COMMIT");
 
     await ctx.editMessageText(isEn 
-      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment. We will notify you here once it is paid!`
-      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento. Avisaremos aqui quando for pago!`
+      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment.`
+      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento no painel!`
     );
 
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Erro ao confirmar saque via chat:", err);
-    try {
-      await ctx.reply("❌ Ocorreu um erro interno ao processar seu saque. Tente novamente.");
-    } catch (e) {}
   } finally {
     client.release();
   }
@@ -2107,7 +2107,6 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
 
-  // ⚡ Responde o Telegram IMEDIATAMENTE para evitar timeout
   try {
     await ctx.answerCbQuery("Cancelando...");
   } catch (e) {}
@@ -2119,9 +2118,8 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
     const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
     const isEn = userRes.rows[0]?.lang === 'en';
 
-    // Busca o pedido de saque para saber quantos pontos foram solicitados/debitados
     const saqueRes = await client.query(
-      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status IN ('Aguardando Chat', 'Waiting') FOR UPDATE",
+      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
       [saqueId, telegram_id]
     );
 
@@ -2130,40 +2128,24 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
       return ctx.editMessageText(isEn ? "⚠️ This withdrawal request cannot be cancelled." : "⚠️ Este pedido de saque não pode mais ser cancelado.");
     }
 
-    const saque = saqueRes.rows[0];
-
-    // Atualiza o status do saque para Cancelado
+    // Apenas marca como cancelado (como os pontos nunca tinham saído, não precisa estornar)
     await client.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1", [saqueId]);
-
-    // 💰 Estorna os pontos de volta para o usuário
-    await client.query(
-      "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
-      [saque.pontos_solicitados, telegram_id]
-    );
-
-    // Registra o estorno no histórico de ganhos
-    await client.query(`
-      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-      VALUES ($1, 'estorno_saque', $2, 'Saque Cancelado (Estorno)', $3, NOW())
-    `, [telegram_id, Math.abs(saque.pontos_solicitados), saqueId]);
 
     await client.query("COMMIT");
 
     await ctx.editMessageText(isEn 
-      ? "❌ Withdrawal request cancelled and points refunded to your balance." 
-      : "❌ Pedido de saque cancelado e pontos devolvidos para o seu saldo."
+      ? "❌ Withdrawal request cancelled." 
+      : "❌ Pedido de saque cancelado."
     );
 
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Erro ao cancelar saque via chat:", err);
-    try {
-      await ctx.reply("❌ Ocorreu um erro ao cancelar o saque. Tente novamente.");
-    } catch (e) {}
   } finally {
     client.release();
   }
 });
+
 // =========================================================================
 // 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS
 // =========================================================================
