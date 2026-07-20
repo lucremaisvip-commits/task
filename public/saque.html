@@ -261,14 +261,12 @@ async function solicitarSaque() {
     const limite = window.isVip ? 1.01401 : 2.02802;
     if (saldoUsuario < limite) return alert(t.alMin);
 
-    // 3. Captura segura do initData (com fallback caso o objeto demore a injetar)
-    const initData = window.Telegram?.WebApp?.initData || window.TelegramWebAppData?.initData || "";
-
-    if (!initData) {
-        console.warn("initData não encontrado. Certifique-se de abrir o app dentro do Telegram.");
+    // 3. Validação do ID do Telegram do usuário
+    if (!telegram_id) {
+        console.warn("telegram_id não encontrado.");
         return alert(lang === 'pt' 
-            ? "Erro: Autenticação necessária. Feche e abra o bot novamente pelo Telegram." 
-            : "Error: Authentication required. Please reopen the bot inside Telegram.");
+            ? "Erro: Identificação do usuário ausente. Abra o bot novamente pelo Telegram." 
+            : "Error: User identification missing. Please reopen the bot inside Telegram.");
     }
 
     btn.disabled = true; 
@@ -279,16 +277,19 @@ async function solicitarSaque() {
             method: "POST", 
             headers: { "Content-Type": "application/json" }, 
             body: JSON.stringify({ 
-                initData: initData, // Enviando o hash para validação no servidor
-                chave_pix: email    // O e-mail da FaucetPay
+                telegram_id: telegram_id, // Enviando o ID para o backend validar e disparar o chat
+                chave_pix: email          // O e-mail da FaucetPay
             }) 
         });
 
         const data = await res.json();
         
         if (data.success) { 
-            alert(t.alSucesso); 
-            carregarDados(); // Atualiza a tela após o sucesso
+            // Mensagem instruindo o usuário a ir até o chat do bot confirmar
+            alert(lang === 'pt' 
+                ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque clicando no botão." 
+                : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal by clicking the button."); 
+            carregarDados(); // Atualiza a tela após disparar o pedido
         } else { 
             alert(t.alErro + (data.error || "Erro desconhecido")); 
         }
