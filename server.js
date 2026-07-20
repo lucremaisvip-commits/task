@@ -1,4 +1,10 @@
-// 🔹 1. Configuração Inicial 
+/***************************************************************************
+ * 🌐 LUCREMAISTASK - BACKEND SERVER MESTRE
+ ***************************************************************************/
+
+// =========================================================================
+// 🔹 1. Configuração Inicial e Importações
+// =========================================================================
 require("dotenv").config();
 const path = require("path");
 const express = require("express");
@@ -7,11 +13,16 @@ const cors = require("cors");
 const rateLimitLib = require("express-rate-limit"); // 🔥 renomeado para evitar conflito
 const APP_DOMAIN = process.env.APP_DOMAIN || "https://task-test-nrdn.onrender.com";
 const pool = require("./db");
-const TelegramBot = require("node-telegram-bot-api");
+const { Telegraf } = require("telegraf");
+const cron = require("node-cron");
+const axios = require("axios");
+
 const FAUCETPAY_API_KEY = "651358d8dd7a03537c613db2c33bb8c79ac2961bb824f6985eab53b3a92a8a0d"; 
 console.log("🚀 Bot rodando com chave de TESTE");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+const bot = new Telegraf(process.env.BOT_TOKEN);
 
 // ✅ Confia no primeiro proxy (necessário no Render/Heroku/etc..)
 app.set("trust proxy", 1);
@@ -34,7 +45,6 @@ app.use(cors({
   methods: ["GET", "POST"]
 }));
 
-
 // 🔒 3. Limite de requisições (anti spam)
 const limiter = rateLimitLib({
   windowMs: 1 * 60 * 1000, // 1 minuto
@@ -43,14 +53,11 @@ const limiter = rateLimitLib({
 
 app.use(limiter);
 
-const rateLimit = require("express-rate-limit");
-
-const saqueLimiter = rateLimit({
+const saqueLimiter = rateLimitLib({
   windowMs: 60 * 60 * 1000, // 1 hora
   max: 3, // Limite de 3 tentativas de saque por IP por hora
   message: "Muitas tentativas. Tente novamente mais tarde."
 });
-
 
 // 🔒 4. Limite de JSON (anti ataque)
 app.use(express.json({
@@ -59,23 +66,18 @@ app.use(express.json({
 
 const crypto = require("crypto");
 
-// 🔒 5. funções de segurança para tarefas:
-
-// 🔐 gerar token seguro (CORRIGIDO)
+// 🔒 5. Funções de segurança para tarefas:
 function gerarToken(telegram_id, tarefa_id) {
-  // Garantimos que o telegram_id seja tratado como texto na concatenação
   return crypto
     .createHash("sha256")
     .update(telegram_id.toString() + tarefa_id.toString() + Date.now() + Math.random())
     .digest("hex");
 }
 
-// 🚫 rate limit simples (memória) (CORRIGIDO)
 const rateLimitMemory = {};
 
 function checkRateLimit(user) {
   const now = Date.now();
-  // Forçamos o uso do ID como string para que a chave no objeto seja sempre consistente
   const userId = user.toString(); 
 
   if (!rateLimitMemory[userId]) {
@@ -91,9 +93,7 @@ function checkRateLimit(user) {
   return true;
 }
 
-//6. Segurança do que é publico ou privado 
-
-// 🔐 Middleware de segurança via URL (?key=...)
+// 6. Segurança do que é publico ou privado 
 function verificarAdminHTML(req, res, next) {
   const senha = req.query.key;
 
@@ -104,25 +104,23 @@ function verificarAdminHTML(req, res, next) {
   next();
 }
 
-// 📁 Servir páginas privadas (protegidas por ?key=)
 app.use(
   "/private",
   verificarAdminHTML,
   express.static(path.join(__dirname, "private"))
 );
 
-// 📁 Servir arquivos públicos
 app.use(express.static("public"));
 
-
-// 🔹 Rota para o Front-end consultar o domínio atual
 app.get("/api/config", (req, res) => {
   res.json({
     app_domain: process.env.APP_DOMAIN || "https://task-test-nrdn.onrender.com"
   });
 });
 
-// 🔹 2.WEBHOOK UNIFICADO (Stripe + Cakto Corrigido)
+// =========================================================================
+// 🔹 2. WEBHOOK UNIFICADO (Stripe + Cakto)
+// =========================================================================
 app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), async (req, res) => {
   let plataforma = "";
   let evento = "";
@@ -204,14 +202,9 @@ app.post("/api/webhooks/vendas-vip", express.raw({ type: "application/json" }), 
     res.status(500).send("Erro");
   }
 });
-
-
-
-
-
+// =========================================================================
 // 🔹 3. Rotas de Tarefas (Modificadas para suportar Tarefas VIP)
-
-
+// =========================================================================
 app.post("/api/iniciar-tarefa", async (req, res) => {
   const { telegram_id, tarefa_id, fingerprint } = req.body;
 
@@ -1177,11 +1170,15 @@ app.post("/api/limpar-aviso-reset", async (req, res) => {
     }
 });
 
+// =========================================================================
+// 🔹 4. Rotas de Usuário & Mini App Health Check
+// =========================================================================
+app.get("/", (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  console.log("🌐 Acesso Mini App - IP:", ip);
+  res.send("Mini App carregado - Sistema LucreMaisTask ativo.");
+});
 
-
-
-
-// 🔹 4. Rotas de Usuário
 
 app.get("/api/status-checklist", async (req, res) => {
     const { telegram_id } = req.query;
@@ -1387,8 +1384,9 @@ app.get("/api/indicacoes-info", async (req, res) => {
 });
 
 
-
-
+// =========================================================================
+// 🔹 5. Ranking Otimizado com critérios de desempate
+// =========================================================================
 // 🔹 5. Ranking Otimizado com critérios de desempate
 app.get("/api/ranking", async (req, res) => {
   try {
@@ -1430,18 +1428,55 @@ app.get("/api/ranking", async (req, res) => {
 });
 
 
-// 🔹 6. Saques (Versão Global Integrada ao historico_ganhos e faucetpay)
+
+// =========================================================================
+// 🔹 6. Saques (Versão Global Integrada ao historico_ganhos, chat e FaucetPay)
+// =========================================================================
+
+const dicionarioSaque = {
+  pt: {
+    escolha: "Escolha seu idioma / Choose your language:",
+    boas_vindas_novo: "🎉 Bem-vindo ao LucreMaisTask!\n\n🎁 MISSÃO DE ENTRADA: Complete suas tarefas diárias com o booster de entrada e saque para sua FaucetPay ainda hoje!",
+    boas_vindas_recorrente: "👋 Bem-vindo de volta!\n\n💰 Saldo atual: {saldo} pontos.\n🚀 Novas oportunidades disponíveis. Ganhe mais agora!",
+    btn_app: "📲 Abrir Mini App",
+    erro: "⚠️ Erro no sistema, tente novamente."
+  },
+  en: {
+    escolha: "Choose your language / Escolha seu idioma:",
+    boas_vindas_novo: "🎉 Welcome to LucreMaisTask!\n\n🎁 WELCOME MISSION: Complete your daily tasks with the entry booster and withdraw to your FaucetPay today!",
+    boas_vindas_recorrente: "👋 Welcome back!\n\n💰 Current balance: {saldo} points.\n🚀 New opportunities available. Earn more now!",
+    btn_app: "📲 Open Mini App",
+    erro: "⚠️ System error, please try again."
+  }
+};
+
+const dicionario = dicionarioSaque;
+
+async function getSaldoUsuario(telegramId) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT COALESCE(SUM(pontos), 0) as total FROM historico_ganhos WHERE telegram_id = $1`,
+      [telegramId]
+    );
+    return parseInt(rows[0].total);
+  } catch (err) {
+    console.error("Erro ao buscar saldo:", err);
+    return 0;
+  }
+}
 
 app.get("/api/ltc-hoje", async (req, res) => {
-    const result = await pool.query(
-        "SELECT * FROM cotacoes ORDER BY data_registro DESC LIMIT 1"
-    );
-    res.json(result.rows[0]); 
+    try {
+        const result = await pool.query(
+            "SELECT * FROM cotacoes ORDER BY data_registro DESC LIMIT 1"
+        );
+        res.json(result.rows[0] || {});
+    } catch (err) {
+        console.error("Erro ao buscar cotação ltc:", err);
+        res.status(500).json({ error: "Erro ao buscar cotação" });
+    }
 });
 
-const { validate, parse } = require('@telegram-apps/init-data-node');
-
-// 1. Rota que recebe o pedido feito na tela de saque
 app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   const { telegram_id, chave_pix } = req.body;
   
@@ -1471,8 +1506,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     const { pontos, vip, lang, nivel } = user;
     const isEn = lang === 'en';
 
-    // Regras de limite e mínimo
-    const limiteSaques = TABELA_NIVEIS[nivel]?.limite_saque || 1;
+    const limiteSaques = (typeof TABELA_NIVEIS !== 'undefined' && TABELA_NIVEIS[nivel]?.limite_saque) ? TABELA_NIVEIS[nivel].limite_saque : 1;
     const saquesHoje = await client.query(`
       SELECT COUNT(*) FROM saques 
       WHERE telegram_id = $1 AND DATE(data_solicitacao) = CURRENT_DATE
@@ -1483,7 +1517,6 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     const pontosMinimos = vip ? 1.01401 : 2.02802;
     if (pontos < pontosMinimos) throw new Error("PONTOS_INSUFICIENTES");
 
-    // Salva temporariamente como 'Aguardando Chat'
     const VALOR_DO_PONTO_EM_BRL = 0.05;
     let valorCalculado = pontos * VALOR_DO_PONTO_EM_BRL;
     
@@ -1496,25 +1529,26 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
 
     await client.query("COMMIT");
 
-    // 2. Mensagem e botões dinâmicos de acordo com o idioma do usuário (pt/en)
     const mensagemTexto = isEn
-      ? `⚠️ **Withdrawal Confirmation**\n\nYou requested a payout of **${pontos.toFixed(2)} Pts** to the email:\n\`${emailLimpo}\`\n\nDo you want to confirm this withdrawal?`
-      : `⚠️ **Confirmação de Saque**\n\nVocê solicitou o resgate de **${pontos.toFixed(2)} Pts** para o e-mail:\n\`${emailLimpo}\`\n\nDeseja confirmar este saque?`;
+      ? `⚠️ **Withdrawal Confirmation**\n\nYou requested a payout of **${parseFloat(pontos).toFixed(2)} Pts** to the email:\n\`${emailLimpo}\`\n\nDo you want to confirm this withdrawal?`
+      : `⚠️ **Confirmação de Saque**\n\nVocê solicitou o resgate de **${parseFloat(pontos).toFixed(2)} Pts** para o e-mail:\n\`${emailLimpo}\`\n\nDeseja confirmar este saque?`;
 
     const btnConfirmar = isEn ? "✅ Confirm Withdrawal" : "✅ Confirmar Saque";
     const btnCancelar = isEn ? "❌ Cancel" : "❌ Cancelar";
 
-    await bot.telegram.sendMessage(telegram_id, mensagemTexto, {
-      parse_mode: "Markdown",
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: btnConfirmar, callback_data: `conf_saque_${saqueId}` },
-            { text: btnCancelar, callback_data: `canc_saque_${saqueId}` }
+    if (typeof bot !== 'undefined' && bot.telegram) {
+      await bot.telegram.sendMessage(telegram_id, mensagemTexto, {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: btnConfirmar, callback_data: `conf_saque_${saqueId}` },
+              { text: btnCancelar, callback_data: `canc_saque_${saqueId}` }
+            ]
           ]
-        ]
-      }
-    });
+        }
+      });
+    }
 
     res.json({ success: true, message: "Verifique seu chat do Telegram para confirmar o saque." });
 
@@ -1533,74 +1567,6 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   }
 });
 
-// 3. Ouvinte dos botões no chat (Telegraf Action)
-bot.action(/conf_saque_(\d+)/, async (ctx) => {
-  const saqueId = ctx.match[1];
-  const telegram_id = ctx.from.id.toString();
-  const client = await pool.connect();
-
-  try {
-    await client.query("BEGIN");
-
-    // Busca o usuário para checar o idioma e o saque pendente
-    const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-    const isEn = userRes.rows[0]?.lang === 'en';
-
-    const saqueRes = await client.query(
-      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
-      [saqueId, telegram_id]
-    );
-
-    if (saqueRes.rows.length === 0) {
-      await ctx.answerCbQuery(isEn ? "This request expired or was already processed." : "Este pedido de saque expirou ou já foi processado.");
-      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available." : "⚠️ Este pedido de saque não está mais disponível.");
-    }
-
-    const saque = saqueRes.rows[0];
-
-    // Desconta os pontos do usuário de vez
-    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [saque.pontos_solicitados, telegram_id]);
-
-    // Registra no histórico de ganhos/gastos
-    await client.query(`
-      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-    `, [telegram_id, -Math.abs(saque.pontos_solicitados), saqueId]);
-
-    // Altera o status para 'Waiting' (Aguardando pagamento FaucetPay)
-    await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
-
-    await client.query("COMMIT");
-
-    await ctx.answerCbQuery(isEn ? "Withdrawal confirmed successfully!" : "Saque confirmado com sucesso!");
-    await ctx.editMessageText(isEn 
-      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment. We will notify you here once it is paid!`
-      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento. Avisaremos aqui quando for pago!`
-    );
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Erro ao confirmar saque via chat:", err);
-    await ctx.answerCbQuery("Erro ao processar confirmação.");
-  } finally {
-    client.release();
-  }
-});
-
-bot.action(/canc_saque_(\d+)/, async (ctx) => {
-  const saqueId = ctx.match[1];
-  const telegram_id = ctx.from.id.toString();
-
-  const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-  const isEn = userRes.rows[0]?.lang === 'en';
-
-  await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
-  
-  await ctx.answerCbQuery(isEn ? "Withdrawal cancelled." : "Saque cancelado.");
-  await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
-});
-
-// 🔹 6. Busca de Histórico de Saques (Padronizada com Comprovante)
 app.get("/api/saques", async (req, res) => {
   const { telegram_id } = req.query;
 
@@ -1609,7 +1575,6 @@ app.get("/api/saques", async (req, res) => {
   }
 
   try {
-    // Adicionada a coluna 'comprovante' para auditoria e transparência com o usuário
     const { rows } = await pool.query(
       `SELECT id, pontos_solicitados, valor_solicitado, status, data_solicitacao, comprovante 
        FROM saques 
@@ -1624,93 +1589,6 @@ app.get("/api/saques", async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar histórico de saques" });
   }
 });
-
-
-const axios = require('axios'); // Certifique-se de que o axios está no topo do arquivo
-
-app.post("/api/pagar-saque", async (req, res) => {
-  const senhaEnviada = req.headers["x-admin-key"];
-  const { saque_id } = req.body;
-
-  // 🔐 Verificação de segurança
-  if (!senhaEnviada || senhaEnviada !== process.env.ADMIN_KEY) {
-    console.log("❌ Tentativa de pagamento sem autorização");
-    return res.status(403).send("❌ Acesso negado");
-  }
-
-  try {
-    // 1. Busca os dados do saque Waiting e o idioma do usuário associado
-    const saqueResult = await pool.query(`
-      SELECT s.*, u.lang 
-      FROM saques s
-      JOIN usuarios u ON s.telegram_id = u.telegram_id
-      WHERE s.id = $1 AND s.status = 'Waiting'
-    `, [saque_id]);
-
-    if (saqueResult.rows.length === 0) {
-      return res.status(404).json({ error: "Saque não encontrado ou já processado." });
-    }
-    
-    const saque = saqueResult.rows[0];
-    const isEn = saque.lang === 'en';
-
-    // 2. Definição do valor (Baseado em PONTOS)
-    const TAXA_PONTO_LTC = 0.000001; 
-    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
-
-    // 3. Dispara o pagamento para a FaucetPay
-    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: FAUCETPAY_API_KEY, 
-      amount: amountEmSatoshis,
-      to: saque.chave_pix,       
-      currency: "LTC"
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    // 4. Tratamento do retorno da API
-    if (response.data.status === 200) {
-      const payoutId = response.data.payout_id;
-
-      // Sucesso: Atualiza o status e salva o payout_id (comprovante)
-      await pool.query(
-        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
-        [payoutId, saque_id]
-      );
-      
-      // 5. Dispara a mensagem no chat privado do Telegram do usuário com o link clicável
-      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
-      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
-
-      const mensagemSucesso = isEn
-        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
-        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
-
-      try {
-        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucesso, {
-          parse_mode: "Markdown",
-          disable_web_page_preview: true
-        });
-      } catch (telegramErr) {
-        console.error(`⚠️ Erro ao enviar aviso de pagamento no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
-      }
-
-      res.json({ success: true, tx: payoutId });
-    } else {
-      // Caso a FaucetPay retorne erro
-      console.error("❌ Erro FaucetPay:", response.data.message);
-      res.status(400).json({ error: "Erro FaucetPay: " + response.data.message });
-    }
-
-  } catch (err) {
-    console.error("❌ Erro fatal ao pagar saque:", err.message);
-    res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
-  }
-});
-
-
-
-
 
 
 
@@ -1798,7 +1676,10 @@ app.post("/api/anuncio-evento", async (req, res) => {
   }
 });
 
-// 🔹 9. Admin
+// =========================================================================
+// 🔹 9. Admin - Gestão de Pedidos e Aprovações (FaucetPay)
+// =========================================================================
+
 // Middleware de segurança (protege todas as rotas admin)
 function verificarAdmin(req, res, next) {
   const senha = req.headers["x-admin-key"];
@@ -1808,7 +1689,7 @@ function verificarAdmin(req, res, next) {
   next();
 }
 
-// 🔹 9. Admin - Gestão de Pedidos e Aprovações
+// Admin - Gestão de Pedidos e Aprovações
 
 // Admin lista pedidos pendentes (anuncios_pedidos)
 app.get("/admin/anuncios/pending", verificarAdmin, async (req, res) => {
@@ -2020,67 +1901,86 @@ app.post("/admin/sql", async (req, res) => {
   }
 });
 
-// =========================================================================
-// 🔹 10. Telegram Bot Core (Estrutura Otimizada)
-// =========================================================================
 
-// 1. Configurações Iniciais e Dicionário Centralizado
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
-const dicionario = {
-  pt: {
-    escolha: "Escolha seu idioma / Choose your language:",
-    boas_vindas_novo: "🎉 Bem-vindo ao LucreMaisTask!\n\n🎁 MISSÃO DE ENTRADA: Complete suas tarefas diárias com o booster de entrada e saque para sua FaucetPay ainda hoje!",
-    boas_vindas_recorrente: "👋 Bem-vindo de volta!\n\n💰 Saldo atual: {saldo} pontos.\n🚀 Novas oportunidades disponíveis. Ganhe mais agora!",
-    btn_app: "📲 Abrir Mini App",
-    erro: "⚠️ Erro no sistema, tente novamente."
-  },
-  en: {
-    escolha: "Choose your language / Escolha seu idioma:",
-    // Mantive uma versão em inglês que reflete a mesma lógica da sua missão de entrada
-    boas_vindas_novo: "🎉 Welcome to LucreMaisTask!\n\n🎁 WELCOME MISSION: Complete your daily tasks with the entry booster and withdraw to your FaucetPay today!",
-    boas_vindas_recorrente: "👋 Welcome back!\n\n💰 Current balance: {saldo} points.\n🚀 New opportunities available. Earn more now!",
-    btn_app: "📲 Open Mini App",
-    erro: "⚠️ System error, please try again."
+app.post("/api/pagar-saque", async (req, res) => {
+  const senhaEnviada = req.headers["x-admin-key"];
+  const { saque_id } = req.body;
+
+  if (!senhaEnviada || senhaEnviada !== process.env.ADMIN_KEY) {
+    console.log("❌ Tentativa de pagamento sem autorização");
+    return res.status(403).send("❌ Acesso negado");
   }
-};
 
-// 2. Utilitários do Bot
-/**
- * Busca o saldo total do usuário consolidado pela tabela historico_ganhos
- * Otimizado para performance com agregação SQL
- */
-async function getSaldoUsuario(telegramId) {
   try {
-    const { rows } = await pool.query(
-      `SELECT COALESCE(SUM(pontos), 0) as total 
-       FROM historico_ganhos 
-       WHERE telegram_id = $1`,
-      [telegramId]
-    );
-    return parseInt(rows[0].total);
-  } catch (err) {
-    console.error("Erro ao buscar saldo:", err);
-    return 0;
-  }
-}
+    const saqueResult = await pool.query(`
+      SELECT s.*, u.lang 
+      FROM saques s
+      JOIN usuarios u ON s.telegram_id = u.telegram_id
+      WHERE s.id = $1 AND s.status = 'Waiting'
+    `, [saque_id]);
 
-/**
- * Rota do Mini App (Health Check e entrega de parâmetros)
- */
-app.get("/", (req, res) => {
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  console.log("🌐 Acesso Mini App - IP:", ip);
-  res.send("Mini App carregado - Sistema LucreMaisTask ativo.");
+    if (saqueResult.rows.length === 0) {
+      return res.status(404).json({ error: "Saque não encontrado ou já processado." });
+    }
+    
+    const saque = saqueResult.rows[0];
+    const isEn = saque.lang === 'en';
+
+    const TAXA_PONTO_LTC = 0.000001; 
+    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
+
+    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
+      api_key: FAUCETPAY_API_KEY, 
+      amount: amountEmSatoshis,
+      to: saque.chave_pix,       
+      currency: "LTC"
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (response.data.status === 200) {
+      const payoutId = response.data.payout_id;
+
+      await pool.query(
+        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
+        [payoutId, saque_id]
+      );
+      
+      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
+      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
+
+      const mensagemSucesso = isEn
+        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
+        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
+
+      try {
+        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucesso, {
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        });
+      } catch (telegramErr) {
+        console.error(`⚠️ Erro ao enviar aviso de pagamento no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
+      }
+
+      res.json({ success: true, tx: payoutId });
+    } else {
+      console.error("❌ Erro FaucetPay:", response.data.message);
+      res.status(400).json({ error: "Erro FaucetPay: " + response.data.message });
+    }
+
+  } catch (err) {
+    console.error("❌ Erro fatal ao pagar saque:", err.message);
+    res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
+  }
 });
 
-// 🔹 3. Handlers: Comando /start e Seleção de Idioma
-
-// Trigger: /start
-bot.onText(/\/start(?:\s+(\d+))?/, async (msg, match) => {
-  const chatId = msg.chat.id;
-  // Se não houver indicador, salva como "0" (orgânico)
-  const indicadorId = match[1] ? match[1] : "0";
+// =========================================================================
+// 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
+// =========================================================================
+bot.start(async (ctx) => {
+  const textoMatch = ctx.message.text.split(' ');
+  const indicadorId = textoMatch[1] ? textoMatch[1] : "0";
 
   const keyboard = {
     inline_keyboard: [
@@ -2089,24 +1989,19 @@ bot.onText(/\/start(?:\s+(\d+))?/, async (msg, match) => {
     ]
   };
 
-  bot.sendMessage(chatId, "Escolha seu idioma / Choose your language:", { reply_markup: keyboard });
+  await ctx.reply("Escolha seu idioma / Choose your language:", { reply_markup: keyboard });
 });
 
-// Handler: Processamento da escolha (Callback Query)
-bot.on('callback_query', async (query) => {
-  const data = query.data.split('_'); // ['lang', 'pt', 'id']
-  const lang = data[1];
-  const indicadorId = data[2];
+bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
+  const lang = ctx.match[1];
+  const indicadorId = ctx.match[2];
   
-  const chatId = query.message.chat.id;
-  const indicadoId = query.from.id;
-  const nome = query.from.first_name;
+  const indicadoId = ctx.from.id;
+  const nome = ctx.from.first_name;
 
-try {
-    // Inicia uma transação para garantir que ambos os inserts ocorram
+  try {
     await pool.query('BEGIN');
 
-    // 1. Registro do Usuário (Upsert)
     await pool.query(
       `INSERT INTO usuarios (telegram_id, nome, lang, data_registro)
        VALUES ($1, $2, $3, NOW())
@@ -2114,7 +2009,6 @@ try {
       [indicadoId, nome, lang]
     );
 
-    // 2. Garante o registro na tabela de streaks (Se não existir)
     await pool.query(
       `INSERT INTO usuarios_streaks (telegram_id, streak_atual, meta_cumprida_hoje, bau_disponivel, data_registro)
        VALUES ($1, 0, FALSE, FALSE, NOW())
@@ -2122,7 +2016,6 @@ try {
       [indicadoId]
     );
 
-    // 3. Registro de Indicação
     const check = await pool.query("SELECT id FROM indicacoes WHERE id_indicado = $1", [indicadoId]);
     if (check.rowCount === 0) {
       await pool.query(
@@ -2134,20 +2027,12 @@ try {
 
     await pool.query('COMMIT');
 
-    // 3. Montagem da Mensagem (Nova ou Recorrente)
     const saldo = await getSaldoUsuario(indicadoId);
-    let texto;
+    let texto = (saldo === 0 && check.rowCount === 0) 
+      ? dicionario[lang].boas_vindas_novo 
+      : dicionario[lang].boas_vindas_recorrente.replace("{saldo}", saldo);
 
-    if (saldo === 0 && check.rowCount === 0) {
-      texto = dicionario[lang].boas_vindas_novo;
-    } else {
-      texto = dicionario[lang].boas_vindas_recorrente.replace("{saldo}", saldo);
-    }
-
-    // 4. Edição da mensagem com botão do Mini App
-    bot.editMessageText(texto, {
-      chat_id: chatId,
-      message_id: query.message.message_id,
+    await ctx.editMessageText(texto, {
       reply_markup: {
         inline_keyboard: [[
           {
@@ -2160,23 +2045,77 @@ try {
 
   } catch (err) {
     console.error("Erro no processamento do idioma:", err);
-    bot.sendMessage(chatId, dicionario[lang || 'en'].erro);
+    await ctx.reply(dicionario[lang || 'en'].erro);
   }
 });
 
+bot.action(/conf_saque_(\d+)/, async (ctx) => {
+  const saqueId = ctx.match[1];
+  const telegram_id = ctx.from.id.toString();
+  const client = await pool.connect();
 
-const cron = require("node-cron");
+  try {
+    await client.query("BEGIN");
 
-/**
- * Função central de disparo para garantir o alinhamento com o Dossiê
- * @param {string} lang - 'pt' ou 'en'
- * @param {string} tipo - 'inativo' ou 'iniciante'
- */
+    const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+    const isEn = userRes.rows[0]?.lang === 'en';
+
+    const saqueRes = await client.query(
+      "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
+      [saqueId, telegram_id]
+    );
+
+    if (saqueRes.rows.length === 0) {
+      await ctx.answerCbQuery(isEn ? "This request expired or was already processed." : "Este pedido de saque expirou ou já foi processado.");
+      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available." : "⚠️ Este pedido de saque não está mais disponível.");
+    }
+
+    const saque = saqueRes.rows[0];
+
+    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [saque.pontos_solicitados, telegram_id]);
+
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
+    `, [telegram_id, -Math.abs(saque.pontos_solicitados), saqueId]);
+
+    await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
+
+    await client.query("COMMIT");
+
+    await ctx.answerCbQuery(isEn ? "Withdrawal confirmed successfully!" : "Saque confirmado com sucesso!");
+    await ctx.editMessageText(isEn 
+      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment. We will notify you here once it is paid!`
+      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento. Avisaremos aqui quando for pago!`
+    );
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Erro ao confirmar saque via chat:", err);
+    await ctx.answerCbQuery("Erro ao processar confirmação.");
+  } finally {
+    client.release();
+  }
+});
+
+bot.action(/canc_saque_(\d+)/, async (ctx) => {
+  const saqueId = ctx.match[1];
+  const telegram_id = ctx.from.id.toString();
+
+  const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+  const isEn = userRes.rows[0]?.lang === 'en';
+
+  await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
+  
+  await ctx.answerCbQuery(isEn ? "Withdrawal cancelled." : "Saque cancelado.");
+  await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
+});
+
+// =========================================================================
+// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS
+// =========================================================================
 async function dispararEngajamento(lang, tipo) {
   try {
-    // 1. Busca usuários baseada na lógica técnica aprovada (Dossiê)
-    // Inativos: NOT EXISTS na tabela historico_ganhos nos últimos 2 dias
-    // Iniciantes: EXISTS na tabela historico_ganhos nos últimos 2 dias, mas inativo nas últimas 24h
     let query;
     if (tipo === 'inativo') {
       query = `SELECT u.telegram_id 
@@ -2194,7 +2133,6 @@ async function dispararEngajamento(lang, tipo) {
     const { rows } = await pool.query(query, [lang]);
     console.log(`🚀 Disparando ${tipo} (${lang}): ${rows.length} usuários.`);
 
-    // 2. Disparo das mensagens
     for (const u of rows) {
       const isPt = lang === 'pt';
       const mensagem = tipo === 'inativo' 
@@ -2203,7 +2141,7 @@ async function dispararEngajamento(lang, tipo) {
 
       const btnText = isPt ? "📲 Fazer Tarefas Agora" : "📲 Complete Tasks Now";
 
-      await bot.sendMessage(u.telegram_id, mensagem, {
+      await bot.telegram.sendMessage(u.telegram_id, mensagem, {
         reply_markup: {
           inline_keyboard: [[
             { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=${lang}` } }
@@ -2216,27 +2154,18 @@ async function dispararEngajamento(lang, tipo) {
   }
 }
 
-// 3. Agendamento com Zonas Horárias (Otimizado)
-
-// Disparo Brasil (BRT)
 cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('pt', 'inativo');
   await dispararEngajamento('pt', 'iniciante');
 }, { timezone: "America/Sao_Paulo" });
 
-// Disparo EUA (EST)
 cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('en', 'inativo');
   await dispararEngajamento('en', 'iniciante');
 }, { timezone: "America/New_York" });
 
-
-
-//🔹 12. cron bonus ticket para vip 
-
 cron.schedule("0 12 * * *", async () => {
   try {
-    // Busca compradores de 10 dias atrás + o idioma dele
     const query = `
       SELECT h.telegram_id, u.lang 
       FROM historico_compras h
@@ -2254,7 +2183,6 @@ cron.schedule("0 12 * * *", async () => {
 
     for (const row of rows) {
       const tickets = 5; 
-      // Mensagem regionalizada
       const mensagem = row.lang === 'pt' 
         ? `🎁 Parabéns! Você é um VIP fiel e completou 10 dias conosco. Ganhou ${tickets} tickets para a roleta!`
         : `🎁 Congrats! You've been a loyal VIP for 10 days. Enjoy ${tickets} free spins on the wheel!`;
@@ -2264,24 +2192,19 @@ cron.schedule("0 12 * * *", async () => {
         [row.telegram_id]
       );
 
-      await bot.sendMessage(row.telegram_id, mensagem);
+      await bot.telegram.sendMessage(row.telegram_id, mensagem);
     }
   } catch (err) {
     console.error("Erro no cron de fidelidade:", err);
   }
 });
 
-
-
-// 🔹 13. CRON MESTRE: Virada de Dia (Roda todo dia às 00:05)
 cron.schedule('5 0 * * *', async () => {
     console.log("🕒 Iniciando processamento diário de streaks e XP com proteção de escudos...");
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
 
-        // 1. Atualiza Streaks, Escudos e Status de quebra
-        // O streak só quebra se: não bateu meta, o streak atual > 0 E ele NÃO tem escudos.
         await client.query(`
             UPDATE usuarios_streaks us
             SET 
@@ -2308,8 +2231,6 @@ cron.schedule('5 0 * * *', async () => {
             WHERE us.telegram_id = u.telegram_id
         `);
 
-        // 2. Consome 1 escudo daqueles que não bateram a meta
-        // (Apenas se o streak foi "salvo" pela presença de escudo)
         await client.query(`
             UPDATE usuarios 
             SET escudos = escudos - 1
@@ -2322,7 +2243,6 @@ cron.schedule('5 0 * * *', async () => {
             )
         `);
 
-        // 3. Degradação de XP para quem não tem escudo e falhou no streak
         await client.query(`
             UPDATE usuarios 
             SET xp = FLOOR(xp * 0.90),
@@ -2334,54 +2254,28 @@ cron.schedule('5 0 * * *', async () => {
                 WHERE us.meta_cumprida_hoje = FALSE 
                 AND us.streak_atual > 0
             )
-            AND xp > 0
         `);
 
         await client.query("COMMIT");
         console.log("✅ Processamento diário concluído com sucesso.");
     } catch (err) {
         await client.query("ROLLBACK");
-        console.error("❌ Erro no CRON Mestre:", err);
+        console.error("❌ Erro fatal no processamento diário de streaks:", err);
     } finally {
         client.release();
     }
 });
 
-// 🔹 14. cron para consultar preço ltc uma vez por dia 
-
-cron.schedule('0 1 * * *', async () => {
-    try {
-        // 1. Busca cotação atual (Ex: 1 LTC em BRL)
-        const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=brl,usd");
-        const data = await res.json();
-        
-        const ltcEmBrl = data.litecoin.brl;
-        const ltcEmUsd = data.litecoin.usd;
-
-        // 2. Definimos que 1 Ponto = 0.05 BRL (Sua base atual)
-        const valorPontoBrl = 0.05;
-        
-        // 3. Calculamos quanto 1 Ponto vale nas outras moedas
-        const valorPontoLtc = valorPontoBrl / ltcEmBrl;
-        const valorPontoUsd = valorPontoBrl / (ltcEmBrl / ltcEmUsd); // Ajuste cambial
-        const valorPontoZer = valorPontoBrl / 0.02; // Exemplo de conversão para ZER
-
-        // 4. Salva no banco
-        await pool.query(`
-            INSERT INTO cotacoes (valor_ltc, valor_usd, valor_zer, valor_brl, data_registro)
-            VALUES ($1, $2, $3, $4, CURRENT_DATE)
-        `, [valorPontoLtc, valorPontoUsd, valorPontoZer, valorPontoBrl]);
-        
-        console.log("Cotações de pontos atualizadas com sucesso.");
-    } catch (err) {
-        console.error("Erro no cron de cotações:", err);
-    }
-});
-
-// 🔹 15. Inicializar servidor
+// Inicialização do Servidor e do Bot
 app.listen(PORT, () => {
-  console.log(`✅ Servidor rodando na porta ${PORT}`);
+  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  bot.launch().then(() => {
+    console.log("🤖 Telegram Bot iniciado com sucesso via Telegraf!");
+  }).catch((err) => {
+    console.error("❌ Erro ao iniciar o bot do Telegram:", err);
+  });
 });
 
-
-
+// Encerramento gracioso
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
