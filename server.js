@@ -1632,37 +1632,37 @@ app.post("/api/pagar-saque", async (req, res) => {
   const senhaEnviada = req.headers["x-admin-key"];
   const { saque_id } = req.body;
 
-  // 🔐 Verificação de segurança (deve ser igual à sua rota SQL)
+  // 🔐 Verificação de segurança
   if (!senhaEnviada || senhaEnviada !== process.env.ADMIN_KEY) {
     console.log("❌ Tentativa de pagamento sem autorização");
     return res.status(403).send("❌ Acesso negado");
   }
 
   try {
-    // 1. Busca os dados do saque Waiting
-    const saqueResult = await pool.query(
-      "SELECT * FROM saques WHERE id = $1 AND status = 'Waiting'", 
-      [saque_id]
-    );
+    // 1. Busca os dados do saque Waiting e o idioma do usuário associado
+    const saqueResult = await pool.query(`
+      SELECT s.*, u.lang 
+      FROM saques s
+      JOIN usuarios u ON s.telegram_id = u.telegram_id
+      WHERE s.id = $1 AND s.status = 'Waiting'
+    `, [saque_id]);
 
     if (saqueResult.rows.length === 0) {
       return res.status(404).json({ error: "Saque não encontrado ou já processado." });
     }
     
     const saque = saqueResult.rows[0];
+    const isEn = saque.lang === 'en';
 
     // 2. Definição do valor (Baseado em PONTOS)
-    // ⚠️ Ajuste este valor conforme o quanto você quer pagar por ponto em LTC
     const TAXA_PONTO_LTC = 0.000001; 
-    
-    // Cálculo: pontos * taxa = LTC. Depois * 100.000.000 para converter para Satoshis (inteiro)
     const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
 
     // 3. Dispara o pagamento para a FaucetPay
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: FAUCETPAY_API_KEY, // A chave que definimos no topo do seu server
+      api_key: FAUCETPAY_API_KEY, 
       amount: amountEmSatoshis,
-      to: saque.chave_pix,       // O e-mail FaucetPay do usuário
+      to: saque.chave_pix,       
       currency: "LTC"
     }).toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
@@ -1670,15 +1670,34 @@ app.post("/api/pagar-saque", async (req, res) => {
 
     // 4. Tratamento do retorno da API
     if (response.data.status === 200) {
+      const payoutId = response.data.payout_id;
+
       // Sucesso: Atualiza o status e salva o payout_id (comprovante)
       await pool.query(
         "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
-        [response.data.payout_id, saque_id]
+        [payoutId, saque_id]
       );
       
-      res.json({ success: true, tx: response.data.payout_id });
+      // 5. Dispara a mensagem no chat privado do Telegram do usuário com o link clicável
+      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
+      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
+
+      const mensagemSucesso = isEn
+        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
+        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
+
+      try {
+        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucesso, {
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        });
+      } catch (telegramErr) {
+        console.error(`⚠️ Erro ao enviar aviso de pagamento no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
+      }
+
+      res.json({ success: true, tx: payoutId });
     } else {
-      // Caso a FaucetPay retorne erro (ex: saldo insuficiente, email inválido)
+      // Caso a FaucetPay retorne erro
       console.error("❌ Erro FaucetPay:", response.data.message);
       res.status(400).json({ error: "Erro FaucetPay: " + response.data.message });
     }
