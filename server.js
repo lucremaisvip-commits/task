@@ -2052,8 +2052,13 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
 bot.action(/conf_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
-  const client = await pool.connect();
 
+  // ⚡ Responde o Telegram IMEDIATAMENTE para evitar timeout
+  try {
+    await ctx.answerCbQuery("Processando...");
+  } catch (e) {}
+
+  const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
@@ -2066,8 +2071,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     );
 
     if (saqueRes.rows.length === 0) {
-      await ctx.answerCbQuery(isEn ? "This request expired or was already processed." : "Este pedido de saque expirou ou já foi processado.");
-      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available." : "⚠️ Este pedido de saque não está mais disponível.");
+      return ctx.editMessageText(isEn ? "⚠️ This withdrawal request is no longer available or was already processed." : "⚠️ Este pedido de saque não está mais disponível ou já foi processado.");
     }
 
     const saque = saqueRes.rows[0];
@@ -2083,7 +2087,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
 
     await client.query("COMMIT");
 
-    await ctx.answerCbQuery(isEn ? "Withdrawal confirmed successfully!" : "Saque confirmado com sucesso!");
     await ctx.editMessageText(isEn 
       ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment. We will notify you here once it is paid!`
       : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento. Avisaremos aqui quando for pago!`
@@ -2092,7 +2095,9 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Erro ao confirmar saque via chat:", err);
-    await ctx.answerCbQuery("Erro ao processar confirmação.");
+    try {
+      await ctx.reply("❌ Ocorreu um erro interno ao processar seu saque. Tente novamente.");
+    } catch (e) {}
   } finally {
     client.release();
   }
@@ -2102,15 +2107,22 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
 
-  const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-  const isEn = userRes.rows[0]?.lang === 'en';
+  // ⚡ Responde o Telegram IMEDIATAMENTE para evitar timeout
+  try {
+    await ctx.answerCbQuery("Cancelando...");
+  } catch (e) {}
 
-  await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
-  
-  await ctx.answerCbQuery(isEn ? "Withdrawal cancelled." : "Saque cancelado.");
-  await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
+  try {
+    const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+    const isEn = userRes.rows[0]?.lang === 'en';
+
+    await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1 AND telegram_id = $2", [saqueId, telegram_id]);
+    
+    await ctx.editMessageText(isEn ? "❌ Withdrawal request cancelled by user." : "❌ Pedido de saque cancelado pelo usuário.");
+  } catch (err) {
+    console.error("Erro ao cancelar saque via chat:", err);
+  }
 });
-
 // =========================================================================
 // 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS
 // =========================================================================
