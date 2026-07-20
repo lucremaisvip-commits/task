@@ -261,12 +261,14 @@ async function solicitarSaque() {
     const limite = window.isVip ? 1.01401 : 2.02802;
     if (saldoUsuario < limite) return alert(t.alMin);
 
-    // 3. Captura do initData do Telegram
-    // O Telegram fornece isso automaticamente se rodando dentro do Mini App
-    const initData = window.Telegram?.WebApp?.initData || "";
+    // 3. Captura segura do initData (com fallback caso o objeto demore a injetar)
+    const initData = window.Telegram?.WebApp?.initData || window.TelegramWebAppData?.initData || "";
 
     if (!initData) {
-        return alert("Erro: Autenticação necessária. Tente abrir o bot novamente.");
+        console.warn("initData não encontrado. Certifique-se de abrir o app dentro do Telegram.");
+        return alert(lang === 'pt' 
+            ? "Erro: Autenticação necessária. Feche e abra o bot novamente pelo Telegram." 
+            : "Error: Authentication required. Please reopen the bot inside Telegram.");
     }
 
     btn.disabled = true; 
@@ -292,7 +294,7 @@ async function solicitarSaque() {
         }
     } catch (e) { 
         console.error("Erro na requisição:", e);
-        alert("Erro de conexão com o servidor."); 
+        alert(lang === 'pt' ? "Erro de conexão com o servidor." : "Server connection error."); 
     } finally { 
         btn.disabled = false; 
         btn.innerText = t.btnSacar; 
