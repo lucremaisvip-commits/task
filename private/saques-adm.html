@@ -28,6 +28,25 @@
     <button onclick="location.reload()" id="btnRefresh">🔄 Refresh</button>
   </div>
 
+<!-- 🔹 PAINEL DE COTAÇÕES -->
+  <div class="card" style="border-left: 4px solid #2196f3;">
+    <h3>📊 Gerenciamento de Cotações</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; font-size: 14px;">
+      <div><strong>Base LTC:</strong> <span id="baseLtc">Carregando...</span></div>
+      <div><strong>Atual LTC:</strong> <span id="atualLtc" style="color: #2a8f43; font-weight: bold;">Carregando...</span></div>
+      <div><strong>Base USD:</strong> <span id="baseUsd">Carregando...</span></div>
+      <div><strong>Atual USD:</strong> <span id="atualUsd">Carregando...</span></div>
+      <div><strong>Base BRL:</strong> <span id="baseBrl">Carregando...</span></div>
+      <div><strong>Atual BRL:</strong> <span id="atualBrl">Carregando...</span></div>
+    </div>
+    <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; color: #0d47a1;">
+      <strong>Diferença (Variação LTC):</strong> <span id="diffLtc">Calculando...</span>
+    </div>
+    <button onclick="carregarCotacoesAdmin()" class="checar">🔄 Atualizar Exibição</button>
+    <button onclick="forçarAtualizacaoCotacao()" class="aprovar" style="background: #ff9800;">⚡ Forçar Atualização da API</button>
+  </div>
+
+  
   <h1 id="mainHeading">💰 Manage Pending Withdrawals</h1>
   <table id="tabela-saques">
     <thead>
@@ -48,7 +67,73 @@
   <script>
     let chaveAdmin = "";
     let userLang = "pt";
+// Valor base de referência que você utiliza em todos os cálculos
+    const VALOR_BASE_ADMIN = {
+      valor_ltc: 0.00010309,
+      valor_usd: 0.00909091,
+      valor_brl: 0.05000000,
+      valor_zer: 2.50000000
+    };
 
+    async function carregarCotacoesAdmin() {
+      // Exibe os valores bases fixos no painel
+      document.getElementById("baseLtc").innerText = Number(VALOR_BASE_ADMIN.valor_ltc).toFixed(8);
+      document.getElementById("baseUsd").innerText = "$" + Number(VALOR_BASE_ADMIN.valor_usd).toFixed(4);
+      document.getElementById("baseBrl").innerText = "R$ " + Number(VALOR_BASE_ADMIN.valor_brl).toFixed(2);
+
+      try {
+        // Busca a cotação atual gravada no banco através da sua rota existente
+        const res = await secureFetch('/api/ltc-hoje');
+        const c = await res.json();
+
+        if (c && c.valor_ltc) {
+          const ltcAtual = parseFloat(c.valor_ltc);
+          const usdAtual = parseFloat(c.valor_usd);
+          const brlAtual = parseFloat(c.valor_brl);
+
+          document.getElementById("atualLtc").innerText = ltcAtual.toFixed(8);
+          document.getElementById("atualUsd").innerText = "$" + usdAtual.toFixed(4);
+          document.getElementById("atualBrl").innerText = "R$ " + brlAtual.toFixed(2);
+
+          // Cálculo da diferença percentual em relação ao valor base
+          const diff = ((ltcAtual - VALOR_BASE_ADMIN.valor_ltc) / VALOR_BASE_ADMIN.valor_ltc) * 100;
+          const diffEl = document.getElementById("diffLtc");
+          
+          if (diff > 0) {
+            diffEl.innerHTML = `<span style="color: green;">+${diff.toFixed(2)}% (Subiu em relação à base)</span>`;
+          } else if (diff < 0) {
+            diffEl.innerHTML = `<span style="color: red;">${diff.toFixed(2)}% (Caiu em relação à base)</span>`;
+          } else {
+            diffEl.innerHTML = `<span>0.00% (Igual à base)</span>`;
+          }
+        } else {
+          document.getElementById("atualLtc").innerText = "---";
+          document.getElementById("diffLtc").innerText = "Sem dados disponíveis";
+        }
+      } catch (err) {
+        console.error("Erro ao carregar cotações no admin:", err);
+      }
+    }
+
+    // Opcional: Se quiser criar uma rota no backend para forçar o cron a rodar imediatamente ao clicar no botão
+    async function forçarAtualizacaoCotacao() {
+      if (!confirm("Deseja forçar a consulta na API da CoinGecko agora?")) return;
+      try {
+        const res = await secureFetch('/admin/atualizar-cotacao-forcada', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          alert("✅ Cotação atualizada com sucesso!");
+          carregarCotacoesAdmin();
+        } else {
+          alert("❌ Erro ao atualizar: " + (data.error || "Erro desconhecido"));
+        }
+      } catch (e) {
+        alert("Erro de comunicação ao forçar atualização.");
+      }
+    }
+
+    // Chame a função de carregar cotações junto ao carregamento inicial da página (ou após inserir a chave)
+    // Você pode adicionar carregarCotacoesAdmin() dentro da sua função usarChave() ou num evento DOMContentLoaded.
     async function usarChave() {
       chaveAdmin = document.getElementById("adminKey").value;
       carregarSaques();
