@@ -15,7 +15,7 @@
     .reprovar { background: #f44336; color: white; }
     .checar { background: #2196f3; color: white; }
     .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    input[type="password"] { padding: 8px; width: 250px; margin-right: 10px; border-radius: 4px; border: 1px solid #ccc; }
+    input[type="password"], input[type="text"] { padding: 8px; width: 220px; margin-right: 8px; margin-bottom: 8px; border-radius: 4px; border: 1px solid #ccc; }
     code { background: #eee; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
   </style>
 </head>
@@ -28,9 +28,9 @@
     <button onclick="location.reload()" id="btnRefresh">🔄 Refresh</button>
   </div>
 
-<!-- 🔹 PAINEL DE COTAÇÕES -->
+  <!-- 🔹 PAINEL DE COTAÇÕES E CORREÇÃO -->
   <div class="card" style="border-left: 4px solid #2196f3;">
-    <h3>📊 Gerenciamento de Cotações</h3>
+    <h3>📊 Gerenciamento de Cotações e Proteção de Saques</h3>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; font-size: 14px;">
       <div><strong>Base LTC:</strong> <span id="baseLtc">Carregando...</span></div>
       <div><strong>Atual LTC:</strong> <span id="atualLtc" style="color: #2a8f43; font-weight: bold;">Carregando...</span></div>
@@ -39,14 +39,29 @@
       <div><strong>Base BRL:</strong> <span id="baseBrl">Carregando...</span></div>
       <div><strong>Atual BRL:</strong> <span id="atualBrl">Carregando...</span></div>
     </div>
+    
     <div style="background: #e3f2fd; padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 14px; color: #0d47a1;">
-      <strong>Diferença (Variação LTC):</strong> <span id="diffLtc">Calculando...</span>
+      <strong>Diferença (Variação LTC):</strong> <span id="diffLtc">Calculando...</span><br>
+      <strong>Fator de Correção Recomendado:</strong> <span id="fatorCorrecao">1.0000</span>
     </div>
-    <button onclick="carregarCotacoesAdmin()" class="checar">🔄 Atualizar Exibição</button>
-    <button onclick="forçarAtualizacaoCotacao()" class="aprovar" style="background: #ff9800;">⚡ Forçar Atualização da API</button>
+
+    <div style="margin-bottom: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+      <h4>⚙️ Inserção Manual de Cotação</h4>
+      <input type="text" id="manualLtc" placeholder="Valor LTC (ex: 0.00020707)" />
+      <input type="text" id="manualUsd" placeholder="Valor USD (ex: 0.0098)" />
+      <input type="text" id="manualBrl" placeholder="Valor BRL (ex: 0.05)" />
+      <input type="text" id="manualZer" placeholder="Valor ZER (ex: 2.50)" />
+      <br>
+      <button onclick="inserirCotacaoManual()" class="aprovar" style="background: #9c27b0;">💾 Inserir Cotação no Banco</button>
+    </div>
+
+    <div>
+      <button onclick="carregarCotacoesAdmin()" class="checar">🔄 Atualizar Exibição</button>
+      <button onclick="calcularCorrecaoSaques()" class="checar" style="background: #ff9800;">🧮 1. Calcular Correção Pendentes</button>
+      <button onclick="aplicarFatorCorrecao()" class="aprovar" style="background: #d32f2f;">🛡️ 2. Aplicar Fator nos Saques 'Waiting'</button>
+    </div>
   </div>
 
-  
   <h1 id="mainHeading">💰 Manage Pending Withdrawals</h1>
   <table id="tabela-saques">
     <thead>
@@ -54,7 +69,7 @@
         <th>ID</th>
         <th>Telegram ID</th>
         <th>Pix / Carteira</th>
-        <th>Valor</th>
+        <th>Valor / Pontos</th>
         <th>Status</th>
         <th>Ações</th>
       </tr>
@@ -66,8 +81,9 @@
 
   <script>
     let chaveAdmin = "";
-    let userLang = "pt";
-// Valor base de referência que você utiliza em todos os cálculos
+    let ultimaCotacaoGlobal = null;
+    
+    // Valor base de referência inicial dos cálculos
     const VALOR_BASE_ADMIN = {
       valor_ltc: 0.00010309,
       valor_usd: 0.00909091,
@@ -75,67 +91,9 @@
       valor_zer: 2.50000000
     };
 
-    async function carregarCotacoesAdmin() {
-      // Exibe os valores bases fixos no painel
-      document.getElementById("baseLtc").innerText = Number(VALOR_BASE_ADMIN.valor_ltc).toFixed(8);
-      document.getElementById("baseUsd").innerText = "$" + Number(VALOR_BASE_ADMIN.valor_usd).toFixed(4);
-      document.getElementById("baseBrl").innerText = "R$ " + Number(VALOR_BASE_ADMIN.valor_brl).toFixed(2);
-
-      try {
-        // Busca a cotação atual gravada no banco através da sua rota existente
-        const res = await secureFetch('/api/ltc-hoje');
-        const c = await res.json();
-
-        if (c && c.valor_ltc) {
-          const ltcAtual = parseFloat(c.valor_ltc);
-          const usdAtual = parseFloat(c.valor_usd);
-          const brlAtual = parseFloat(c.valor_brl);
-
-          document.getElementById("atualLtc").innerText = ltcAtual.toFixed(8);
-          document.getElementById("atualUsd").innerText = "$" + usdAtual.toFixed(4);
-          document.getElementById("atualBrl").innerText = "R$ " + brlAtual.toFixed(2);
-
-          // Cálculo da diferença percentual em relação ao valor base
-          const diff = ((ltcAtual - VALOR_BASE_ADMIN.valor_ltc) / VALOR_BASE_ADMIN.valor_ltc) * 100;
-          const diffEl = document.getElementById("diffLtc");
-          
-          if (diff > 0) {
-            diffEl.innerHTML = `<span style="color: green;">+${diff.toFixed(2)}% (Subiu em relação à base)</span>`;
-          } else if (diff < 0) {
-            diffEl.innerHTML = `<span style="color: red;">${diff.toFixed(2)}% (Caiu em relação à base)</span>`;
-          } else {
-            diffEl.innerHTML = `<span>0.00% (Igual à base)</span>`;
-          }
-        } else {
-          document.getElementById("atualLtc").innerText = "---";
-          document.getElementById("diffLtc").innerText = "Sem dados disponíveis";
-        }
-      } catch (err) {
-        console.error("Erro ao carregar cotações no admin:", err);
-      }
-    }
-
-    // Opcional: Se quiser criar uma rota no backend para forçar o cron a rodar imediatamente ao clicar no botão
-    async function forçarAtualizacaoCotacao() {
-      if (!confirm("Deseja forçar a consulta na API da CoinGecko agora?")) return;
-      try {
-        const res = await secureFetch('/admin/atualizar-cotacao-forcada', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          alert("✅ Cotação atualizada com sucesso!");
-          carregarCotacoesAdmin();
-        } else {
-          alert("❌ Erro ao atualizar: " + (data.error || "Erro desconhecido"));
-        }
-      } catch (e) {
-        alert("Erro de comunicação ao forçar atualização.");
-      }
-    }
-
-    // Chame a função de carregar cotações junto ao carregamento inicial da página (ou após inserir a chave)
-    // Você pode adicionar carregarCotacoesAdmin() dentro da sua função usarChave() ou num evento DOMContentLoaded.
     async function usarChave() {
       chaveAdmin = document.getElementById("adminKey").value;
+      carregarCotacoesAdmin();
       carregarSaques();
     }
 
@@ -148,8 +106,146 @@
       return fetch(url, options);
     }
 
+    async function carregarCotacoesAdmin() {
+      document.getElementById("baseLtc").innerText = Number(VALOR_BASE_ADMIN.valor_ltc).toFixed(8);
+      document.getElementById("baseUsd").innerText = "$" + Number(VALOR_BASE_ADMIN.valor_usd).toFixed(4);
+      document.getElementById("baseBrl").innerText = "R$ " + Number(VALOR_BASE_ADMIN.valor_brl).toFixed(2);
+
+      try {
+        const res = await secureFetch('/api/ltc-hoje');
+        const c = await res.json();
+        ultimaCotacaoGlobal = c;
+
+        if (c && c.valor_ltc) {
+          const ltcAtual = parseFloat(c.valor_ltc);
+          const usdAtual = parseFloat(c.valor_usd);
+          const brlAtual = parseFloat(c.valor_brl);
+
+          document.getElementById("atualLtc").innerText = ltcAtual.toFixed(8);
+          document.getElementById("atualUsd").innerText = "$" + usdAtual.toFixed(4);
+          document.getElementById("atualBrl").innerText = "R$ " + brlAtual.toFixed(2);
+
+          const diff = ((ltcAtual - VALOR_BASE_ADMIN.valor_ltc) / VALOR_BASE_ADMIN.valor_ltc) * 100;
+          const diffEl = document.getElementById("diffLtc");
+          
+          if (diff > 0) {
+            diffEl.innerHTML = `<span style="color: green;">+${diff.toFixed(2)}% (LTC ficou mais barato/subiu em quantidade)</span>`;
+          } else if (diff < 0) {
+            diffEl.innerHTML = `<span style="color: red;">${diff.toFixed(2)}% (LTC valorizou)</span>`;
+          } else {
+            diffEl.innerHTML = `<span>0.00% (Igual à base)</span>`;
+          }
+
+          // Fator para reajustar pontos/valores se necessário
+          const fator = VALOR_BASE_ADMIN.valor_ltc / ltcAtual;
+          document.getElementById("fatorCorrecao").innerText = fator.toFixed(4);
+        } else {
+          document.getElementById("atualLtc").innerText = "---";
+          document.getElementById("diffLtc").innerText = "Sem dados disponíveis";
+        }
+      } catch (err) {
+        console.error("Erro ao carregar cotações:", err);
+      }
+    }
+
+    // Inserção manual de cotação utilizando a rota /admin/sql que você já possui
+    async function inserirCotacaoManual() {
+      const ltc = document.getElementById("manualLtc").value;
+      const usd = document.getElementById("manualUsd").value;
+      const brl = document.getElementById("manualBrl").value;
+      const zer = document.getElementById("manualZer").value;
+
+      if (!ltc || !usd || !brl || !zer) {
+        alert("Preencha todos os campos de valores manuais!");
+        return;
+      }
+
+      if (!confirm("Deseja inserir esta nova cotação manualmente no banco?")) return;
+
+      const sql = `INSERT INTO cotacoes (valor_ltc, valor_usd, valor_zer, valor_brl, data_registro) VALUES (${ltc}, ${usd}, ${zer}, ${brl}, CURRENT_DATE)`;
+
+      try {
+        const res = await secureFetch('/admin/sql', {
+          method: 'POST',
+          body: JSON.stringify({ sql })
+        });
+        if (res.ok) {
+          alert("✅ Cotação manual inserida com sucesso!");
+          carregarCotacoesAdmin();
+        } else {
+          const errText = await res.text();
+          alert("❌ Erro ao inserir: " + errText);
+        }
+      } catch (e) {
+        alert("Erro de comunicação com o servidor.");
+      }
+    }
+
+    // Simula o cálculo de correção para proteger contra prejuízos nos saques pendentes
+    async function calcularCorrecaoSaques() {
+      if (!ultimaCotacaoGlobal || !ultimaCotacaoGlobal.valor_ltc) {
+        alert("Carregue as cotações primeiro!");
+        return;
+      }
+
+      const ltcAtual = parseFloat(ultimaCotacaoGlobal.valor_ltc);
+      const fator = VALOR_BASE_ADMIN.valor_ltc / ltcAtual;
+
+      const sql = `SELECT id, telegram_id, pontos_solicitados FROM saques WHERE status = 'Waiting'`;
+      try {
+        const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql }) });
+        const saques = await res.json();
+
+        if (saques.length === 0) {
+          alert("Nenhum saque 'Waiting' para calcular.");
+          return;
+        }
+
+        let relatorio = `📊 SIMULAÇÃO DE CORREÇÃO (Fator: ${fator.toFixed(4)}):\n\n`;
+        saques.forEach(s => {
+          const ptsAntigos = parseFloat(s.pontos_solicitados);
+          const ptsCorrigidos = Math.round(ptsAntigos * fator);
+          relatorio += `Saque #${s.id} (User ${s.telegram_id}): ${ptsAntigos} Pts ➡️ Ajustar para ${ptsCorrigidos} Pts\n`;
+        });
+
+        alert(relatorio);
+      } catch (err) {
+        alert("Erro ao calcular correção dos saques.");
+      }
+    }
+
+    // Aplica o fator de correção nos saques pendentes ('Waiting') atualizando o banco
+    async function aplicarFatorCorrecao() {
+      if (!ultimaCotacaoGlobal || !ultimaCotacaoGlobal.valor_ltc) {
+        alert("Carregue as cotações primeiro!");
+        return;
+      }
+
+      const ltcAtual = parseFloat(ultimaCotacaoGlobal.valor_ltc);
+      const fator = VALOR_BASE_ADMIN.valor_ltc / ltcAtual;
+
+      if (!confirm(`⚠️ ATENÇÃO: Deseja aplicar o fator de correção (${fator.toFixed(4)}) em TODOS os saques com status 'Waiting'? Isso ajustará os pontos solicitados para evitar prejuízo.`)) {
+        return;
+      }
+
+      // Atualiza os pontos utilizando cálculo proporcional direto no SQL do Postgres
+      const sql = `UPDATE saques SET pontos_solicitados = ROUND(pontos_solicitados * ${fator}) WHERE status = 'Waiting'`;
+
+      try {
+        const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql }) });
+        if (res.ok) {
+          alert("✅ Fator de correção aplicado com sucesso aos saques pendentes!");
+          carregarSaques();
+        } else {
+          const errText = await res.text();
+          alert("❌ Erro ao aplicar correção: " + errText);
+        }
+      } catch (err) {
+        alert("Erro de comunicação ao aplicar correção.");
+      }
+    }
+
     async function carregarSaques() {
-      // 🎯 Alterado de 'pendente' para 'Waiting' para buscar os confirmados no chat
       const sql = `SELECT id, telegram_id, chave_pix, valor_solicitado, pontos_solicitados, status FROM saques WHERE status = 'Waiting' ORDER BY data_solicitacao DESC`;
       try {
         const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql }) });
@@ -179,11 +275,10 @@
           tbody.appendChild(tr);
         });
       } catch (err) { 
-        alert("Erro ao carregar saques."); 
+        console.error("Erro ao carregar saques:", err);
       }
     }
 
-    // APROVAR (Pagamento Real)
     async function processarPagamento(id) {
       if (!confirm("Confirmar pagamento via FaucetPay?")) return;
       try {
@@ -196,12 +291,11 @@
           alert("✅ Pago com sucesso! TX: " + data.tx);
           carregarSaques();
         } else {
-          alert("❌ Erro: " + data.error);
+          alert("❌ Erro: " + (data.error || "Erro desconhecido"));
         }
       } catch (err) { alert("Erro na comunicação."); }
     }
 
-    // REPROVAR (Apenas Update no banco)
     async function atualizarStatus(id, novoStatus) {
       if (!confirm(`Confirmar ação: ${novoStatus} para saque #${id}?`)) return;
       try {
