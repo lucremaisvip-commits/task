@@ -7,6 +7,23 @@
   <style>
     body { font-family: sans-serif; max-width: 900px; margin: auto; padding: 20px; background: #f5f5f5; }
     h1, h2 { color: #2a8f43; }
+     nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
     table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
     th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
     th { background: #e0f2f1; }
@@ -20,7 +37,14 @@
   </style>
 </head>
 <body>
-
+ <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+  </nav>
   <div class="card">
     <h3 id="titleKeyCard">🔑 Enter your admin key</h3>
     <input id="adminKey" type="password" placeholder="••••••••••••••••••••" />
@@ -306,12 +330,55 @@
       } catch (err) { alert("Erro ao atualizar status."); }
     }
 
-    async function checarTarefas(telegramId) {
-      const sqlTotal = `SELECT COUNT(id) AS total FROM tarefas_concluidas WHERE telegram_id = '${telegramId}'`;
-      const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql: sqlTotal }) });
-      const data = await res.json();
-      alert("Total de tarefas concluídas: " + (data[0]?.total || 0));
+async function checarTarefas(telegramId) {
+      const sql = `SELECT origem, COUNT(*) as total_acoes, SUM(pontos) as total_pontos FROM historico_ganhos WHERE telegram_id = '${telegramId}' GROUP BY origem ORDER BY total_acoes DESC`;
+      
+      try {
+        const res = await secureFetch('/admin/sql', { method: 'POST', body: JSON.stringify({ sql }) });
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          alert(`Nenhum histórico de ganhos encontrado para o usuário ${telegramId}.`);
+          return;
+        }
+
+        let relatorio = `📊 RELATÓRIO DE ATIVIDADES (User: ${telegramId})\n\n`;
+        let totalGeralPontos = 0;
+        let totalGeralAcoes = 0;
+
+        data.forEach(row => {
+          const origem = row.origem || 'Desconhecida';
+          const acoes = parseInt(row.total_acoes) || 0;
+          const pontos = parseInt(row.total_pontos) || 0;
+
+          relatorio += `• Origem: ${origem}\n  Ações: ${acoes}x | Pontos: ${pontos} Pts\n\n`;
+          
+          totalGeralAcoes += acoes;
+          totalGeralPontos += pontos;
+        });
+
+        relatorio += `-----------------------------------\n`;
+        relatorio += `🔹 Total de Ações: ${totalGeralAcoes}\n`;
+        relatorio += `🔹 Total Acumulado: ${totalGeralPontos} Pts`;
+
+        alert(relatorio);
+      } catch (err) {
+        console.error("Erro ao checar atividades:", err);
+        alert("Erro ao buscar histórico do usuário.");
+      }
     }
+ 
+   const params = new URLSearchParams(window.location.search);
+  const key = params.get("key");
+
+  if (key) {
+    document.querySelectorAll("a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+      }
+    });
+  }   
+    
   </script>
 </body>
 </html>
