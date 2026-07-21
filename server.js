@@ -2147,6 +2147,105 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
   }
 });
 
+
+// =========================================================================
+// 🔹 AUTOMATIZAÇÃO DE COTAÇÕES (1 VEZ AO DIA ÀS 12:00 DE BRASÍLIA)
+// =========================================================================
+
+const VALOR_BASE = {
+  valor_ltc: 0.00010309,
+  valor_usd: 0.00909091,
+  valor_zer: 2.50000000,
+  valor_brl: 0.05000000
+};
+
+const LIMIAR_VARIACAO_PERCENTUAL = 10.0; 
+
+async function atualizarCotacoesAutomaticamente() {
+  try {
+    console.log("🔄 [COTAÇÕES] Consultando valor atual do Litecoin (LTC) na API...");
+
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl');
+    const data = response.data;
+    
+    if (!data.litecoin) {
+      console.error("❌ [COTAÇÕES] Erro: Dados do Litecoin não retornados pela API.");
+      return;
+    }
+
+    const precoLtcUsdAtual = data.litecoin.usd;
+    const precoLtcBrlAtual = data.litecoin.brl;
+
+    const valorBrlPorPonto = VALOR_BASE.valor_brl;
+    const valorUsdPorPonto = valorBrlPorPonto / (precoLtcBrlAtual / precoLtcUsdAtual); 
+    const valorLtcPorPonto = valorBrlPorPonto / precoLtcBrlAtual;
+    const valorZerPorPonto = VALOR_BASE.valor_zer; 
+
+    const valLtcStr = valorLtcPorPonto.toFixed(18);
+    const valUsdStr = valorUsdPorPonto.toFixed(18);
+    const valZerStr = valorZerPorPonto.toFixed(18);
+    const valBrlStr = valorBrlPorPonto.toFixed(18);
+
+    const ultimaCotacaoRes = await pool.query(
+      "SELECT * FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+    );
+
+    let registrarNoBanco = true;
+
+    if (ultimaCotacaoRes.rows.length > 0) {
+      const ultima = ultimaCotacaoRes.rows[0];
+      const ltcAnterior = parseFloat(ultima.valor_ltc);
+      const ltcNovo = parseFloat(valLtcStr);
+
+      const variacaoPercentual = Math.abs(((ltcNovo - ltcAnterior) / ltcAnterior) * 100);
+
+      console.log(`📊 [COMPARAÇÃO] LTC Anterior: ${ltcAnterior} | LTC Novo: ${ltcNovo} | Variação: ${variacaoPercentual.toFixed(2)}%`);
+
+      if (variacaoPercentual >= LIMIAR_VARIACAO_PERCENTUAL) {
+        console.warn(`🚨 [ALERTA DE PREJUÍZO] O Litecoin mudou ${variacaoPercentual.toFixed(2)}% em relação ao último registro!`);
+      }
+
+      const dataHoje = new Date().toISOString().split('T')[0];
+      const dataUltimoRegistro = new Date(ultima.data_registro).toISOString().split('T')[0];
+
+      if (dataUltimoRegistro === dataHoje) {
+        console.log("ℹ️ [COTAÇÕES] Já existe cotação registrada para hoje. Pulando inserção diária.");
+        registrarNoBanco = false; 
+      }
+    } else {
+      console.log("📌 [COTAÇÕES] Tabela vazia. Inserindo valor base inicial...");
+      await pool.query(
+        `INSERT INTO cotacoes (valor_ltc, valor_usd, valor_zer, valor_brl, data_registro) 
+         VALUES ($1, $2, $3, $4, CURRENT_DATE)`,
+        [VALOR_BASE.valor_ltc, VALOR_BASE.valor_usd, VALOR_BASE.valor_zer, VALOR_BASE.valor_brl]
+      );
+      return;
+    }
+
+    if (registrarNoBanco) {
+      await pool.query(
+        `INSERT INTO cotacoes (valor_ltc, valor_usd, valor_zer, valor_brl, data_registro) 
+         VALUES ($1, $2, $3, $4, CURRENT_DATE)`,
+        [valLtcStr, valUsdStr, valZerStr, valBrlStr]
+      );
+      console.log(`✅ [COTAÇÕES] Cotação diária salva com sucesso! 1 Ponto = ${valLtcStr} LTC`);
+    }
+
+  } catch (error) {
+    console.error("❌ [COTAÇÕES] Erro ao atualizar cotações automaticamente:", error.message);
+  }
+}
+
+// ⏱️ Agendado para rodar todos os dias às 15:00 UTC (que equivale exatamente às 12:00 no Horário de Brasília)
+cron.schedule('0 15 * * *', () => {
+  atualizarCotacoesAutomaticamente();
+});
+
+// Executa uma vez ao iniciar o servidor para checar se já existe cotação do dia
+atualizarCotacoesAutomaticamente();
+
+
+
 // =========================================================================
 // 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS
 // =========================================================================
