@@ -751,124 +751,156 @@ app.get("/zeradsptc.php", async (req, res) => {
     return res.status(403).send("acesso negado");
   }
 
-try {
+  const client = await pool.connect();
+  try {
     const valorZER = parseFloat(amount || 0);
     const totalClicks = parseInt(clicks || 0);
-    const pontos = (((valorZER * 5.0) * 0.009) * 0.4) / 0.05;
+
+    if (valorZER <= 0) {
+      return res.send("ok");
+    }
+
+    await client.query("BEGIN");
+
+    // 2. Busca a cotação mais recente do banco (gerenciada pelo Cron)
+    const cotacaoRes = await client.query(
+      "SELECT valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+    );
+
+    const valorZerPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_zer) : 2.5;
+
+    // 3. Cálculo Dinâmico Baseado na Cotação Atual (Fator de repasse de 40%)
+    const percentualRepasse = 0.40; 
+    const pontosCalculados = (valorZER / valorZerPorPonto) * percentualRepasse;
+    
+    // Formata rigorosamente para string com 8 casas decimais para casar perfeitamente com o tipo NUMERIC do PostgreSQL
+    const pontosFinal = pontosCalculados.toFixed(8);
     const xpGerado = totalClicks * 6;
 
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+    // 4. Atualizar pontos do usuário de forma segura via cast para NUMERIC
+    const updateResult = await client.query(
+      "UPDATE usuarios SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC) WHERE telegram_id = $2",
+      [pontosFinal, user]
+    );
 
-      // 3. Atualizar APENAS pontos do usuário (XP será tratado pela função)
-      const updateResult = await client.query(
-        "UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2",
-        [pontos, user]
-      );
-
-      if (updateResult.rowCount === 0) {
-        await client.query("ROLLBACK");
-        return res.send("usuario nao encontrado");
-      }
-
-      // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
-      // Passamos o client da transação para garantir a consistência
-      await adicionarXP(user, xpGerado, client);
-      // ---------------------------------------
-
-      // 4. Registrar no histórico
-      await client.query(
-        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro) 
-         VALUES ($1, $2, $3, $4, NOW())`,
-        [user, 'zerads', pontos, 'ZerAds PTC']
-      );
-
-      // --- DISPARO DE METAS (Onde o sistema valida o progresso) ---
-      // A função verificaMetaDiaria e verificarMissaoEntrada devem estar 
-      // declaradas no seu escopo ou importadas corretamente.
-      const metaBatida = await verificarMetaDiaria(client, user);
-      
-      let infoBooster = { liberado: false };
-      if (metaBatida) {
-          infoBooster = await verificarMissaoEntrada(client, user);
-      }
-      // -----------------------------------------------------------
-
-      await client.query("COMMIT");
-      
-      console.log(`✅ Créditos: ${pontos} pts | XP: ${xpGerado} | Usuário: ${user} | Meta: ${metaBatida}`);
-      res.send("ok");
-
-    } catch (dbErr) {
+    if (updateResult.rowCount === 0) {
       await client.query("ROLLBACK");
-      throw dbErr;
-    } finally {
-      client.release();
+      return res.send("usuario nao encontrado");
     }
+
+    // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
+    await adicionarXP(user, xpGerado, client);
+    // ---------------------------------------
+
+    // 5. Registrar no histórico unificado (historico_ganhos)
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro) 
+       VALUES ($1, $2, CAST($3 AS NUMERIC), $4, NOW())`,
+      [user, 'zerads', pontosFinal, 'ZerAds PTC']
+    );
+
+    // --- DISPARO DE METAS E BOOSTERS ---
+    const metaBatida = await verificarMetaDiaria(client, user);
+    
+    let infoBooster = { liberado: false };
+    if (metaBatida) {
+        infoBooster = await verificarMissaoEntrada(client, user);
+    }
+    // -----------------------------------
+
+    await client.query("COMMIT");
+    
+    console.log(`✅ Créditos ZerAds: ${pontosFinal} pts (Base ZER: ${valorZerPorPonto}) | XP: ${xpGerado} | Usuário: ${user} | Meta: ${metaBatida}`);
+    res.send("ok");
+
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("🔥 Erro ZerAds:", err);
     res.status(500).send("erro");
+  } finally {
+    client.release();
   }
 });
 
 
-
 app.get("/cpalead-postback", async (req, res) => {
   const { subid, payout, offer_id, campaign_name } = req.query;
-  const telegram_id = subid.replace("telegram_", "");
   
-  const pontos = (parseFloat(payout) * 50) * 0.4;
+  if (!subid) {
+    return res.status(400).send("❌ Subid ausente.");
+  }
 
+  const telegram_id = subid.replace("telegram_", "");
+
+  const client = await pool.connect();
   try {
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
+    const valorPayout = parseFloat(payout || 0);
 
-      // 1. Idempotência: Checa na historico_ganhos
-      const check = await client.query(
-        "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'cpalead'", 
-        [offer_id]
-      );
-      
-      if (check.rowCount > 0) {
-        await client.query("ROLLBACK");
-        return res.status(200).send("✅ Tarefa já registrada.");
-      }
-
-      // 2. Log na tabela unificada (historico_ganhos)
-      await client.query(
-        `INSERT INTO historico_ganhos 
-        (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
-        VALUES ($1, 'cpalead', $2, $3, $4, NOW())`,
-        [telegram_id, pontos, campaign_name, offer_id]
-      );
-
-      // 3. Update saldo e tarefas
-      await client.query(
-        `UPDATE usuarios 
-          SET pontos = COALESCE(pontos, 0) + $1, 
-              tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
-          WHERE telegram_id = $2`,
-        [pontos, telegram_id]
-      );
-
-      // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
-      await adicionarXP(telegram_id, 5, client);
-      // ---------------------------------------
-
-      await client.query("COMMIT");
-      res.status(200).send("✅ Sucesso.");
-
-    } catch (dbErr) {
-      await client.query("ROLLBACK");
-      throw dbErr;
-    } finally {
-      client.release();
+    if (valorPayout <= 0) {
+      return res.status(200).send("✅ Payout zerado ignorado.");
     }
+
+    await client.query("BEGIN");
+
+    // 1. Busca a cotação USD mais recente do banco (gerenciada pelo Cron)
+    const cotacaoRes = await client.query(
+      "SELECT valor_usd FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+    );
+
+    // Valor base padrão caso a tabela esteja vazia (ex: 0.00909091)
+    const valorUsdPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
+
+    // 2. Cálculo Dinâmico Baseado no Payout em USD e Fator de Repasse (40%)
+    // O payout vem em dólares (ex: $0.50). Dividimos pelo valor de USD de 1 ponto e aplicamos o repasse.
+    const percentualRepasse = 0.40;
+    const pontosCalculados = (valorPayout / valorUsdPorPonto) * percentualRepasse;
+    
+    // Formata com 8 casas decimais para garantir compatibilidade perfeita com o tipo NUMERIC
+    const pontosFinal = pontosCalculados.toFixed(8);
+
+    // 3. Idempotência: Checa na historico_ganhos
+    const check = await client.query(
+      "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'cpalead'", 
+      [offer_id]
+    );
+    
+    if (check.rowCount > 0) {
+      await client.query("ROLLBACK");
+      return res.status(200).send("✅ Tarefa já registrada.");
+    }
+
+    // 4. Log na tabela unificada (historico_ganhos)
+    await client.query(
+      `INSERT INTO historico_ganhos 
+      (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
+      VALUES ($1, 'cpalead', CAST($3 AS NUMERIC), $4, $5, NOW())`,
+      [telegram_id, 'cpalead', pontosFinal, campaign_name || 'Oferta CPALead', offer_id]
+    );
+
+    // 5. Update saldo e tarefas de forma segura via cast para NUMERIC
+    await client.query(
+      `UPDATE usuarios 
+         SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC), 
+             tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
+         WHERE telegram_id = $2`,
+      [pontosFinal, telegram_id]
+    );
+
+    // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
+    await adicionarXP(telegram_id, 5, client);
+    // ---------------------------------------
+
+    await client.query("COMMIT");
+    
+    console.log(`✅ CPALead Sucesso: ${pontosFinal} pts (Base USD: ${valorUsdPorPonto}) | Usuário: ${telegram_id} | Oferta: ${offer_id}`);
+    res.status(200).send("✅ Sucesso.");
+
   } catch (err) {
+    await client.query("ROLLBACK");
     console.error("Erro CPALead:", err.message);
     res.status(500).send("❌ Erro interno.");
+  } finally {
+    client.release();
   }
 });
 
@@ -907,67 +939,76 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     
     if (data.event === 'reward.completed') {
         const userId = data.external_uid;
-        const pontos = parseFloat(data.reward_currency_amount) * percentualRepasse;
+        const rewardAmount = parseFloat(data.reward_currency_amount || 0);
         const viewId = data.view_id;
         const adType = data.ad_type ? data.ad_type.toUpperCase() : "Ad";
         const nomeTarefa = `MoneyRain ${adType}`;
 
         if (!userId || !viewId) return res.status(400).send('Missing user or view ID');
+        if (rewardAmount <= 0) return res.status(200).send('Reward zero ignored');
 
+        const client = await pool.connect();
         try {
-            const check = await pool.query(
+            await client.query('BEGIN');
+
+            // 1. Idempotência: Checa na historico_ganhos
+            const check = await client.query(
                 "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'moneyrain'", 
                 [viewId.toString()]
             );
 
             if (check.rowCount > 0) {
+                await client.query('ROLLBACK');
                 return res.status(200).send('Already credited');
             }
 
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
+            // 2. Busca a cotação USD mais recente do banco (gerenciada pelo Cron)
+            const cotacaoRes = await client.query(
+                "SELECT valor_usd FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+            );
 
-                await client.query(
-                    `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
-                     VALUES ($1, 'moneyrain', $2, $3, $4, NOW())`,
-                    [userId, pontos, nomeTarefa, viewId.toString()]
-                );
+            const valorUsdPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
 
-                // --- ATUALIZAÇÃO DE SALDO ---
-                // XP removido daqui, pois será gerido pela função adicionarXP
-                await client.query(
-                    `UPDATE usuarios 
-                     SET pontos = COALESCE(pontos, 0) + $1
-                     WHERE telegram_id = $2`,
-                    [pontos, userId]
-                );
+            // 3. Cálculo Dinâmico Baseado na Cotação Atual e Fator de Repasse (40%)
+            const pontosCalculados = (rewardAmount / valorUsdPorPonto) * percentualRepasse;
+            const pontosFinal = pontosCalculados.toFixed(8); // Compatível com colunas NUMERIC
 
-                // --- INTEGRAÇÃO DE NÍVEL ---
-                // Agora o nível é calculado automaticamente e prêmios são entregues
-                const resultadoXp = await adicionarXP(userId, 5, client);
+            // 4. Inserção no histórico de ganhos
+            await client.query(
+                `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
+                 VALUES ($1, 'moneyrain', CAST($2 AS NUMERIC), $3, $4, NOW())`,
+                [userId, pontosFinal, nomeTarefa, viewId.toString()]
+            );
 
-                // --- DISPARO DE METAS E BOOSTERS ---
-                const metaBatida = await verificarMetaDiaria(client, userId);
-                
-                let infoBooster = { liberado: false };
-                if (metaBatida) {
-                    infoBooster = await verificarMissaoEntrada(client, userId);
-                }
+            // 5. Atualização de Saldo do usuário
+            await client.query(
+                `UPDATE usuarios 
+                 SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC)
+                 WHERE telegram_id = $2`,
+                [pontosFinal, userId]
+            );
 
-                await client.query('COMMIT');
-                console.log(`✅ Sucesso! Usuário ${userId} recebeu ${pontos} pts e ${resultadoXp.subiuDeNivel ? 'subiu de nível para ' + resultadoXp.novoNivel : '5 XP'} | Meta: ${metaBatida} | Booster: ${infoBooster.liberado}`);
-                return res.status(200).send('OK');
+            // 6. Integração de Nível e XP
+            const resultadoXp = await adicionarXP(userId, 5, client);
 
-            } catch (dbErr) {
-                await client.query('ROLLBACK');
-                throw dbErr;
-            } finally {
-                client.release();
+            // 7. Disparo de Metas e Boosters
+            const metaBatida = await verificarMetaDiaria(client, userId);
+            
+            let infoBooster = { liberado: false };
+            if (metaBatida) {
+                infoBooster = await verificarMissaoEntrada(client, userId);
             }
-        } catch (err) {
-            console.error("🔥 Erro ao processar banco de dados:", err);
+
+            await client.query('COMMIT');
+            console.log(`✅ MoneyRain Sucesso! Usuário ${userId} recebeu ${pontosFinal} pts (Base USD: ${valorUsdPorPonto}) | Meta: ${metaBatida}`);
+            return res.status(200).send('OK');
+
+        } catch (dbErr) {
+            await client.query('ROLLBACK');
+            console.error("🔥 Erro no Banco (MoneyRain):", dbErr);
             return res.status(500).send('Database error');
+        } finally {
+            client.release();
         }
     }
     
