@@ -56,7 +56,7 @@
     <form onsubmit="criarTarefa(); return false;">
       <input type="text" id="titulo" placeholder="Título" required>
       <input type="text" id="link" placeholder="Link" required>
-      <input type="number" id="pontos" placeholder="Pontos" required>
+      <input type="number" id="pontos" placeholder="Pontos (ex: 2 ou 1.5)" step="any" required>
       <input type="number" id="dia" placeholder="Dia (opcional)" min="1">
       <div class="checkbox-container">
         <input type="checkbox" id="is_vip"> <span>Marcar como Tarefa VIP ⭐</span>
@@ -71,7 +71,7 @@
       <input type="hidden" id="edit_id">
       <input type="text" id="edit_titulo" placeholder="Novo Título">
       <input type="text" id="edit_link" placeholder="Novo Link">
-      <input type="number" id="edit_pontos" placeholder="Novo Pontos">
+      <input type="number" id="edit_pontos" placeholder="Novo Pontos (ex: 2 ou 1.5)" step="any">
       <div class="checkbox-container">
         <label><input type="checkbox" id="edit_ativa"> Ativa</label>
       </div>
@@ -200,10 +200,9 @@ async function excluirTarefa(id) {
 async function criarTarefa() {
   const titulo = document.getElementById("titulo").value.trim();
   const link = document.getElementById("link").value.trim();
-  const pontos = parseInt(document.getElementById("pontos").value, 10);
+  const pontos = parseFloat(document.getElementById("pontos").value);
   const is_vip = document.getElementById("is_vip").checked;
 
-  // Monta o objeto sincronizado com a rota /admin/tarefa incluindo a flag VIP
   const dados = { titulo, link, pontos, is_vip };
 
   try {
@@ -214,7 +213,6 @@ async function criarTarefa() {
 
     if (res.ok) {
       alert("✅ Tarefa criada com sucesso!");
-      // Limpa os campos do formulário
       document.getElementById("titulo").value = "";
       document.getElementById("link").value = "";
       document.getElementById("pontos").value = "";
@@ -223,7 +221,6 @@ async function criarTarefa() {
       carregarTarefas();
     } else {
       alert("Erro ao criar tarefa via API. Tentando fallback via SQL direto...");
-      // Fallback em query direta caso sua rota interna não salve o is_vip diretamente de primeira
       const sqlFallback = `INSERT INTO tarefas (titulo, link, pontos, is_vip, ativa) VALUES ('${titulo}', '${link}', ${pontos}, ${is_vip}, true)`;
       await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql: sqlFallback }) });
       alert("✅ Tarefa criada com sucesso (Fallback SQL)!");
@@ -253,7 +250,7 @@ async function salvarEdicao() {
   const id = document.getElementById("edit_id").value;
   const titulo = document.getElementById("edit_titulo").value;
   const link = document.getElementById("edit_link").value;
-  const pontos = document.getElementById("edit_pontos").value;
+  const pontos = parseFloat(document.getElementById("edit_pontos").value);
   const ativa = document.getElementById("edit_ativa").checked;
   const is_vip = document.getElementById("edit_vip").checked;
 
@@ -265,22 +262,20 @@ async function salvarEdicao() {
   carregarTarefas();
 }
 
-// Inicializa a tabela se a chave já existir em sessão
 if (chaveAdmin) {
   carregarTarefas();
 }
 
-  const params = new URLSearchParams(window.location.search);
-  const key = params.get("key");
+const params = new URLSearchParams(window.location.search);
+const key = params.get("key");
 
-  if (key) {
-    document.querySelectorAll("a").forEach(link => {
-      if (!link.href.includes("key=")) {
-        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
-      }
-    });
-  }
-  
+if (key) {
+  document.querySelectorAll("a").forEach(link => {
+    if (!link.href.includes("key=")) {
+      link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+    }
+  });
+}
 </script>
 
 </body>
