@@ -1874,11 +1874,6 @@ app.post("/admin/sql", async (req, res) => {
   const senhaEnviada = req.headers["x-admin-key"];
   const senhaCorreta = process.env.ADMIN_KEY;
 
-  // 🔍 LOGS PARA DESCOBRIR O ERRO
-  console.log("--- DEBUG SQL ---");
-  console.log("Senha Enviada pelo Front:", senhaEnviada);
-  console.log("Senha no process.env (Backend):", senhaCorreta);
-  console.log("-----------------");
 
   // 🔐 Verificação de acesso
   if (!senhaEnviada || senhaEnviada !== senhaCorreta) {
