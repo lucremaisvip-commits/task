@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teste Galaksion - Profiton</title>
+
+  <!-- 1. SCRIPT DE POPS (Recomendado colocar no <head> conforme instrução da rede) -->
+  <script data-cfasync="false" async type="text/javascript" src="//vi.elflockhormigo.com/rU5WspUlBT5osel/147302"></script>
+
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+    }
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      max-width: 400px;
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      text-align: left;
+    }
+    h1 { color: #38bdf8; font-size: 22px; }
+    p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      margin-top: 15px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.3s;
+      box-sizing: border-box;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn-green { background: #16a34a; }
+    .btn-green:hover { background: #15803d; }
+    .info-box {
+      background: #0f172a;
+      border: 1px dashed #475569;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🧪 Ambiente de Testes - Galaksion</h1>
+  <p>Página de validação de tags e Smartlinks integrados.</p>
+
+  <!-- CARTÃO 1: TESTE DO SCRIPT DE POPS -->
+  <div class="card">
+    <h3>💥 Teste de Pops (Onclick)</h3>
+    <p>O script de Pops já está carregado no cabeçalho desta página. Clique em qualquer lugar vazio da tela para testar se o Popunder dispara.</p>
+    <div class="info-box">
+      <b>Status:</b> Script ativo (Zone ID: 147302)
+    </div>
+  </div>
+
+  <!-- CARTÃO 2: TESTE DO SMARTLINK (Simulando uma Tarefa) -->
+  <div class="card">
+    <h3>🚀 Teste de Tarefa com Smartlink</h3>
+    <p>Este botão simula a abertura do seu Direct Link / Smartlink em uma nova aba, pronto para ser integrado ao seu painel de contagem de segundos.</p>
+    
+    <a href="https://yellerstetrao.com/ip53s7cpjXm/147301" target="_blank" class="btn btn-green" onclick="iniciarContagemTeste()">
+      👉 Abrir Tarefa Smartlink
+    </a>
+    
+    <div id="statusTeste" class="info-box" style="display:none; margin-top: 15px; text-align: center; color: #4ade80; font-weight: bold;">
+      ⏳ Tarefa aberta! Simulando permanência... <span id="contadorSegundos">10</span>s
+    </div>
+  </div>
+
+  <script>
+    function iniciarContagemTeste() {
+      const statusBox = document.getElementById("statusTeste");
+      const contadorEl = document.getElementById("contadorSegundos");
+      statusBox.style.display = "block";
+      
+      let segundos = 10;
+      contadorEl.innerText = segundos;
+      
+      const timer = setInterval(() => {
+        segundos--;
+        contadorEl.innerText = segundos;
+        if (segundos <= 0) {
+          clearInterval(timer);
+          statusBox.innerHTML = "✅ Tarefa concluída com sucesso! (Simulação)";
+          statusBox.style.color = "#38bdf8";
+        }
+      }, 1000);
+    }
+  </script>
+
+</body>
+</html>
