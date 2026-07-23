@@ -309,20 +309,16 @@ app.get("/api/tarefas", async (req, res) => {
 });
 
 app.post("/api/concluir-tarefa", async (req, res) => {
-  let { telegram_id, tarefa_id, token, fingerprint } = req.body;
+  let { telegram_id, tarefa_id, token } = req.body;
 
   telegram_id = String(telegram_id || "").trim();
   const tarefaId = Number(tarefa_id);
 
-  console.log(`📥 [CONCLUIR] Recebido -> Telegram ID: ${telegram_id} | Tarefa ID: ${tarefaId} | Token: ${token}`);
-
   if (!telegram_id || isNaN(tarefaId) || !token) {
-    console.log("❌ [CONCLUIR] Dados inválidos detectados.");
     return res.status(400).json({ erro: "Dados inválidos" });
   }
 
   if (!checkRateLimit(telegram_id)) {
-    console.log(`❌ [CONCLUIR] Rate limit atingido para: ${telegram_id}`);
     return res.status(429).json({ erro: "Muitas requisições" });
   }
 
@@ -331,52 +327,41 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // 🔒 Validação de sessão
     const sessaoRes = await client.query(
       `SELECT * FROM tarefas_sessoes WHERE token = $1 FOR UPDATE`,
       [token]
     );
 
     if (sessaoRes.rows.length === 0) {
-      console.log(`❌ [CONCLUIR] Token não encontrado no banco: ${token}`);
       throw new Error("Sessão inválida");
     }
 
     const sessao = sessaoRes.rows[0];
-    console.log(`🔍 [CONCLUIR] Sessão encontrada. Status atual: ${sessao.status} | Telegram DB: ${sessao.telegram_id}`);
 
-if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto") {
-  console.log(`❌ [CONCLUIR] Divergência na sessão -> Req Telegram: ${telegram_id} vs DB: ${sessao.telegram_id} | Status: ${sessao.status}`);
-  throw new Error("Sessão inválida");
-}
+    if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto") {
+      throw new Error("Sessão inválida");
+    }
 
     const tempo = Date.now() - new Date(sessao.data_registro).getTime(); 
-    console.log(`⏱️ [CONCLUIR] Tempo decorrido desde a abertura: ${tempo}ms (Mínimo exigido: 13000ms)`);
-
     if (tempo < 13000) {
-      console.log(`❌ [CONCLUIR] Rejeitado por tempo insuficiente (${tempo}ms).`);
       throw new Error("Tempo insuficiente");
     }
 
     const tarefa = await client.query(`SELECT id, pontos, ativa FROM tarefas WHERE id = $1`, [tarefaId]);
     if (tarefa.rows.length === 0 || !tarefa.rows[0].ativa) {
-      console.log(`❌ [CONCLUIR] Tarefa inativa ou inexistente ID: ${tarefaId}`);
       throw new Error("Tarefa inválida");
     }
 
-    // Bloqueio de duplicação diária
     const check = await client.query(
       `SELECT 1 FROM historico_ganhos WHERE telegram_id = $1 AND referencia_id = $2 AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE`,
       [telegram_id, String(tarefaId)]
     );
     if (check.rows.length > 0) {
-      console.log(`❌ [CONCLUIR] Tarefa já concluída hoje para o usuário ${telegram_id}.`);
       throw new Error("Já concluída hoje");
     }
 
     const pontos = tarefa.rows[0].pontos;
 
-    // 💰 Registro histórico e atualização de saldo + XP
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'tarefa', $2, $3, $4, NOW())`,
@@ -396,7 +381,6 @@ if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto") {
         infoBooster = await verificarMissaoEntrada(client, telegram_id);
     }
 
-    // 🔹 Lógica de Indicação
     const indicacaoRes = await client.query(
       "SELECT * FROM indicacoes WHERE id_indicado = $1 AND pontos_ativados = false",
       [telegram_id]
@@ -426,22 +410,18 @@ if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto") {
       }
     }
 
-    // Marca a sessão como concluída
     await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
     await client.query("COMMIT");
-    console.log(`✅ [CONCLUIR] Sucesso! Tarefa ${tarefaId} computada para ${telegram_id}.`);
     res.json({ mensagem: "✅ Concluído! +15 XP", metaBatida, booster: infoBooster.liberado });
 
   } catch (err) {
     await client.query("ROLLBACK");
-    console.error(`🚨 [CONCLUIR ERRO] Falha na transação para ${telegram_id}:`, err.message);
     res.status(400).json({ erro: err.message || "Erro interno" });
   } finally {
     client.release();
   }
 });
-
 
 app.post("/api/concluir-diaria", async (req, res) => {
   const { telegram_id } = req.body;
