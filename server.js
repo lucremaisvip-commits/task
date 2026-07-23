@@ -314,18 +314,19 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   telegram_id = String(telegram_id || "").trim();
   const tarefaId = Number(tarefa_id);
 
+  console.log(`📥 [CONCLUIR] Recebido -> Telegram ID: ${telegram_id} | Tarefa ID: ${tarefaId} | Token: ${token}`);
+
   if (!telegram_id || isNaN(tarefaId) || !token) {
+    console.log("❌ [CONCLUIR] Dados inválidos detectados.");
     return res.status(400).json({ erro: "Dados inválidos" });
   }
 
   if (!checkRateLimit(telegram_id)) {
+    console.log(`❌ [CONCLUIR] Rate limit atingido para: ${telegram_id}`);
     return res.status(429).json({ erro: "Muitas requisições" });
   }
 
-  const ipHeader = req.headers["x-forwarded-for"];
-  const ip = ipHeader ? ipHeader.split(",")[0].trim() : req.socket.remoteAddress;
-
-  const client = await pool.connect(); // Obtém conexão única para a transação
+  const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
@@ -336,22 +337,30 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       [token]
     );
 
-if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id || 
-        sessaoRes.rows[0].status !== "aberto" || 
-        sessaoRes.rows[0].fingerprint !== fingerprint) {
+    if (sessaoRes.rows.length === 0) {
+      console.log(`❌ [CONCLUIR] Token não encontrado no banco: ${token}`);
       throw new Error("Sessão inválida");
     }
 
     const sessao = sessaoRes.rows[0];
+    console.log(`🔍 [CONCLUIR] Sessão encontrada. Status atual: ${sessao.status} | Telegram DB: ${sessao.telegram_id}`);
+
+    if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto" || sessao.fingerprint !== fingerprint) {
+      console.log(`❌ [CONCLUIR] Divergência na sessão -> Req Telegram: ${telegram_id} vs DB: ${sessao.telegram_id} | Status: ${sessao.status} | FP Match: ${sessao.fingerprint === fingerprint}`);
+      throw new Error("Sessão inválida");
+    }
+
     const tempo = Date.now() - new Date(sessao.data_registro).getTime(); 
-    
-    // 🛡️ Tolerância de 2 segundos para compensar latência de renderização do mobile (13 segundos mínimos)
+    console.log(`⏱️ [CONCLUIR] Tempo decorrido desde a abertura: ${tempo}ms (Mínimo exigido: 13000ms)`);
+
     if (tempo < 13000) {
+      console.log(`❌ [CONCLUIR] Rejeitado por tempo insuficiente (${tempo}ms).`);
       throw new Error("Tempo insuficiente");
     }
 
     const tarefa = await client.query(`SELECT id, pontos, ativa FROM tarefas WHERE id = $1`, [tarefaId]);
     if (tarefa.rows.length === 0 || !tarefa.rows[0].ativa) {
+      console.log(`❌ [CONCLUIR] Tarefa inativa ou inexistente ID: ${tarefaId}`);
       throw new Error("Tarefa inválida");
     }
 
@@ -361,6 +370,7 @@ if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id
       [telegram_id, String(tarefaId)]
     );
     if (check.rows.length > 0) {
+      console.log(`❌ [CONCLUIR] Tarefa já concluída hoje para o usuário ${telegram_id}.`);
       throw new Error("Já concluída hoje");
     }
 
@@ -373,19 +383,14 @@ if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id
       [telegram_id, pontos, "Tarefa ID: " + tarefaId, String(tarefaId)]
     );
 
-// 1. Atualiza pontos e tarefas
-await client.query(
-  `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
-  [pontos, telegram_id]
-);
+    await client.query(
+      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
+      [pontos, telegram_id]
+    );
 
-// 2. Chama a função que já temos para somar XP E subir de nível automaticamente
-const resultadoXp = await adicionarXP(telegram_id, 15, client);
-
-    // 1. Verifica meta diária
+    const resultadoXp = await adicionarXP(telegram_id, 15, client);
     const metaBatida = await verificarMetaDiaria(client, telegram_id);
 
-    // 2. Verifica missão de entrada (Booster)
     let infoBooster = { liberado: false };
     if (metaBatida) {
         infoBooster = await verificarMissaoEntrada(client, telegram_id);
@@ -407,29 +412,30 @@ const resultadoXp = await adicionarXP(telegram_id, 15, client);
       if (parseInt(tarefasRes.rows[0].count) >= 3) {
         await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
         
-        // Atualiza pontos e a contagem de indicações
         await client.query(
           `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
 
-        // Chama a função centralizada para o indicante
         await adicionarXP(indicacao.id_indicador, 20, client);
 
         await client.query(
           `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
           [indicacao.id_indicador, String(telegram_id)]
         );
-      } // Fim do if (count >= 3)
-    } // Fim do if (indicacaoRes.rows.length > 0)
+      }
+    }
 
+    // Marca a sessão como concluída
     await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
     await client.query("COMMIT");
+    console.log(`✅ [CONCLUIR] Sucesso! Tarefa ${tarefaId} computada para ${telegram_id}.`);
     res.json({ mensagem: "✅ Concluído! +15 XP", metaBatida, booster: infoBooster.liberado });
 
   } catch (err) {
     await client.query("ROLLBACK");
+    console.error(`🚨 [CONCLUIR ERRO] Falha na transação para ${telegram_id}:`, err.message);
     res.status(400).json({ erro: err.message || "Erro interno" });
   } finally {
     client.release();
