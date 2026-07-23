@@ -336,15 +336,17 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       [token]
     );
 
-    if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id || 
-        sessaoRes.rows[0].status !== "aberto" || sessaoRes.rows[0].ip !== ip || 
+if (sessaoRes.rows.length === 0 || sessaoRes.rows[0].telegram_id !== telegram_id || 
+        sessaoRes.rows[0].status !== "aberto" || 
         sessaoRes.rows[0].fingerprint !== fingerprint) {
       throw new Error("Sessão inválida");
     }
 
     const sessao = sessaoRes.rows[0];
-    const tempo = Date.now() - new Date(sessao.data_registro).getTime(); // Ajustado para coluna correta
-    if (tempo < 15000) {
+    const tempo = Date.now() - new Date(sessao.data_registro).getTime(); 
+    
+    // 🛡️ Tolerância de 2 segundos para compensar latência de renderização do mobile (13 segundos mínimos)
+    if (tempo < 13000) {
       throw new Error("Tempo insuficiente");
     }
 
