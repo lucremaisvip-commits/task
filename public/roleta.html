@@ -59,7 +59,6 @@
       transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
     }
 
-
     /* BOTÕES */
     button { width: 100%; padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #3b82f6; color: white; margin-top: 10px; font-size: 15px; }
     #btnComprarTickets { background: #2a8f43; }
@@ -84,6 +83,7 @@
     overflow: hidden;
     background: #fff;
     margin: 0;
+  }
   </style>
 </head>
 <body>
@@ -103,7 +103,6 @@
         <li style="color: #4CAF50; font-weight: bold;">⚡ XP Garantido: Cada giro te dá 30 XP!</li>
     </ul>
 </div>
-
 
 <!-- Painel de Status -->
 <div class="card">
@@ -128,8 +127,8 @@
   <button id="botaoGirar">🎯 Spin Wheel</button>
   <div id="resultado"></div>
 
-  <!-- Ajuda -->
-  <div style="margin-top: 15px;">
+  <!-- Ajuda (Espaçamento superior ajustado para afastar da roleta/resultado) -->
+  <div style="margin-top: 25px; margin-bottom: 25px;">
   <button id="btnAjuda" 
           onclick="window.Telegram.WebApp.openLink(this.dataset.url)"
           style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%;">
@@ -145,8 +144,6 @@
     </ul>
   </div>
 
-
-
   <!-- Menu Inferior -->
   <nav class="bottom-nav">
     <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
@@ -156,10 +153,9 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
- <script> 
+ <script>  
 // --- PARTE 1: Configurações, Traduções e UI ---
 
-  // Recupera instantaneamente do localStorage ou URL para evitar qualquer "piscar" de idioma incorreto
   let telegram_id = String(
       new URLSearchParams(window.location.search).get("id") || 
       window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
@@ -172,13 +168,11 @@
       localStorage.getItem("userLang") || 
       "en";
 
-  // Se encontrou dados válidos, já guarda no storage para as próximas páginas
   if (telegram_id) localStorage.setItem("telegram_id", telegram_id);
   if (userLang) localStorage.setItem("userLang", userLang);
 
   let rotacaoAtual = 0;
   let usuarioVip = false;
-
 
 const tradutorPremios = {
   pt: {
@@ -260,15 +254,9 @@ function aplicarTraducoes() {
   setElText("mainTitle", t.mainTitle);
   setHtml("mainDescription", t.description);
 
-  // Labels dos cards (ajustados para pegar apenas o primeiro nó de texto)
-  const updateLabel = (id, text) => {
-    const el = document.getElementById(id);
-    if (el && el.parentElement) el.parentElement.firstChild.textContent = text + " ";
-  };
-
-setElText("labelGiros", t.girosHoje);
-setElText("labelTickets", t.ticketsText);
-setElText("labelPontos", t.pointsText);
+  setElText("labelGiros", t.girosHoje);
+  setElText("labelTickets", t.ticketsText);
+  setElText("labelPontos", t.pointsText);
 
   const cardLojaH3 = document.querySelector("#cardLoja h3");
   if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
@@ -298,11 +286,11 @@ setElText("labelPontos", t.pointsText);
     if (el) el.innerText = text;
   }
 }
+
 // --- PARTE 2: Inicialização e Carregamento de Dados ---
 document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // 1. Extrai e valida a linguagem (Prioriza a URL, depois o que está salvo, padrão "en")
     const langUrl = urlParams.get("lang");
     if (langUrl === "pt" || langUrl === "en") {
         userLang = langUrl;
@@ -310,11 +298,9 @@ document.addEventListener("DOMContentLoaded", () => {
         userLang = localStorage.getItem("userLang") || "en";
     }
     
-    // Salva o idioma atualizado para carregar rápido nas próximas páginas
     localStorage.setItem("userLang", userLang);
     document.documentElement.lang = userLang;
     
-    // 2. Extrai e valida o telegram_id (URL -> Telegram SDK -> LocalStorage)
     telegram_id = String(
         urlParams.get("id") || 
         window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
@@ -326,16 +312,13 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("telegram_id", telegram_id);
     }
 
-    // 3. Ajusta os links do menu inferior para passarem o ID e o Idioma correntes
     document.querySelectorAll(".bottom-nav a").forEach(link => {
         let baseHref = link.getAttribute("href").split("?")[0];
         link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
     });
 
-    // 4. Aplica as traduções imediatamente na tela (evita o "piscar" de idioma)
     aplicarTraducoes();
 
-    // 5. Busca os dados do backend em segundo plano
     if (telegram_id) {
         carregarDadosUsuario();
     }
@@ -344,7 +327,6 @@ document.addEventListener("DOMContentLoaded", () => {
 async function carregarDadosUsuario() {
     if (!telegram_id) return;
 
-    // 1. Carregar Status (Nível/VIP)
     try {
         const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
         const data = await res.json();
@@ -357,7 +339,6 @@ async function carregarDadosUsuario() {
         }
     } catch (e) { console.error("Erro status:", e); }
 
-    // 2. Carregar Saldo
     try {
         const res = await fetch(`/api/usuarios/${telegram_id}`);
         const data = await res.json();
@@ -367,7 +348,6 @@ async function carregarDadosUsuario() {
         }
     } catch (e) { console.error("Erro saldo:", e); }
 
-    // 3. Carregar Giros do Dia
     try {
         const res = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
         const data = await res.json();
@@ -377,11 +357,10 @@ async function carregarDadosUsuario() {
         if (elT) elT.textContent = data.tickets ?? 0;
     } catch (e) { console.error("Erro giros:", e); }
 
-    // 4. Carregar Histórico
     await carregarHistorico();
-    
-    aplicarTraducoes(); // Atualiza textos no final
+    aplicarTraducoes();
 }
+
 // --- PARTE 3: Lógica de Negócio, Roleta e Monetag ---
 
 const roleta = document.getElementById("roleta");
@@ -397,7 +376,6 @@ const anguloPorFatia = 360 / 12;
 
 async function comprarTickets() {
     const btn = document.getElementById("btnComprarTickets");
-    const t = linguagens[userLang];
     btn.disabled = true;
     btn.innerText = userLang === 'pt' ? "Processando..." : "Processing...";
 
@@ -419,7 +397,7 @@ async function comprarTickets() {
         console.error(err);
     } finally {
         btn.disabled = false;
-        aplicarTraducoes(); // Restaura texto
+        aplicarTraducoes();
     }
 }
 
@@ -460,12 +438,10 @@ async function executarGiro() {
   }
 }
 
-// Evento do botão que integra o Monetag
 document.getElementById("botaoGirar").addEventListener("click", () => {
     if (usuarioVip) {
         executarGiro();
     } else {
-        // Chama o Rewarded Interstitial do Monetag
         show_11315704().then(() => {
             executarGiro();
         }).catch(e => {
@@ -475,15 +451,14 @@ document.getElementById("botaoGirar").addEventListener("click", () => {
 });
 
 async function carregarHistorico() {
-  const t = linguagens[userLang];
-  const tP = tradutorPremios[userLang]; // Acessa o tradutor que definimos na Parte 1
+  const tP = tradutorPremios[userLang];
   
   try {
     const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
     const historico = await res.json();
     const lista = document.getElementById("listaGiros");
     
-    lista.innerHTML = ""; // Limpa o "Carregando..."
+    lista.innerHTML = "";
 
     if (!historico || historico.length === 0) {
       lista.innerHTML = `<li>${userLang === 'pt' ? 'Nenhum giro registrado.' : 'No spins recorded.'}</li>`;
@@ -493,21 +468,24 @@ async function carregarHistorico() {
     historico.forEach(giro => {
       const item = document.createElement("li");
       
-      // 1. Formatação da Data (usando 'data_registro' conforme seu banco)
+      // Formatação de data otimizada e limpa (Ex: 23/07 às 12:30 ou 07/23 at 12:30 PM)
       const dataObj = new Date(giro.data_registro);
-      const dataFormatada = !isNaN(dataObj.getTime()) ? dataObj.toLocaleTimeString() : "--:--";
+      let dataFormatada = "--:--";
       
-      // 2. Tradução do Prêmio usando o objeto tradutorPremios da Parte 1
-      const valor = parseFloat(giro.pontos_ganhos) || 0;
-      let textoPremio;
-      
-      if (valor > 0) {
-        textoPremio = tP.pontos(valor); // Usa a função definida em tradutorPremios
-      } else {
-        textoPremio = tP.nada; // Usa a string definida em tradutorPremios
+      if (!isNaN(dataObj.getTime())) {
+        const optionsDate = { day: '2-digit', month: '2-digit' };
+        const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: false };
+        
+        const dataStr = dataObj.toLocaleDateString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsDate);
+        const horaStr = dataObj.toLocaleTimeString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsTime);
+        
+        dataFormatada = userLang === 'pt' ? `${dataStr} às ${horaStr}` : `${dataStr} at ${horaStr}`;
       }
+      
+      const valor = parseFloat(giro.pontos_ganhos) || 0;
+      let textoPremio = valor > 0 ? tP.pontos(valor) : tP.nada;
 
-      item.textContent = `${textoPremio} - ${dataFormatada}`;
+      item.textContent = `${textoPremio} — ${dataFormatada}`;
       lista.appendChild(item);
     });
   } catch (err) { 
@@ -515,8 +493,6 @@ async function carregarHistorico() {
     document.getElementById("listaGiros").innerHTML = "<li>Error loading history</li>";
   }
 }
-
   </script>
 </body>
 </html>
-
