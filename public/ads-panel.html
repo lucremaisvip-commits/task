@@ -202,15 +202,15 @@ btn.onclick = () => {
     iniciarValidacao();
 };
 
-// ⏱️ FASE 2 - VALIDAÇÃO (Dinâmica)
+// ⏱️ FASE 2 - VALIDAÇÃO (Dinâmica com margem de segurança de 1s)
 function iniciarValidacao() {
-    let segundos = tempoValidacao; 
+    let segundos = Math.max(5, tempoValidacao - 1); // Garante margem segura para o backend aceitar de primeira
     btn.style.display = "none";
-    statusEl.innerText = t.stayText + segundos + "s";
+    statusEl.innerText = t.payloadStayText || "⏳ Permaneça na tarefa... " + segundos + "s";
 
     const contador = setInterval(() => {
         segundos--;
-        statusEl.innerText = t.stayText + segundos + "s";
+        statusEl.innerText = (t.stayText || "⏳ Permaneça na tarefa... ") + segundos + "s";
         if (segundos <= 0) {
             clearInterval(contador);
             concluir();
