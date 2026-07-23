@@ -345,10 +345,10 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     const sessao = sessaoRes.rows[0];
     console.log(`🔍 [CONCLUIR] Sessão encontrada. Status atual: ${sessao.status} | Telegram DB: ${sessao.telegram_id}`);
 
-    if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto" || sessao.fingerprint !== fingerprint) {
-      console.log(`❌ [CONCLUIR] Divergência na sessão -> Req Telegram: ${telegram_id} vs DB: ${sessao.telegram_id} | Status: ${sessao.status} | FP Match: ${sessao.fingerprint === fingerprint}`);
-      throw new Error("Sessão inválida");
-    }
+if (sessao.telegram_id !== telegram_id || sessao.status !== "aberto") {
+  console.log(`❌ [CONCLUIR] Divergência na sessão -> Req Telegram: ${telegram_id} vs DB: ${sessao.telegram_id} | Status: ${sessao.status}`);
+  throw new Error("Sessão inválida");
+}
 
     const tempo = Date.now() - new Date(sessao.data_registro).getTime(); 
     console.log(`⏱️ [CONCLUIR] Tempo decorrido desde a abertura: ${tempo}ms (Mínimo exigido: 13000ms)`);
