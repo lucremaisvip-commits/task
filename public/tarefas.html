@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title id="pageTitle">✅ Tasks</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
   body { 
@@ -130,20 +131,47 @@
 <p id="info" style="font-weight: bold; font-size: 16px; margin: 5px 0 20px 0;">Loading...</p>
 
 <div id="tarefas">Loading tasks...</div>
-
-
   
 <script>
-function formatarTitulo(tituloCompleto, lang) {
-    if (!tituloCompleto) return "";
-    const partes = tituloCompleto.split(' / ');
-    // Se o idioma for pt, pega a primeira parte, senão pega a segunda (en)
-    return (lang === 'pt') ? partes[0] : (partes[1] || partes[0]);
-}
-  
 let telegram_id = "";
 let userLang = "en";
 let usuarioVip = false;
+
+// 🔐 SISTEMA DE SEGURANÇA E VALIDAÇÃO DE SESSÃO
+function validarSessaoOuBloquear() {
+  const urlParams = new URLSearchParams(window.location.search);
+  let id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
+  
+  if (!id) {
+    document.body.innerHTML = `<div style="color: #ff4444; padding: 50px; text-align: center; font-family: sans-serif;">
+      <h2>❌ Acesso Negado</h2>
+      <p>Esta aplicação deve ser aberta exclusivamente através do Telegram.</p>
+    </div>`;
+    throw new Error("Sessão não autorizada.");
+  }
+  return String(id);
+}
+
+// 🛡️ REQUISIÇÃO SEGURA COM TIMEOUT (ABORT CONTROLLER)
+async function requisicaoSegura(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+function formatarTitulo(tituloCompleto, lang) {
+    if (!tituloCompleto) return "";
+    const partes = tituloCompleto.split(' / ');
+    return (lang === 'pt') ? partes[0] : (partes[1] || partes[0]);
+}
 
 // Dicionário de Idiomas
 const linguagens = {
@@ -186,8 +214,14 @@ const linguagens = {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  const urlParams = new URLSearchParams(window.location.search);
+  try {
+    telegram_id = validarSessaoOuBloquear();
+    localStorage.setItem("telegram_id", telegram_id);
+  } catch(e) {
+    return;
+  }
 
+  const urlParams = new URLSearchParams(window.location.search);
   userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
   document.documentElement.lang = userLang;
   const t = linguagens[userLang];
@@ -203,19 +237,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
   document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
 
-  telegram_id =
-    urlParams.get("id") ||
-    window.Telegram?.WebApp?.initDataUnsafe?.user?.id ||
-    localStorage.getItem("telegram_id") ||
-    "";
-
-  if (telegram_id) {
-    telegram_id = String(telegram_id);
-    localStorage.setItem("telegram_id", telegram_id);
-  } else {
-    document.getElementById("tarefas").innerHTML = t.noId;
-  }
-
   document.querySelectorAll(".bottom-nav a").forEach(link => {
     let currentHref = link.getAttribute("href");
     if (currentHref) {
@@ -230,16 +251,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   carregarTarefas();
-  
 });
 
-// 📥 CARREGAR TAREFAS DINÂMICAS (Ordenadas com VIPs em Destaque no Topo)
+// 📥 CARREGAR TAREFAS DINÂMICAS
 async function carregarTarefas() {
   const container = document.getElementById("tarefas");
   const t = linguagens[userLang];
 
   try {
-    const res = await fetch(`/api/tarefas?telegram_id=${telegram_id}`);
+    const res = await requisicaoSegura(`/api/tarefas?telegram_id=${telegram_id}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -251,8 +271,6 @@ async function carregarTarefas() {
     document.getElementById("info").innerText = usuarioVip ? t.vipUser : t.regularUser;
 
     container.innerHTML = "";
-
-    // Filtra as não concluídas
     let lista = data.tarefas.filter(task => !task.concluida);
 
     if (lista.length === 0) {
@@ -260,27 +278,18 @@ async function carregarTarefas() {
       return;
     }
 
-    // 🔥 Ordena garantindo que tarefas VIP fiquem rigorosamente no topo
     lista.sort((a, b) => {
       const aVip = a.is_vip ? 1 : 0;
       const bVip = b.is_vip ? 1 : 0;
-      return bVip - aVip; // Ordem decrescente (1 vem antes de 0)
+      return bVip - aVip;
     });
 
-    // Limita às 6 primeiras após ordenar para manter o feed clean
     lista = lista.slice(0, 6);
 
     lista.forEach(task => {
       const el = document.createElement("div");
-      
-      // Aplica classes de estilização com base na categoria da tarefa
-      if (task.is_vip) {
-        el.className = "tarefa vip-task";
-      } else {
-        el.className = "tarefa";
-      }
+      el.className = task.is_vip ? "tarefa vip-task" : "tarefa";
 
-      // Constrói o HTML injetando a tag VIP apenas se aplicável
       el.innerHTML = `
         ${task.is_vip ? `<span class="badge-vip">${t.vipBadge}</span>` : ''}
         <strong>${formatarTitulo(task.titulo, userLang)}</strong><br>
@@ -289,7 +298,6 @@ async function carregarTarefas() {
           ${usuarioVip ? t.btnVipTask : t.btnRegularTask}
         </button>
       `;
-
       container.appendChild(el);
     });
 
@@ -304,7 +312,7 @@ async function executarTarefa(link, tarefa_id) {
   const t = linguagens[userLang];
 
   try {
-    const initRes = await fetch("/api/iniciar-tarefa", {
+    const initRes = await requisicaoSegura("/api/iniciar-tarefa", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ telegram_id, tarefa_id, fingerprint })
@@ -319,20 +327,15 @@ async function executarTarefa(link, tarefa_id) {
 
     const token = initData.token;
 
-    // 👑 FLUXO VIP (Sem painel de anúncios, contagem em segundo plano)
     if (usuarioVip) {
       window.open(decodeURIComponent(link), "_blank", "noopener,noreferrer");
-
       setTimeout(() => {
         concluirTarefa(tarefa_id, token, fingerprint);
       }, 16000);
-
       return;
     }
 
-    // 👤 FLUXO COMUM (Redireciona para o painel de intermediação de anúncios)
     const painel = `/ads-panel.html?tarefa_id=${tarefa_id}&token=${token}&link=${link}&id=${telegram_id}&lang=${userLang}&t=${Date.now()}`;
-
     window.open(painel, "_blank", "noopener,noreferrer");
 
   } catch (err) {
@@ -343,7 +346,7 @@ async function executarTarefa(link, tarefa_id) {
 // ✅ CONCLUIR TAREFA
 async function concluirTarefa(tarefa_id, token, fingerprint) {
   try {
-    const res = await fetch("/api/concluir-tarefa", {
+    const res = await requisicaoSegura("/api/concluir-tarefa", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
       body: JSON.stringify({ telegram_id, tarefa_id, token, fingerprint })
@@ -351,14 +354,11 @@ async function concluirTarefa(tarefa_id, token, fingerprint) {
 
     const data = await res.json();
     alert(data.mensagem || data.erro);
-
     carregarTarefas();
   } catch (e) {
     console.error(e);
   }
 }
-
 </script>  
-
 </body>
 </html>
