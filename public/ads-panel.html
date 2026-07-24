@@ -2,16 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title id="pageTitle">Painel de Anúncios</title>
-
+<title id="pageTitle">Ad Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="//libtl.com/sdk.js" data-zone="9579151" data-sdk="show_9579151"></script>
-  <link rel="preconnect" href="https://libtl.com" crossorigin>
-  <link rel="dns-prefetch" href="//libtl.com">
-  <link rel="preconnect" href="https://zerads.com" crossorigin>
-  <link rel="dns-prefetch" href="//zerads.com">  
+<link rel="preconnect" href="https://libtl.com" crossorigin>
+<link rel="dns-prefetch" href="//libtl.com">
+<link rel="preconnect" href="https://zerads.com" crossorigin>
+<link rel="dns-prefetch" href="//zerads.com">  
 
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; padding: 20px; max-width: 600px; margin: auto; }
@@ -28,9 +27,7 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
 #status { margin-top: 15px; font-size: 15px; font-weight: bold; color: #1e293b; }
 
 .grid-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; justify-items: center; }
-
 .ad-item { width: 300px; height: 250px; overflow: hidden; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-
 .ad-item iframe, .ad-item img { width: 300px !important; height: 250px !important; object-fit: cover; border: none; }
 </style>
 </head>
@@ -39,35 +36,27 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
 
 <h1 id="mainTitle">🚀 Aguarde e desbloqueie sua tarefa</h1>
 
-<div class="info" id="instructionsBlock">
-  </div>
+<div class="info" id="instructionsBlock"></div>
 
 <div id="timer" class="timer">5</div>
 
-<div id="bannerVipAds" style="...">
-    <p style="margin: 0; font-size: 14px; font-weight: bold; color: #333;" id="vipTitle">🚫 Cansado de esperar?</p>
-    <p style="margin: 5px 0; font-size: 13px; color: #666;" id="vipDesc">👑 Assine o <b>VIP</b> e pule todos os anúncios!</p>
-    <button id="btnVip" onclick="window.Telegram.WebApp.openLink('vip.html?lang=' + userLang)" 
-            style="...">
+<div id="bannerVipAds" style="background:#1e293b; border:1px solid #ffd700; padding:15px; border-radius:12px; margin:20px auto; max-width:400px; text-align:center;">
+    <p style="margin: 0; font-size: 14px; font-weight: bold; color: #ffd700;" id="vipTitle">🚫 Cansado de esperar?</p>
+    <p style="margin: 5px 0; font-size: 13px; color: #f1f5f9;" id="vipDesc">👑 Assine o <b>VIP</b> e pule todos os anúncios!</p>
+    <button id="btnVip" onclick="window.Telegram.WebApp.openLink('vip.html?lang=' + userLang)" style="background:#ffd700; color:#000; margin-top:10px;">
         Quero ser VIP agora
     </button>
 </div>  
+
 <div class="grid-banners">
-    <!-- Ad 1: iFrame -->
     <div class="ad-item">
         <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy"></iframe>
     </div>
-
-    <!-- Ad 2: FaucetPay (Link) -->
     <div class="ad-item">
         <a href="https://faucetpay.io/?r=998373" target="_blank">
             <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay" />
         </a>
     </div>
-
-    <!-- Ad 3: Script Dinâmico -->
-    <!-- Nota: Scripts geralmente renderizam o próprio container, 
-         se o script não seguir o tamanho, envolva-o em uma div -->
     <div class="ad-item" id="container-script-ad">
         <script>
             (function(lvsk){
@@ -82,16 +71,51 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
 </div>
 
 <button id="btnAbrir" disabled>⏳ Aguarde...</button>
-
 <div id="status"></div>
 
 <script>
+// 🔐 VALIDAÇÃO DE SEGURANÇA INICIAL
+function validarSessaoOuBloquear() {
+  const urlParams = new URLSearchParams(window.location.search);
+  let id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
+  
+  if (!id) {
+    document.body.innerHTML = `<div style="color: #ff4444; padding: 50px; text-align: center; font-family: sans-serif;">
+      <h2>❌ Acesso Negado</h2>
+      <p>Esta aplicação deve ser aberta exclusivamente através do Telegram.</p>
+    </div>`;
+    throw new Error("Sessão não autorizada.");
+  }
+  return String(id);
+}
+
+async function requisicaoSegura(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 // 🔐 PARÂMETROS
 const params = new URLSearchParams(window.location.search);
 const tarefaLink = decodeURIComponent(params.get("link") || "");
 const tarefaId = params.get("tarefa_id");
 const token = params.get("token");
-const telegram_id = params.get("id");
+let telegram_id = "";
+
+try {
+  telegram_id = validarSessaoOuBloquear();
+  localStorage.setItem("telegram_id", telegram_id);
+} catch(e) {
+  throw e;
+}
+
 let userLang = params.get("lang") === "pt" ? "pt" : "en";
 
 const TABELA_NIVEIS = {
@@ -102,12 +126,11 @@ const TABELA_NIVEIS = {
     5: { tempo_ad: 8 }
 };
 
-let tempoValidacao = 15; // Valor padrão
+let tempoValidacao = 15;
 
-// Função para buscar o nível do usuário
 async function carregarConfiguracaoNivel() {
     try {
-        const res = await fetch(`/api/usuarios/${telegram_id}`);
+        const res = await requisicaoSegura(`/api/usuarios/${telegram_id}`);
         const data = await res.json();
         if (data.success && data.data) {
             const nivel = data.data.nivel || 1;
@@ -118,7 +141,6 @@ async function carregarConfiguracaoNivel() {
     }
 }
 
-// Dicionário de Idiomas
 const linguagens = {
     pt: {
         pageTitle: "Painel de Anúncios",
@@ -156,7 +178,6 @@ const linguagens = {
     }
 };
 
-// Configuração inicial
 document.documentElement.lang = userLang;
 const t = linguagens[userLang];
 
@@ -165,20 +186,19 @@ if (!tarefaId || !token || !telegram_id) {
     window.location.href = `tarefas.html?lang=${userLang}`;
 }
 
-// Tradução dos elementos
 document.getElementById("pageTitle").innerText = t.pageTitle;
 document.getElementById("mainTitle").innerText = t.mainTitle;
 document.getElementById("instructionsBlock").innerHTML = t.instructions;
 document.getElementById("vipTitle").innerText = t.vipCansado;
-document.getElementById("vipDesc").innerHTML = t.vipPule; // innerHTML pois tem o <b>
+document.getElementById("vipDesc").innerHTML = t.vipPule;
 document.getElementById("btnVip").innerText = t.vipBotao;
+
 const timerEl = document.getElementById("timer");
 const btn = document.getElementById("btnAbrir");
 const statusEl = document.getElementById("status");
 
 btn.innerText = t.btnWait;
 
-// ⏱️ FASE 1 - CONTAGEM (Fixa em 5s)
 let tempo = 5;
 const espera = setInterval(() => {
     tempo--;
@@ -202,15 +222,14 @@ btn.onclick = () => {
     iniciarValidacao();
 };
 
-// ⏱️ FASE 2 - VALIDAÇÃO (Dinâmica com margem de segurança de 1s)
 function iniciarValidacao() {
-    let segundos = Math.max(5, tempoValidacao - 1); // Garante margem segura para o backend aceitar de primeira
+    let segundos = Math.max(5, tempoValidacao - 1);
     btn.style.display = "none";
-    statusEl.innerText = t.payloadStayText || "⏳ Permaneça na tarefa... " + segundos + "s";
+    statusEl.innerText = t.stayText + segundos + "s";
 
     const contador = setInterval(() => {
         segundos--;
-        statusEl.innerText = (t.stayText || "⏳ Permaneça na tarefa... ") + segundos + "s";
+        statusEl.innerText = t.stayText + segundos + "s";
         if (segundos <= 0) {
             clearInterval(contador);
             concluir();
@@ -219,7 +238,7 @@ function iniciarValidacao() {
 }
 
 function concluir() {
-    fetch("/api/concluir-tarefa", {
+    requisicaoSegura("/api/concluir-tarefa", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ telegram_id, tarefa_id: tarefaId, token, fingerprint: navigator.userAgent })
@@ -237,7 +256,6 @@ function concluir() {
     });
 }
 
-// 🚀 INIT - Executa a busca de dados ao carregar
 (async () => {
     await carregarConfiguracaoNivel();
     const display = document.getElementById("tempoDisplay");
