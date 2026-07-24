@@ -423,60 +423,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   }
 });
 
-app.post("/api/concluir-diaria", async (req, res) => {
-  const { telegram_id } = req.body;
 
-  if (!telegram_id || !/^\d+$/.test(telegram_id)) {
-    return res.status(400).json({ erro: "ID inválido" });
-  }
-
-  const tgId = BigInt(telegram_id);
-
-  try {
-    await pool.query("BEGIN");
-
-    // 1. Verifica se já fez hoje
-    const hoje = await pool.query(
-      "SELECT 1 FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'diaria' AND data_registro::date = CURRENT_DATE",
-      [tgId]
-    );
-
-    if (hoje.rows.length > 0) {
-      await pool.query("ROLLBACK");
-      return res.status(400).json({ erro: "❌ Você já fez a tarefa diária hoje." });
-    }
-
-    // 2. Verifica se é a PRIMEIRA vez (missão de entrada)
-    const historicoTotal = await pool.query(
-      "SELECT 1 FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'diaria'",
-      [tgId]
-    );
-
-    // Se não tiver histórico, ganha 20, se tiver, ganha 1
-    const pontos = historicoTotal.rows.length === 0 ? 20 : 1;
-
-    // 3. Registra ganho
-    await pool.query(
-      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
-       VALUES ($1, 'diaria', $2, 'Tarefa Diária', NOW())`,
-      [tgId, pontos]
-    );
-
-    // 4. Atualiza saldo
-    await pool.query(
-      "UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2",
-      [pontos, tgId]
-    );
-     
-    await pool.query("COMMIT");
-    res.json({ mensagem: `✅ Tarefa concluída! Você ganhou ${pontos} pontos.` });
-
-  } catch (err) {
-    await pool.query("ROLLBACK");
-    console.error("Erro diária:", err.message);
-    res.status(500).json({ erro: "Erro ao concluir tarefa." });
-  }
-});
 
 // 🔹 3.3 Roleta (Refatorada com Sistema de Tickets Seguros)
 
