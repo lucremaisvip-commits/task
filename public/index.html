@@ -291,6 +291,38 @@ const tg = window.Telegram?.WebApp;
 const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
 if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
+// ==========================================
+// FUNÇÕES DE SEGURANÇA
+// ==========================================
+function validarSessaoOuBloquear() {
+    if (!telegram_id || telegram_id === "123456") {
+        document.body.innerHTML = `
+            <div style="background: #1e293b; color: #f1f5f9; padding: 40px; text-align: center; font-family: 'Segoe UI', sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <h2 style="color: #ef4444; margin-bottom: 10px;">⛔ Acesso Bloqueado</h2>
+                <p style="color: #94a3b8; font-size: 14px;">Sessão inválida ou aberta fora do Telegram.</p>
+            </div>
+        `;
+        throw new Error("Sessão inválida bloqueada.");
+    }
+}
+
+async function requisicaoSegura(url, options = {}) {
+    validarSessaoOuBloquear();
+    
+    options.headers = options.headers || {};
+    options.headers['X-Telegram-Id'] = telegram_id;
+    if (tg?.initData) {
+        options.headers['X-Telegram-Init-Data'] = tg.initData;
+    }
+
+    const response = await fetch(url, options);
+    if (response.status === 401 || response.status === 403) {
+        validarSessaoOuBloquear();
+    }
+    return response;
+}
+// ==========================================
+
 const TABELA_NIVEIS = {
     1: { xp_min: 0, titulo: { pt: "Novato", en: "Novice" }, limite_saque: 1, giros: 5, tempo_ad: 15 },
     2: { xp_min: 100, titulo: { pt: "Explorador", en: "Explorer" }, limite_saque: 2, giros: 6, tempo_ad: 14, premios: "1 Ticket" },
@@ -482,10 +514,10 @@ function fecharModal() {
     processarFila();
 }
 
-// --- 4. Comunicação com Servidor ---
+// --- 4. Comunicação com Servidor (Usando requisicaoSegura) ---
 async function carregarDados() {
     try {
-        const response = await fetch(`/api/status-checklist?telegram_id=${telegram_id}`);
+        const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
         if (response.ok) {
             const data = await response.json();
             atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
@@ -513,13 +545,13 @@ async function carregarDados() {
 
             if (data.streak.streak_quebrado) {
                 exibirAvisoServidor({ titulo: userLang === 'pt' ? "Ops! Streak Perdido" : "Ops! Streak Lost", mensagem: userLang === 'pt' ? "Sua sequência foi reiniciada." : "Your sequence was reset.", icone: "⚠️" });
-                fetch('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
+                requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
             }
         }
     } catch (err) { console.error("Erro checklist:", err); }
 
     try {
-        const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+        const res = await requisicaoSegura(`/api/status-usuario?telegram_id=${telegram_id}`);
         const result = await res.json();
         if (result.success) {
             const data = result.data;
@@ -548,7 +580,7 @@ async function carregarDados() {
 }
 
 async function abrirBau() {
-    const res = await fetch('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
+    const res = await requisicaoSegura('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
     const data = await res.json();
     if (data.success) {
         exibirAvisoServidor({ titulo: userLang === 'pt' ? "Baú Aberto!" : "Chest Opened!", mensagem: data.mensagem, icone: "🎉" });
@@ -560,6 +592,9 @@ async function abrirBau() {
 
 // 5. Inicialização Única
 document.addEventListener("DOMContentLoaded", () => {
+    // Validação inicial ao carregar a página
+    validarSessaoOuBloquear();
+
     const params = new URLSearchParams(window.location.search);
     const langFromUrl = params.get("lang");
 
