@@ -142,7 +142,7 @@
 
 <div id="tarefas">Loading tasks...</div>
 
-<!-- CARD DE ANÚNCIO EXTRA (Exibido apenas quando acabam as tarefas) -->
+<!-- CARD DE ANÚNCIO EXTRA (Exibido apenas quando acabam as tarefas do grupo) -->
 <div class="card" id="extraAdsCard" style="display: none; border: 1px dashed #3b82f6; max-width: 400px; margin: 20px auto;">
   <h3 id="extraTitle" style="margin-top: 0; color: #3b82f6;">🔥 Extra Ads</h3>
   <p id="extraDesc" style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;"></p>
@@ -289,7 +289,7 @@ document.addEventListener("DOMContentLoaded", () => {
   carregarTarefas();
 });
 
-// 📥 CARREGAR TAREFAS DINÂMICAS
+// 📥 CARREGAR TAREFAS DINÂMICAS (APENAS 1 GRUPO)
 async function carregarTarefas() {
   const container = document.getElementById("tarefas");
   const cardExtra = document.getElementById("extraAdsCard");
@@ -309,14 +309,24 @@ async function carregarTarefas() {
     document.getElementById("info").innerText = usuarioVip ? t.vipUser : t.regularUser;
 
     container.innerHTML = "";
-    let lista = data.tarefas.filter(task => !task.concluida);
+
+    // 1. Identifica o grupo ativo (Retornado da API ou calculado pelo dia da semana: 1 a 7)
+    const grupoAtivo = data.grupo_ativo || (new Date().getDay() + 1);
+
+    // 2. Filtra apenas as tarefas não concluídas pertencentes EXCLUSIVAMENTE ao grupo ativo
+    let lista = data.tarefas.filter(task => {
+      if (task.concluida) return false;
+      // Se a tarefa tiver grupo_rotacao definido, só exibe se for igual ao grupo ativo
+      if (task.grupo_rotacao) return Number(task.grupo_rotacao) === Number(grupoAtivo);
+      return true; // Se não tiver grupo específico, mantém visível
+    });
 
     if (lista.length === 0) {
       container.innerHTML = t.noTasks;
-      cardExtra.style.display = "block"; // Mostra o card extra se acabaram as tarefas
+      cardExtra.style.display = "block"; // Exibe card de anúncios extras ao terminar o grupo
       return;
     } else {
-      cardExtra.style.display = "none"; // Oculta o card extra se ainda houver tarefas
+      cardExtra.style.display = "none";
     }
 
     lista.sort((a, b) => {
@@ -424,7 +434,6 @@ async function assistirAnuncioExtra() {
 
       if (res.ok) {
         alert(data.mensagem || t.extraSuccess);
-        // Atualiza a página/saldo se necessário
       } else {
         alert(data.erro || t.extraFail);
       }
