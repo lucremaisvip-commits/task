@@ -44,7 +44,7 @@
     <table id="tabelaTarefas">
       <thead>
         <tr>
-          <th>ID</th><th>Título</th><th>Pontos</th><th>Ativa</th><th>VIP</th><th>Ações</th>
+          <th>ID</th><th>Título</th><th>Pontos</th><th>Grupo</th><th>Ativa</th><th>VIP</th><th>Ações</th>
         </tr>
       </thead>
       <tbody></tbody>
@@ -57,7 +57,7 @@
       <input type="text" id="titulo" placeholder="Título" required>
       <input type="text" id="link" placeholder="Link" required>
       <input type="number" id="pontos" placeholder="Pontos (ex: 2 ou 1.5)" step="any" required>
-      <input type="number" id="dia" placeholder="Dia (opcional)" min="1">
+      <input type="number" id="grupo_rotacao" placeholder="Grupo de Rotação (1 a 7)" min="1" max="7" value="1" required>
       <div class="checkbox-container">
         <input type="checkbox" id="is_vip"> <span>Marcar como Tarefa VIP ⭐</span>
       </div>
@@ -72,6 +72,7 @@
       <input type="text" id="edit_titulo" placeholder="Novo Título">
       <input type="text" id="edit_link" placeholder="Novo Link">
       <input type="number" id="edit_pontos" placeholder="Novo Pontos (ex: 2 ou 1.5)" step="any">
+      <input type="number" id="edit_grupo_rotacao" placeholder="Grupo de Rotação (1 a 7)" min="1" max="7">
       <div class="checkbox-container">
         <label><input type="checkbox" id="edit_ativa"> Ativa</label>
       </div>
@@ -155,15 +156,17 @@ async function carregarTarefas() {
     if (!Array.isArray(data)) return;
 
     data.forEach(t => {
+      const grupo = t.grupo_rotacao !== undefined && t.grupo_rotacao !== null ? t.grupo_rotacao : 1;
       tbody.innerHTML += `
         <tr>
           <td>${t.id}</td>
           <td>${t.titulo}</td>
           <td>${t.pontos}</td>
+          <td><b>Grupo ${grupo}</b></td>
           <td>${t.ativa ? '✅' : '❌'}</td>
           <td>${t.is_vip ? '⭐ <span style="color:#d4af37; font-weight:bold;">VIP</span>' : '❌'}</td>
           <td>
-            <button onclick="editarTarefa(${t.id}, \`${t.titulo}\`, \`${t.link}\`, ${t.pontos}, ${t.ativa}, ${t.is_vip})">✏️ Editar</button>
+            <button onclick="editarTarefa(${t.id}, \`${t.titulo}\`, \`${t.link}\`, ${t.pontos}, ${grupo}, ${t.ativa}, ${t.is_vip})">✏️ Editar</button>
             <button onclick="desativarTarefa(${t.id})">❌ Desativar</button>
             ${!t.ativa ? `<button onclick="ativarTarefa(${t.id})">✅ Ativar</button>` : ''}
             <button onclick="excluirTarefa(${t.id})" style="background:#d9534f;">🗑️ Excluir</button>
@@ -201,9 +204,10 @@ async function criarTarefa() {
   const titulo = document.getElementById("titulo").value.trim();
   const link = document.getElementById("link").value.trim();
   const pontos = parseFloat(document.getElementById("pontos").value);
+  const grupo_rotacao = parseInt(document.getElementById("grupo_rotacao").value) || 1;
   const is_vip = document.getElementById("is_vip").checked;
 
-  const dados = { titulo, link, pontos, is_vip };
+  const dados = { titulo, link, pontos, grupo_rotacao, is_vip };
 
   try {
     const res = await secureFetch("/admin/tarefa", {
@@ -216,12 +220,12 @@ async function criarTarefa() {
       document.getElementById("titulo").value = "";
       document.getElementById("link").value = "";
       document.getElementById("pontos").value = "";
-      document.getElementById("dia").value = "";
+      document.getElementById("grupo_rotacao").value = "1";
       document.getElementById("is_vip").checked = false;
       carregarTarefas();
     } else {
       alert("Erro ao criar tarefa via API. Tentando fallback via SQL direto...");
-      const sqlFallback = `INSERT INTO tarefas (titulo, link, pontos, is_vip, ativa) VALUES ('${titulo}', '${link}', ${pontos}, ${is_vip}, true)`;
+      const sqlFallback = `INSERT INTO tarefas (titulo, link, pontos, grupo_rotacao, is_vip, ativa) VALUES ('${titulo}', '${link}', ${pontos}, ${grupo_rotacao}, ${is_vip}, true)`;
       await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql: sqlFallback }) });
       alert("✅ Tarefa criada com sucesso (Fallback SQL)!");
       carregarTarefas();
@@ -231,11 +235,12 @@ async function criarTarefa() {
   }
 }
 
-function editarTarefa(id, titulo, link, pontos, ativa, is_vip) {
+function editarTarefa(id, titulo, link, pontos, grupo_rotacao, ativa, is_vip) {
   document.getElementById("edit_id").value = id;
   document.getElementById("edit_titulo").value = titulo;
   document.getElementById("edit_link").value = link;
   document.getElementById("edit_pontos").value = pontos;
+  document.getElementById("edit_grupo_rotacao").value = grupo_rotacao;
   document.getElementById("edit_ativa").checked = ativa;
   document.getElementById("edit_vip").checked = is_vip;
   document.getElementById("edicaoBox").style.display = "block";
@@ -251,10 +256,11 @@ async function salvarEdicao() {
   const titulo = document.getElementById("edit_titulo").value;
   const link = document.getElementById("edit_link").value;
   const pontos = parseFloat(document.getElementById("edit_pontos").value);
+  const grupo_rotacao = parseInt(document.getElementById("edit_grupo_rotacao").value) || 1;
   const ativa = document.getElementById("edit_ativa").checked;
   const is_vip = document.getElementById("edit_vip").checked;
 
-  const sql = `UPDATE tarefas SET titulo='${titulo}', link='${link}', pontos=${pontos}, ativa=${ativa}, is_vip=${is_vip} WHERE id=${id}`;
+  const sql = `UPDATE tarefas SET titulo='${titulo}', link='${link}', pontos=${pontos}, grupo_rotacao=${grupo_rotacao}, ativa=${ativa}, is_vip=${is_vip} WHERE id=${id}`;
   await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
 
   alert("Tarefa atualizada!");
