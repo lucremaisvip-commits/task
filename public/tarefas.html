@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src='//libtl.com/sdk.js' data-zone='11315704' data-sdk='show_11315704'></script>  
 <title id="pageTitle">✅ Tasks</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
@@ -140,6 +141,15 @@
 <p id="info" style="font-weight: bold; font-size: 16px; margin: 5px 0 20px 0;">Loading...</p>
 
 <div id="tarefas">Loading tasks...</div>
+
+<!-- CARD DE ANÚNCIO EXTRA (Exibido apenas quando acabam as tarefas) -->
+<div class="card" id="extraAdsCard" style="display: none; border: 1px dashed #3b82f6; max-width: 400px; margin: 20px auto;">
+  <h3 id="extraTitle" style="margin-top: 0; color: #3b82f6;">🔥 Extra Ads</h3>
+  <p id="extraDesc" style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;"></p>
+  <button onclick="assistirAnuncioExtra()" style="background: #3b82f6; color: white;" id="extraBtn">
+    📺 Watch Extra Ad
+  </button>
+</div>
   
 <script>
 let telegram_id = "";
@@ -200,7 +210,13 @@ const linguagens = {
     connError: "❌ Falha de conexão com o servidor",
     initTaskError: "Erro ao iniciar tarefa",
     execTaskError: "Erro ao executar tarefa",
-    vipBadge: "✨ VIP"
+    vipBadge: "✨ VIP",
+    extraTitle: "🔥 Anúncios Extras",
+    extraDesc: "Suas tarefas diárias acabaram? Assista a um anúncio em vídeo e ganhe micropontos agora!",
+    extraBtn: "📺 Assistir Anúncio Extra (+0.1 Pontos)",
+    sdkError: "O carregador de anúncios ainda está inicializando. Tente novamente em instantes.",
+    extraSuccess: "🎉 Anúncio concluído! +0.1 pontos adicionados.",
+    extraFail: "Erro ao creditar pontos do anúncio."
   },
   en: {
     title: "✅ Tasks",
@@ -218,7 +234,13 @@ const linguagens = {
     connError: "❌ Connection failure",
     initTaskError: "Error starting task",
     execTaskError: "Error executing task",
-    vipBadge: "✨ VIP"
+    vipBadge: "✨ VIP",
+    extraTitle: "🔥 Extra Ads",
+    extraDesc: "Your daily tasks are complete? Watch a video ad and earn micropoints right now!",
+    extraBtn: "📺 Watch Extra Ad (+0.1 Points)",
+    sdkError: "Ad loader is still initializing. Please try again in a moment.",
+    extraSuccess: "🎉 Ad completed! +0.1 points added.",
+    extraFail: "Error crediting ad points."
   }
 };
 
@@ -239,6 +261,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("mainTitle").innerText = t.mainTitle;
   document.getElementById("info").innerText = t.loading;
   document.getElementById("tarefas").innerText = t.loading;
+
+  // Textos do Card Extra traduzidos
+  document.getElementById("extraTitle").innerText = t.extraTitle;
+  document.getElementById("extraDesc").innerText = t.extraDesc;
+  document.getElementById("extraBtn").innerText = t.extraBtn;
 
   document.querySelector("#navHome .txt-nav").innerText = t.navHome;
   document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
@@ -265,6 +292,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // 📥 CARREGAR TAREFAS DINÂMICAS
 async function carregarTarefas() {
   const container = document.getElementById("tarefas");
+  const cardExtra = document.getElementById("extraAdsCard");
   const t = linguagens[userLang];
 
   try {
@@ -273,6 +301,7 @@ async function carregarTarefas() {
 
     if (!res.ok) {
       container.innerHTML = t.apiError;
+      cardExtra.style.display = "none";
       return;
     }
 
@@ -284,7 +313,10 @@ async function carregarTarefas() {
 
     if (lista.length === 0) {
       container.innerHTML = t.noTasks;
+      cardExtra.style.display = "block"; // Mostra o card extra se acabaram as tarefas
       return;
+    } else {
+      cardExtra.style.display = "none"; // Oculta o card extra se ainda houver tarefas
     }
 
     lista.sort((a, b) => {
@@ -313,6 +345,7 @@ async function carregarTarefas() {
 
   } catch (err) {
     container.innerHTML = t.connError;
+    cardExtra.style.display = "none";
   }
 }
 
@@ -367,6 +400,39 @@ async function concluirTarefa(tarefa_id, token, fingerprint) {
     carregarTarefas();
   } catch (e) {
     console.error(e);
+  }
+}
+
+// 📺 ASSISTIR ANÚNCIO EXTRA (SDK NATIVO)
+async function assistirAnuncioExtra() {
+  const t = linguagens[userLang];
+  
+  if (typeof show_11315704 !== "function") {
+    alert(t.sdkError);
+    return;
+  }
+
+  try {
+    show_11315704().then(async () => {
+      const res = await requisicaoSegura("/api/concluir-anuncio-extra", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegram_id })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert(data.mensagem || t.extraSuccess);
+        // Atualiza a página/saldo se necessário
+      } else {
+        alert(data.erro || t.extraFail);
+      }
+    }).catch((err) => {
+      console.log("Anúncio extra cancelado ou indisponível:", err);
+    });
+  } catch (err) {
+    alert(t.extraFail);
   }
 }
 </script>  
