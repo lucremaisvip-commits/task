@@ -423,7 +423,65 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   }
 });
 
+app.post("/api/concluir-anuncio-extra", async (req, res) => {
+  let { telegram_id } = req.body;
 
+  telegram_id = String(telegram_id || "").trim();
+
+  if (!telegram_id) {
+    return res.status(400).json({ erro: "Dados inválidos" });
+  }
+
+  if (!checkRateLimit(telegram_id)) {
+    return res.status(429).json({ erro: "Muitas requisições" });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // Trava de segurança (Cooldown): Evita que o usuário chame a rota consecutivamente em segundos.
+    // Exemplo: Bloqueia se já fez um anúncio extra nos últimos 30 segundos.
+    const cooldownRes = await client.query(
+      `SELECT 1 FROM historico_ganhos 
+       WHERE telegram_id = $1 AND origem = 'anuncio_extra' 
+       AND data_registro > NOW() - INTERVAL '30 seconds'`,
+      [telegram_id]
+    );
+
+    if (cooldownRes.rows.length > 0) {
+      throw new Error("Aguarde alguns segundos para ver outro anúncio.");
+    }
+
+    const pontosAdicionais = 0.1; // Pontos do anúncio extra
+
+    // Registra no histórico de ganhos com origem 'anuncio_extra'
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+       VALUES ($1, 'anuncio_extra', $2, $3, $4, NOW())`,
+      [telegram_id, pontosAdicionais, "📺 Anúncio Extra SDK", "extra_ad"]
+    );
+
+    // Atualiza os pontos do usuário
+    await client.query(
+      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2`,
+      [pontosAdicionais, telegram_id]
+    );
+
+    // Adiciona 5 XP conforme solicitado
+    await adicionarXP(telegram_id, 5, client);
+
+    await client.query("COMMIT");
+    res.json({ sucesso: true, mensagem: "🎉 +0.1 pontos e +5 XP adicionados com sucesso!" });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ erro: err.message || "Erro interno" });
+  } finally {
+    client.release();
+  }
+});
 
 // 🔹 3.3 Roleta (Refatorada com Sistema de Tickets Seguros)
 
