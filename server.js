@@ -1629,16 +1629,27 @@ app.get("/api/saques", async (req, res) => {
 
 // 🔹 7. trafico e mensurização
 app.post('/api/log-traffic', async (req, res) => {
-    // Adicionamos o telegram_id para fechar o ciclo de rastreio
-    const { utm_source, utm_medium, utm_campaign, is_converted, telegram_id } = req.body;
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const { utm_source, utm_medium, utm_campaign, is_converted } = req.body;
+    
+    // Captura os dados técnicos da requisição
+    const user_ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const user_agent = req.headers['user-agent'] || null;
+    const referrer = req.headers['referer'] || null;
     
     try {
         const query = `
-            INSERT INTO traffic_logs (telegram_id, utm_source, utm_medium, utm_campaign, is_converted, ip, data_registro)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            INSERT INTO traffic_logs (utm_source, utm_medium, utm_campaign, user_ip, user_agent, referrer, is_converted, data_registro)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
         `;
-        const values = [telegram_id || null, utm_source, utm_medium, utm_campaign, !!is_converted, ip];
+        const values = [
+            utm_source || 'direct', 
+            utm_medium || 'none', 
+            utm_campaign || 'none', 
+            user_ip, 
+            user_agent, 
+            referrer, 
+            !!is_converted
+        ];
         
         await pool.query(query, values);
         
@@ -1648,7 +1659,6 @@ app.post('/api/log-traffic', async (req, res) => {
         res.status(500).json({ error: "Erro interno ao salvar log" });
     }
 });
-
 
 // 🔹 8. Anúncios
 
