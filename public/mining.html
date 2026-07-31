@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title id="pageTitle">Free Gold - Cloud Mining Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Premium Bitcoin and Solana cloud mining platform with MoneyRain integration."/>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      color: #f1f5f9;
+      max-width: 600px;
+      margin: auto;
+      padding: 16px;
+      padding-bottom: 90px;
+      min-height: 100vh;
+    }
+
+    /* Navegação inferior padrão */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: #090d16;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.5);
+      z-index: 9999;
+      border-top: 1px solid #1e293b;
+    }
+
+    .bottom-nav a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 11px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      width: 20%;
+    }
+
+    .bottom-nav a.active, .bottom-nav a:hover {
+      color: #00ff88;
+    }
+
+    .bottom-nav a span {
+      font-size: 18px;
+    }
+
+    /* Estilo dos cards inspirados no layout de Mineração */
+    .card {
+      background: #1e293b;
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      margin-bottom: 16px;
+      color: #f1f5f9;
+    }
+
+    .card h2, .card h3 {
+      margin-top: 0;
+      font-size: 18px;
+      color: #38bdf8;
+    }
+
+    .balance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .balance-box {
+      background: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+    }
+
+    .balance-box span {
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .balance-box h4 {
+      margin: 5px 0 0 0;
+      font-size: 16px;
+      color: #00ff88;
+    }
+
+    /* Botões de Ação */
+    .btn-action {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 15px;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-action:hover {
+      opacity: 0.95;
+      transform: translateY(-1px);
+    }
+
+    .btn-moneyrain {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    /* Container do Iframe do MoneyRain */
+    .iframe-wrapper {
+      display: none;
+      margin-top: 15px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #334155;
+      background: #0f172a;
+    }
+
+    iframe {
+      width: 100%;
+      height: 480px;
+      border: none;
+    }
+
+    .badge-live {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Menu Inferior Integrado ao Ecossistema -->
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+  <!-- Cabeçalho / Saldos em Tempo Real -->
+  <div class="card">
+    <span class="badge-live">⚡ Cloud Mining Active (Test Page)</span>
+    <h2 id="pageHeading">Dashboard de Mineração</h2>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">Aumente o poder computacional das suas máquinas ativando bônus diários via MoneyRain.</p>
+    
+    <div class="balance-grid">
+      <div class="balance-box">
+        <span>Balance BTC</span>
+        <h4 id="btcBalance">0.00000000 BTC</h4>
+      </div>
+      <div class="balance-box">
+        <span>Balance SOL</span>
+        <h4 id="solBalance">0.00000000 SOL</h4>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel de Ativação do MoneyRain integrado na interface de Mineração -->
+  <div class="card" style="text-align: center;">
+    <h3>🚀 Boost Cloud Mining (MoneyRain)</h3>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 15px;">
+      Complete interações rápidas para injetar poder de processamento direto nas suas máquinas e acelerar seus ganhos no bot principal.
+    </p>
+    
+    <button class="btn-action btn-moneyrain" onclick="toggleMoneyRainWall()">
+      ⚡ Ativar Booster / Ver Anúncios
+    </button>
+
+    <!-- Frame carregando o offerwall do MoneyRain com o UID dinâmico do usuário -->
+    <div class="iframe-wrapper" id="moneyrainWrapper">
+      <iframe id="moneyrainFrame" src=""></iframe>
+    </div>
+  </div>
+
+<script>
+  let telegramId = "";
+  let userLang = "en";
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+    
+    // Identificação segura do Telegram ID
+    telegramId = (urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "").toString();
+
+    if (!telegramId) {
+      document.body.innerHTML = `<div style="text-align:center; padding: 50px; color: #ef4444;">⚠️ Erro: ID de usuário não identificado. Abra pelo Telegram.</div>`;
+      return;
+    }
+
+    localStorage.setItem("telegram_id", telegramId);
+
+    // Ajusta links do menu inferior mantendo o ID e o Idioma
+    document.querySelectorAll(".bottom-nav a").forEach(link => {
+      let baseHref = link.getAttribute("href").split("?")[0];
+      link.href = `${baseHref}?id=${telegramId}&lang=${userLang}`;
+    });
+
+    // Configura a URL do MoneyRain com o pub e o uid correto do usuário
+    const iframe = document.getElementById("moneyrainFrame");
+    if (iframe) {
+      iframe.src = `https://offerwall.moneyrain.top/embed.php?pub=228&site=teste-bot&uid=${telegramId}`;
+    }
+  });
+
+  function toggleMoneyRainWall() {
+    const wrapper = document.getElementById("moneyrainWrapper");
+    if (wrapper) {
+      wrapper.style.display = wrapper.style.display === "block" ? "none" : "block";
+    }
+  }
+</script>
+
+</body>
+</html>
