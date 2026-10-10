@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Histórico & Métricas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Biblioteca Chart.js para Renderização de Gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
+    h2 {
+      color: #2a8f43;
+      margin-top: 25px;
+    }
+    .filter-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .filter-group label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type="date"], select, button {
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    .btn-preset {
+      background: #eef;
+      border: 1px solid #2a8f43;
+      color: #2a8f43;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-preset:hover {
+      background: #2a8f43;
+      color: #fff;
+    }
+    .kpi-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+      border-left: 5px solid #2a8f43;
+    }
+    .kpi-card h3 {
+      margin: 0;
+      font-size: 13px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .kpi-card p {
+      margin: 10px 0 0;
+      font-size: 22px;
+      font-weight: bold;
+      color: #333;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 20px;
+    }
+    .chart-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navegação Padrão -->
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+    <a href="historico.html" style="background:#1e6e34;">Histórico</a>
+  </nav>
+
+  <h2>🔑 Autenticação Admin</h2>
+  <input type="password" id="campoSenha" placeholder="Digite a chave de administrador..." />
+
+  <h2>📊 Filtros de Período</h2>
+  <div class="filter-card">
+    <div class="filter-group">
+      <label>Atalhos Rápidos</label>
+      <div>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('hoje')">Hoje</button>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('semana')">Últimos 7 Dias</button>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('mes')">Últimos 30 Dias</button>
+      </div>
+    </div>
+    
+    <div class="filter-group">
+      <label>Data Inicial</label>
+      <input type="date" id="dataInicio" />
+    </div>
+
+    <div class="filter-group">
+      <label>Data Final</label>
+      <input type="date" id="dataFim" />
+    </div>
+
+    <div class="filter-group" style="align-self: flex-end;">
+      <button style="background:#2a8f43; color:white; font-weight:bold; cursor:pointer;" onclick="carregarDadosMetricas()">🔍 Filtrar Dados</button>
+    </div>
+  </div>
+
+  <!-- Cards de Visão Geral (KPIs) -->
+  <div class="kpi-container">
+    <div class="kpi-card">
+      <h3>Novos Usuários</h3>
+      <p id="kpiUsuarios">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Bloqueios Bot</h3>
+      <p id="kpiBloqueios">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Tarefas Concluídas</h3>
+      <p id="kpiTarefas">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Saques Solicitados</h3>
+      <p id="kpiSaques">0</p>
+    </div>
+  </div>
+
+  <!-- Área dos Gráficos -->
+  <h2>📈 Análise Visual em Tempo Real</h2>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <canvas id="chartNovosUsuarios"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartTarefasSaques"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartCampanhasOrigem"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartEconomiaPontos"></canvas>
+    </div>
+  </div>
+
+ <!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin - Histórico & Métricas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Biblioteca Chart.js para Renderização de Gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    nav a {
+      background: #2a8f43;
+      color: white;
+      padding: 10px 16px;
+      text-decoration: none;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    nav a:hover {
+      background: #1e6e34;
+    }
+    h2 {
+      color: #2a8f43;
+      margin-top: 25px;
+    }
+    .filter-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .filter-group label {
+      font-size: 12px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type="date"], select, button {
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+    .btn-preset {
+      background: #eef;
+      border: 1px solid #2a8f43;
+      color: #2a8f43;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-preset:hover {
+      background: #2a8f43;
+      color: #fff;
+    }
+    .kpi-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .kpi-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+      text-align: center;
+      border-left: 5px solid #2a8f43;
+    }
+    .kpi-card h3 {
+      margin: 0;
+      font-size: 13px;
+      color: #666;
+      text-transform: uppercase;
+    }
+    .kpi-card p {
+      margin: 10px 0 0;
+      font-size: 22px;
+      font-weight: bold;
+      color: #333;
+    }
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 20px;
+    }
+    .chart-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navegação Padrão -->
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+    <a href="historico.html" style="background:#1e6e34;">Histórico</a>
+  </nav>
+
+  <h2>🔑 Autenticação Admin</h2>
+  <input type="password" id="campoSenha" placeholder="Digite a chave de administrador..." />
+
+  <h2>📊 Filtros de Período</h2>
+  <div class="filter-card">
+    <div class="filter-group">
+      <label>Atalhos Rápidos</label>
+      <div>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('hoje')">Hoje</button>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('semana')">Últimos 7 Dias</button>
+        <button class="btn-preset" onclick="aplicarFiltroRapido('mes')">Últimos 30 Dias</button>
+      </div>
+    </div>
+    
+    <div class="filter-group">
+      <label>Data Inicial</label>
+      <input type="date" id="dataInicio" />
+    </div>
+
+    <div class="filter-group">
+      <label>Data Final</label>
+      <input type="date" id="dataFim" />
+    </div>
+
+    <div class="filter-group" style="align-self: flex-end;">
+      <button style="background:#2a8f43; color:white; font-weight:bold; cursor:pointer;" onclick="carregarDadosMetricas()">🔍 Filtrar Dados</button>
+    </div>
+  </div>
+
+  <!-- Cards de Visão Geral (KPIs) -->
+  <div class="kpi-container">
+    <div class="kpi-card">
+      <h3>Novos Usuários</h3>
+      <p id="kpiUsuarios">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Bloqueios Bot</h3>
+      <p id="kpiBloqueios">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Tarefas Concluídas</h3>
+      <p id="kpiTarefas">0</p>
+    </div>
+    <div class="kpi-card">
+      <h3>Saques Solicitados</h3>
+      <p id="kpiSaques">0</p>
+    </div>
+  </div>
+
+  <!-- Área dos Gráficos -->
+  <h2>📈 Análise Visual em Tempo Real</h2>
+  <div class="chart-grid">
+    <div class="chart-card">
+      <canvas id="chartNovosUsuarios"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartTarefasSaques"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartCampanhasOrigem"></canvas>
+    </div>
+  </div>
+
+  <script>
+    let charts = {};
+
+    // Preserva a chave ?key= na navegação
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get("key");
+    if (key) {
+      document.getElementById("campoSenha").value = key;
+      document.querySelectorAll("nav a").forEach(link => {
+        if (!link.href.includes("key=")) {
+          link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+        }
+      });
+    }
+
+    function aplicarFiltroRapido(tipo) {
+      const hoje = new Date();
+      let inicio = new Date();
+
+      if (tipo === 'hoje') {
+        inicio = hoje;
+      } else if (tipo === 'semana') {
+        inicio.setDate(hoje.getDate() - 7);
+      } else if (tipo === 'mes') {
+        inicio.setDate(hoje.getDate() - 30);
+      }
+
+      document.getElementById("dataInicio").value = inicio.toISOString().split('T')[0];
+      document.getElementById("dataFim").value = hoje.toISOString().split('T')[0];
+      carregarDadosMetricas();
+    }
+
+    async function carregarDadosMetricas() {
+      const senha = document.getElementById("campoSenha").value.trim();
+      const inicio = document.getElementById("dataInicio").value;
+      const fim = document.getElementById("dataFim").value;
+
+      if (!senha) return alert("Digite a senha de administrador.");
+
+      try {
+        const res = await fetch(`/admin/historico-dados?inicio=${inicio}&fim=${fim}`, {
+          headers: { "x-admin-key": senha }
+        });
+
+        if (!res.ok) throw new Error("Falha ao carregar dados. Verifique a senha de administrador.");
+        const data = await res.json();
+
+        // Atualiza os Cards de KPIs
+        document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios;
+        document.getElementById("kpiBloqueios").textContent = data.kpis.bloqueios;
+        document.getElementById("kpiTarefas").textContent = data.kpis.tarefas;
+        document.getElementById("kpiSaques").textContent = data.kpis.saques;
+
+        // Renderiza os Gráficos
+        renderizarGraficoUsuarios(data.graficos.usuarios);
+        renderizarGraficoTarefasSaques(data.graficos.tarefas, data.graficos.saques);
+        renderizarGraficoCampanhas(data.graficos.campanhas);
+
+      } catch (err) {
+        alert(err.message);
+      }
+    }
+
+    function renderizarGraficoUsuarios(dados) {
+      const ctx = document.getElementById('chartNovosUsuarios').getContext('2d');
+      if (charts.usuarios) charts.usuarios.destroy();
+
+      charts.usuarios = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dados.map(d => d.dia),
+          datasets: [{
+            label: 'Novos Usuários por Dia',
+            data: dados.map(d => d.total),
+            borderColor: '#2a8f43',
+            backgroundColor: 'rgba(42, 143, 67, 0.1)',
+            fill: true,
+            tension: 0.2
+          }]
+        }
+      });
+    }
+
+    function renderizarGraficoTarefasSaques(tarefas, saques) {
+      const ctx = document.getElementById('chartTarefasSaques').getContext('2d');
+      if (charts.tarefasSaques) charts.tarefasSaques.destroy();
+
+      const dias = [...new Set([...tarefas.map(t => t.dia), ...saques.map(s => s.dia)])].sort();
+
+      charts.tarefasSaques = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dias,
+          datasets: [
+            {
+              label: 'Tarefas Realizadas',
+              data: dias.map(dia => {
+                const item = tarefas.find(t => t.dia === dia);
+                return item ? item.total : 0;
+              }),
+              backgroundColor: '#2a8f43'
+            },
+            {
+              label: 'Saques Solicitados',
+              data: dias.map(dia => {
+                const item = saques.find(s => s.dia === dia);
+                return item ? item.total : 0;
+              }),
+              backgroundColor: '#d9534f'
+            }
+          ]
+        }
+      });
+    }
+
+    function renderizarGraficoCampanhas(dados) {
+      const ctx = document.getElementById('chartCampanhasOrigem').getContext('2d');
+      if (charts.campanhas) charts.campanhas.destroy();
+
+      charts.campanhas = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: dados.map(d => d.utm_source || 'Direto / Orgânico'),
+          datasets: [{
+            data: dados.map(d => d.total),
+            backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d']
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: 'Origem de Tráfego (UTM Source)'
+            }
+          }
+        }
+      });
+    }
+
+    // Inicializa datas com os últimos 7 dias por padrão ao carregar a página
+    aplicarFiltroRapido('semana');
+  </script>
+</body>
+</html>
+</body>
+</html>
