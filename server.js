@@ -2014,17 +2014,17 @@ app.post("/api/pagar-saque", async (req, res) => {
     res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
   }
 });
-// Endpoint de Dados para o Painel de Histórico
+
+// 🔹 Endpoint de Dados para o Painel de Histórico (Completo e Validado)
 app.get('/admin/historico-dados', async (req, res) => {
   const adminKey = req.headers['x-admin-key'];
-  const envKey = process.env.ADMIN_KEY || "plucremais_9xK!p2026"; // Ajuste conforme sua chave
+  const envKey = process.env.ADMIN_KEY || "plucremais_9xK!p2026";
 
   if (!adminKey || adminKey !== envKey) {
     return res.status(403).json({ error: "Acesso negado. Chave inválida." });
   }
 
   const { inicio, fim } = req.query;
-  // Define intervalo padrão se não enviado (últimos 7 dias)
   const dataInicio = inicio ? `${inicio} 00:00:00` : new Date(Date.now() - 7*24*60*60*1000).toISOString();
   const dataFim = fim ? `${fim} 23:59:59` : new Date().toISOString();
 
@@ -2033,6 +2033,21 @@ app.get('/admin/historico-dados', async (req, res) => {
     // 1. KPIs Gerais no Período
     const novosUsuarios = await client.query(
       "SELECT COUNT(*) FROM usuarios WHERE data_registro BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    const usuariosAtivos = await client.query(
+      "SELECT COUNT(DISTINCT telegram_id) FROM historico_ganhos WHERE data_registro BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    const retornoUsuarios = await client.query(
+      `SELECT COUNT(*) FROM (
+         SELECT telegram_id FROM historico_ganhos 
+         WHERE data_registro BETWEEN $1 AND $2 
+         GROUP BY telegram_id 
+         HAVING COUNT(DISTINCT data_registro::date) > 1
+       ) as t`,
       [dataInicio, dataFim]
     );
 
@@ -2051,9 +2066,20 @@ app.get('/admin/historico-dados', async (req, res) => {
       [dataInicio, dataFim]
     );
 
-    // 2. Dados para Gráficos (Agrupados por Dia)
+    // 2. Dados para Gráficos (Agrupados por Dia e Origens)
     const serieUsuarios = await client.query(
       "SELECT DATE(data_registro) as dia, COUNT(*) as total FROM usuarios WHERE data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
+      [dataInicio, dataFim]
+    );
+
+    // 🔥 Adicionado para cobrir a evolução diária de Usuários Ativos (DAU por dia)
+    const serieAtivos = await client.query(
+      "SELECT DATE(data_registro) as dia, COUNT(DISTINCT telegram_id) as total FROM historico_ganhos WHERE data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
+      [dataInicio, dataFim]
+    );
+
+    const tiposTarefas = await client.query(
+      "SELECT origem, COUNT(*) as total FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2 GROUP BY origem ORDER BY total DESC",
       [dataInicio, dataFim]
     );
 
@@ -2075,12 +2101,16 @@ app.get('/admin/historico-dados', async (req, res) => {
     res.json({
       kpis: {
         usuarios: parseInt(novosUsuarios.rows[0].count),
+        ativos: parseInt(usuariosAtivos.rows[0].count),
+        retorno: parseInt(retornoUsuarios.rows[0].count),
         bloqueios: parseInt(bloqueiosBot.rows[0].count),
         tarefas: parseInt(tarefasFeitas.rows[0].count),
         saques: parseInt(saquesSolicitados.rows[0].count)
       },
       graficos: {
         usuarios: serieUsuarios.rows,
+        ativosDiarios: serieAtivos.rows, // 👈 Entregue para o front-end
+        tiposTarefas: tiposTarefas.rows,
         tarefas: serieTarefas.rows,
         saques: serieSaques.rows,
         campanhas: serieCampanhas.rows
