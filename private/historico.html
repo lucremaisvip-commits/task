@@ -11,7 +11,7 @@
       font-family: Arial, sans-serif;
       background: #f4f4f4;
       padding: 20px;
-      max-width: 1000px;
+      max-width: 1100px;
       margin: auto;
     }
     nav {
@@ -89,19 +89,19 @@
     }
     .kpi-card h3 {
       margin: 0;
-      font-size: 13px;
+      font-size: 12px;
       color: #666;
       text-transform: uppercase;
     }
     .kpi-card p {
       margin: 10px 0 0;
-      font-size: 22px;
+      font-size: 20px;
       font-weight: bold;
       color: #333;
     }
     .chart-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
       gap: 20px;
     }
     .chart-card {
@@ -162,13 +162,21 @@
     </div>
   </div>
 
-  <!-- Cards de Visão Geral (KPIs) -->
+  <!-- Cards de Visão Geral (KPIs Expandidos) -->
   <div class="kpi-container">
     <div class="kpi-card">
       <h3>Novos Usuários</h3>
       <p id="kpiUsuarios">0</p>
     </div>
-    <div class="kpi-card">
+    <div class="kpi-card" style="border-left-color: #f0ad4e;">
+      <h3>Usuários Ativos (DAU)</h3>
+      <p id="kpiAtivos">0</p>
+    </div>
+    <div class="kpi-card" style="border-left-color: #5bc0de;">
+      <h3>Retorno (Dia Seguinte)</h3>
+      <p id="kpiRetorno">0</p>
+    </div>
+    <div class="kpi-card" style="border-left-color: #d9534f;">
       <h3>Bloqueios Bot</h3>
       <p id="kpiBloqueios">0</p>
     </div>
@@ -182,11 +190,14 @@
     </div>
   </div>
 
-  <!-- Área dos Gráficos -->
+  <!-- Área dos Gráficos (Expandida) -->
   <h2>📈 Análise Visual em Tempo Real</h2>
   <div class="chart-grid">
     <div class="chart-card">
       <canvas id="chartNovosUsuarios"></canvas>
+    </div>
+    <div class="chart-card">
+      <canvas id="chartTiposTarefas"></canvas>
     </div>
     <div class="chart-card">
       <canvas id="chartTarefasSaques"></canvas>
@@ -250,16 +261,19 @@
         if (!res.ok) throw new Error("ADMIN_KEY inválida ou falha ao carregar dados.");
         const data = await res.json();
 
-        // Atualiza os Cards de KPIs
-        document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios;
-        document.getElementById("kpiBloqueios").textContent = data.kpis.bloqueios;
-        document.getElementById("kpiTarefas").textContent = data.kpis.tarefas;
-        document.getElementById("kpiSaques").textContent = data.kpis.saques;
+        // Atualiza os Cards de KPIs (Novos e Existentes)
+        document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios || 0;
+        document.getElementById("kpiAtivos").textContent = data.kpis.ativos || 0;
+        document.getElementById("kpiRetorno").textContent = data.kpis.retorno || 0;
+        document.getElementById("kpiBloqueios").textContent = data.kpis.bloqueios || 0;
+        document.getElementById("kpiTarefas").textContent = data.kpis.tarefas || 0;
+        document.getElementById("kpiSaques").textContent = data.kpis.saques || 0;
 
-        // Renderiza os Gráficos
-        renderizarGraficoUsuarios(data.graficos.usuarios);
-        renderizarGraficoTarefasSaques(data.graficos.tarefas, data.graficos.saques);
-        renderizarGraficoCampanhas(data.graficos.campanhas);
+        // Renderiza os Gráficos (Chamadas preparadas para a Parte 4)
+        renderizarGraficoUsuarios(data.graficos.usuarios || []);
+        renderizarGraficoTiposTarefas(data.graficos.tiposTarefas || []);
+        renderizarGraficoTarefasSaques(data.graficos.tarefas || [], data.graficos.saques || []);
+        renderizarGraficoCampanhas(data.graficos.campanhas || []);
 
       } catch (err) {
         alert(err.message);
@@ -281,6 +295,23 @@
             backgroundColor: 'rgba(42, 143, 67, 0.1)',
             fill: true,
             tension: 0.2
+          }]
+        }
+      });
+    }
+
+    function renderizarGraficoTiposTarefas(dados) {
+      const ctx = document.getElementById('chartTiposTarefas').getContext('2d');
+      if (charts.tiposTarefas) charts.tiposTarefas.destroy();
+
+      charts.tiposTarefas = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: dados.map(d => d.origem || 'Outros'),
+          datasets: [{
+            label: 'Tarefas por Categoria (ZerAds, Monetag, etc.)',
+            data: dados.map(d => d.total),
+            backgroundColor: '#5bc0de'
           }]
         }
       });
