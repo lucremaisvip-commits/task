@@ -208,173 +208,215 @@
   </div>
 
   <script>
-    let charts = {};
+  let charts = {};
 
-    // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu
-    const params = new URLSearchParams(window.location.search);
-    const privateKey = params.get("key");
-    if (privateKey) {
-      document.querySelectorAll("nav a").forEach(link => {
-        if (!link.href.includes("key=")) {
-          link.href += (link.href.includes("?") ? "&" : "?") + "key=" + privateKey;
-        }
+  // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu
+  const params = new URLSearchParams(window.location.search);
+  const privateKey = params.get("key");
+  if (privateKey) {
+    document.querySelectorAll("nav a").forEach(link => {
+      if (!link.href.includes("key=")) {
+        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + privateKey;
+      }
+    });
+  }
+
+  function aplicarFiltroRapido(tipo) {
+    const hoje = new Date();
+    let inicio = new Date();
+
+    if (tipo === 'hoje') {
+      inicio = hoje;
+    } else if (tipo === 'semana') {
+      inicio.setDate(hoje.getDate() - 7);
+    } else if (tipo === 'mes') {
+      inicio.setDate(hoje.getDate() - 30);
+    }
+
+    document.getElementById("dataInicio").value = inicio.toISOString().split('T')[0];
+    document.getElementById("dataFim").value = hoje.toISOString().split('T')[0];
+    carregarDadosMetricas();
+  }
+
+  function testarEColherDados() {
+    const adminKey = document.getElementById("campoAdminKey").value.trim();
+    if (!adminKey) return alert("Digite a ADMIN_KEY.");
+    carregarDadosMetricas();
+  }
+
+  async function carregarDadosMetricas() {
+    const adminKey = document.getElementById("campoAdminKey").value.trim();
+    const inicio = document.getElementById("dataInicio").value;
+    const fim = document.getElementById("dataFim").value;
+
+    if (!adminKey) {
+      return alert("Por favor, insira e clique em 'Usar Chave' com sua ADMIN_KEY primeiro.");
+    }
+
+    try {
+      const res = await fetch(`/admin/historico-dados?inicio=${inicio}&fim=${fim}`, {
+        headers: { "x-admin-key": adminKey }
       });
+
+      if (!res.ok) throw new Error("ADMIN_KEY inválida ou falha ao carregar dados.");
+      const data = await res.json();
+
+      // Atualiza os 6 Cards de KPIs
+      document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios || 0;
+      document.getElementById("kpiAtivos").textContent = data.kpis.ativos || 0;
+      document.getElementById("kpiRetorno").textContent = data.kpis.retorno || 0;
+      document.getElementById("kpiBloqueios").textContent = data.kpis.bloqueios || 0;
+      document.getElementById("kpiTarefas").textContent = data.kpis.tarefas || 0;
+      document.getElementById("kpiSaques").textContent = data.kpis.saques || 0;
+
+      // Renderiza os Gráficos com todas as séries validadas
+      renderizarGraficoUsuarios(data.graficos.usuarios || [], data.graficos.ativosDiarios || []);
+      renderizarGraficoTiposTarefas(data.graficos.tiposTarefas || []);
+      renderizarGraficoTarefasSaques(data.graficos.tarefas || [], data.graficos.saques || []);
+      renderizarGraficoCampanhas(data.graficos.campanhas || []);
+
+    } catch (err) {
+      alert(err.message);
     }
+  }
 
-    function aplicarFiltroRapido(tipo) {
-      const hoje = new Date();
-      let inicio = new Date();
+  function renderizarGraficoUsuarios(novos, ativos) {
+    const ctx = document.getElementById('chartNovosUsuarios').getContext('2d');
+    if (charts.usuarios) charts.usuarios.destroy();
 
-      if (tipo === 'hoje') {
-        inicio = hoje;
-      } else if (tipo === 'semana') {
-        inicio.setDate(hoje.getDate() - 7);
-      } else if (tipo === 'mes') {
-        inicio.setDate(hoje.getDate() - 30);
-      }
+    const dias = [...new Set([...novos.map(d => d.dia), ...ativos.map(d => d.dia)])].sort();
 
-      document.getElementById("dataInicio").value = inicio.toISOString().split('T')[0];
-      document.getElementById("dataFim").value = hoje.toISOString().split('T')[0];
-      carregarDadosMetricas();
-    }
-
-    function testarEColherDados() {
-      const adminKey = document.getElementById("campoAdminKey").value.trim();
-      if (!adminKey) return alert("Digite a ADMIN_KEY.");
-      carregarDadosMetricas();
-    }
-
-    async function carregarDadosMetricas() {
-      const adminKey = document.getElementById("campoAdminKey").value.trim();
-      const inicio = document.getElementById("dataInicio").value;
-      const fim = document.getElementById("dataFim").value;
-
-      if (!adminKey) {
-        return alert("Por favor, insira e clique em 'Usar Chave' com sua ADMIN_KEY primeiro.");
-      }
-
-      try {
-        const res = await fetch(`/admin/historico-dados?inicio=${inicio}&fim=${fim}`, {
-          headers: { "x-admin-key": adminKey }
-        });
-
-        if (!res.ok) throw new Error("ADMIN_KEY inválida ou falha ao carregar dados.");
-        const data = await res.json();
-
-        // Atualiza os Cards de KPIs (Novos e Existentes)
-        document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios || 0;
-        document.getElementById("kpiAtivos").textContent = data.kpis.ativos || 0;
-        document.getElementById("kpiRetorno").textContent = data.kpis.retorno || 0;
-        document.getElementById("kpiBloqueios").textContent = data.kpis.bloqueios || 0;
-        document.getElementById("kpiTarefas").textContent = data.kpis.tarefas || 0;
-        document.getElementById("kpiSaques").textContent = data.kpis.saques || 0;
-
-        // Renderiza os Gráficos (Chamadas preparadas para a Parte 4)
-        renderizarGraficoUsuarios(data.graficos.usuarios || []);
-        renderizarGraficoTiposTarefas(data.graficos.tiposTarefas || []);
-        renderizarGraficoTarefasSaques(data.graficos.tarefas || [], data.graficos.saques || []);
-        renderizarGraficoCampanhas(data.graficos.campanhas || []);
-
-      } catch (err) {
-        alert(err.message);
-      }
-    }
-
-    function renderizarGraficoUsuarios(dados) {
-      const ctx = document.getElementById('chartNovosUsuarios').getContext('2d');
-      if (charts.usuarios) charts.usuarios.destroy();
-
-      charts.usuarios = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: dados.map(d => d.dia),
-          datasets: [{
-            label: 'Novos Usuários por Dia',
-            data: dados.map(d => d.total),
+    charts.usuarios = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dias,
+        datasets: [
+          {
+            label: 'Novos Usuários',
+            data: dias.map(dia => {
+              const item = novos.find(d => d.dia === dia);
+              return item ? item.total : 0;
+            }),
             borderColor: '#2a8f43',
             backgroundColor: 'rgba(42, 143, 67, 0.1)',
             fill: true,
             tension: 0.2
-          }]
-        }
-      });
-    }
-
-    function renderizarGraficoTiposTarefas(dados) {
-      const ctx = document.getElementById('chartTiposTarefas').getContext('2d');
-      if (charts.tiposTarefas) charts.tiposTarefas.destroy();
-
-      charts.tiposTarefas = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: dados.map(d => d.origem || 'Outros'),
-          datasets: [{
-            label: 'Tarefas por Categoria (ZerAds, Monetag, etc.)',
-            data: dados.map(d => d.total),
-            backgroundColor: '#5bc0de'
-          }]
-        }
-      });
-    }
-
-    function renderizarGraficoTarefasSaques(tarefas, saques) {
-      const ctx = document.getElementById('chartTarefasSaques').getContext('2d');
-      if (charts.tarefasSaques) charts.tarefasSaques.destroy();
-
-      const dias = [...new Set([...tarefas.map(t => t.dia), ...saques.map(s => s.dia)])].sort();
-
-      charts.tarefasSaques = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: dias,
-          datasets: [
-            {
-              label: 'Tarefas Realizadas',
-              data: dias.map(dia => {
-                const item = tarefas.find(t => t.dia === dia);
-                return item ? item.total : 0;
-              }),
-              backgroundColor: '#2a8f43'
-            },
-            {
-              label: 'Saques Solicitados',
-              data: dias.map(dia => {
-                const item = saques.find(s => s.dia === dia);
-                return item ? item.total : 0;
-              }),
-              backgroundColor: '#d9534f'
-            }
-          ]
-        }
-      });
-    }
-
-    function renderizarGraficoCampanhas(dados) {
-      const ctx = document.getElementById('chartCampanhasOrigem').getContext('2d');
-      if (charts.campanhas) charts.campanhas.destroy();
-
-      charts.campanhas = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: dados.map(d => d.utm_source || 'Direto / Orgânico'),
-          datasets: [{
-            data: dados.map(d => d.total),
-            backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d']
-          }]
-        },
-        options: {
-          plugins: {
-            title: {
-              display: true,
-              text: 'Origem de Tráfego (UTM Source)'
-            }
+          },
+          {
+            label: 'Usuários Ativos (DAU)',
+            data: dias.map(dia => {
+              const item = ativos.find(d => d.dia === dia);
+              return item ? item.total : 0;
+            }),
+            borderColor: '#f0ad4e',
+            backgroundColor: 'rgba(240, 173, 78, 0.1)',
+            fill: true,
+            tension: 0.2
+          }
+        ]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: 'Crescimento vs. Atividade Diária'
           }
         }
-      });
-    }
+      }
+    });
+  }
 
-    // Inicializa datas com os últimos 7 dias por padrão ao carregar a página
-    aplicarFiltroRapido('semana');
-  </script>
+  function renderizarGraficoTiposTarefas(dados) {
+    const ctx = document.getElementById('chartTiposTarefas').getContext('2d');
+    if (charts.tiposTarefas) charts.tiposTarefas.destroy();
+
+    charts.tiposTarefas = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: dados.map(d => d.origem || 'Outros'),
+        datasets: [{
+          label: 'Volume por Categoria (ZerAds, Roleta, Tarefas, etc.)',
+          data: dados.map(d => d.total),
+          backgroundColor: '#5bc0de'
+        }]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: 'Tarefas Realizadas por Origem'
+          }
+        }
+      }
+    });
+  }
+
+  function renderizarGraficoTarefasSaques(tarefas, saques) {
+    const ctx = document.getElementById('chartTarefasSaques').getContext('2d');
+    if (charts.tarefasSaques) charts.tarefasSaques.destroy();
+
+    const dias = [...new Set([...tarefas.map(t => t.dia), ...saques.map(s => s.dia)])].sort();
+
+    charts.tarefasSaques = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: dias,
+        datasets: [
+          {
+            label: 'Tarefas Realizadas',
+            data: dias.map(dia => {
+              const item = tarefas.find(t => t.dia === dia);
+              return item ? item.total : 0;
+            }),
+            backgroundColor: '#2a8f43'
+          },
+          {
+            label: 'Saques Solicitados',
+            data: dias.map(dia => {
+              const item = saques.find(s => s.dia === dia);
+              return item ? item.total : 0;
+            }),
+            backgroundColor: '#d9534f'
+          }
+        ]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: 'Produtividade (Tarefas) vs. Caixa (Saques)'
+          }
+        }
+      }
+    });
+  }
+
+  function renderizarGraficoCampanhas(dados) {
+    const ctx = document.getElementById('chartCampanhasOrigem').getContext('2d');
+    if (charts.campanhas) charts.campanhas.destroy();
+
+    charts.campanhas = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: dados.map(d => d.utm_source || 'Direto / Orgânico'),
+        datasets: [{
+          data: dados.map(d => d.total),
+          backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d']
+        }]
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: 'Origem de Tráfego (UTM Source)'
+          }
+        }
+      }
+    });
+  }
+
+  // Inicializa datas com os últimos 7 dias por padrão ao carregar a página
+  aplicarFiltroRapido('semana');
+</script>
 </body>
 </html>
