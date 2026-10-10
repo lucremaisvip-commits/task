@@ -2612,18 +2612,20 @@ bot.catch(async (err, ctx) => {
 // Inicialização do Servidor e do Bot
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  
+
+  // Se o bot já estiver rodando por algum motivo, tenta parar sem estourar erro
   try {
-    // 🛑 Fecha instâncias antigas pendentes para evitar o Erro 409 (Conflict)
-    await bot.stop('RESTARTING');
-    
-    // Inicia o bot descartando atualizações presas na fila de espera do Telegram
-    await bot.launch({
-      dropPendingUpdates: true 
-    });
-    
-    console.log("🤖 Telegram Bot iniciado com sucesso via Telegraf!");
-  } catch (err) {
-    console.error("❌ Erro ao iniciar o bot do Telegram:", err);
+    await bot.stop();
+  } catch (e) {
+    // Silencia o erro "Bot is not running" caso seja a primeira inicialização
   }
+
+  // Inicia o bot descartando mensagens pendentes acumuladas
+  bot.launch({ dropPendingUpdates: true })
+    .then(() => {
+      console.log("🤖 Telegram Bot iniciado com sucesso via Telegraf!");
+    })
+    .catch((err) => {
+      console.error("❌ Erro ao iniciar o bot do Telegram:", err);
+    });
 });
