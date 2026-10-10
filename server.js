@@ -2610,15 +2610,20 @@ bot.catch(async (err, ctx) => {
 });
 
 // Inicialização do Servidor e do Bot
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
-  bot.launch().then(() => {
+  
+  try {
+    // 🛑 Fecha instâncias antigas pendentes para evitar o Erro 409 (Conflict)
+    await bot.stop('RESTARTING');
+    
+    // Inicia o bot descartando atualizações presas na fila de espera do Telegram
+    await bot.launch({
+      dropPendingUpdates: true 
+    });
+    
     console.log("🤖 Telegram Bot iniciado com sucesso via Telegraf!");
-  }).catch((err) => {
+  } catch (err) {
     console.error("❌ Erro ao iniciar o bot do Telegram:", err);
-  });
+  }
 });
-
-// Encerramento gracioso
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
