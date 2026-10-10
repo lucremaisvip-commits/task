@@ -2130,6 +2130,27 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
 
     await client.query("COMMIT");
 
+    // 🚨 4. NOTIFICAÇÃO EM TEMPO REAL PARA O SEU TELEGRAM (ADMIN)
+    const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+    if (adminId && typeof bot !== 'undefined') {
+      const mensagemAdmin = `🚨 **NOVA SOLICITAÇÃO DE SAQUE!**\n\n` +
+        `🆔 **ID do Saque:** #${saqueId}\n` +
+        `👤 **Usuário ID:** \`${telegram_id}\`\n` +
+        `💰 **Pontos Solicitados:** ${saque.pontos_solicitados} Pts\n` +
+        `💵 **Valor em BRL:** R$ ${saque.valor_solicitado}\n` +
+        `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n` +
+        `🔗 [Acessar Painel de Aprovação](https://task-test-nrdn.onrender.com/private/saques-adm.html?key=plucremais_9xK!p2026)`;
+
+      try {
+        await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
+          parse_mode: "Markdown",
+          disable_web_page_preview: true 
+        });
+      } catch (adminErr) {
+        console.error("⚠️ Erro ao enviar notificação de saque para o admin:", adminErr.message);
+      }
+    }
+
     await ctx.editMessageText(isEn 
       ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment.`
       : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento no painel!`
@@ -2142,7 +2163,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     client.release();
   }
 });
-
 bot.action(/canc_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
