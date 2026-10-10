@@ -2014,7 +2014,86 @@ app.post("/api/pagar-saque", async (req, res) => {
     res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
   }
 });
+// Endpoint de Dados para o Painel de Histórico
+app.get('/admin/historico-dados', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  const envKey = process.env.ADMIN_KEY || "plucremais_9xK!p2026"; // Ajuste conforme sua chave
 
+  if (!adminKey || adminKey !== envKey) {
+    return res.status(403).json({ error: "Acesso negado. Chave inválida." });
+  }
+
+  const { inicio, fim } = req.query;
+  // Define intervalo padrão se não enviado (últimos 7 dias)
+  const dataInicio = inicio ? `${inicio} 00:00:00` : new Date(Date.now() - 7*24*60*60*1000).toISOString();
+  const dataFim = fim ? `${fim} 23:59:59` : new Date().toISOString();
+
+  const client = await pool.connect();
+  try {
+    // 1. KPIs Gerais no Período
+    const novosUsuarios = await client.query(
+      "SELECT COUNT(*) FROM usuarios WHERE data_registro BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    const bloqueiosBot = await client.query(
+      "SELECT COUNT(*) FROM usuarios WHERE status_conta = 'bloqueado' AND data_registro BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    const tarefasFeitas = await client.query(
+      "SELECT COUNT(*) FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    const saquesSolicitados = await client.query(
+      "SELECT COUNT(*) FROM saques WHERE data_solicitacao BETWEEN $1 AND $2",
+      [dataInicio, dataFim]
+    );
+
+    // 2. Dados para Gráficos (Agrupados por Dia)
+    const serieUsuarios = await client.query(
+      "SELECT DATE(data_registro) as dia, COUNT(*) as total FROM usuarios WHERE data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
+      [dataInicio, dataFim]
+    );
+
+    const serieTarefas = await client.query(
+      "SELECT DATE(data_registro) as dia, COUNT(*) as total FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
+      [dataInicio, dataFim]
+    );
+
+    const serieSaques = await client.query(
+      "SELECT DATE(data_solicitacao) as dia, COUNT(*) as total FROM saques WHERE data_solicitacao BETWEEN $1 AND $2 GROUP BY DATE(data_solicitacao) ORDER BY dia ASC",
+      [dataInicio, dataFim]
+    );
+
+    const serieCampanhas = await client.query(
+      "SELECT utm_source, COUNT(*) as total FROM traffic_logs WHERE data_registro BETWEEN $1 AND $2 GROUP BY utm_source ORDER BY total DESC LIMIT 5",
+      [dataInicio, dataFim]
+    );
+
+    res.json({
+      kpis: {
+        usuarios: parseInt(novosUsuarios.rows[0].count),
+        bloqueios: parseInt(bloqueiosBot.rows[0].count),
+        tarefas: parseInt(tarefasFeitas.rows[0].count),
+        saques: parseInt(saquesSolicitados.rows[0].count)
+      },
+      graficos: {
+        usuarios: serieUsuarios.rows,
+        tarefas: serieTarefas.rows,
+        saques: serieSaques.rows,
+        campanhas: serieCampanhas.rows
+      }
+    });
+
+  } catch (err) {
+    console.error("Erro ao buscar dados históricos:", err);
+    res.status(500).json({ error: "Erro interno no servidor." });
+  } finally {
+    client.release();
+  }
+});
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
 // =========================================================================
