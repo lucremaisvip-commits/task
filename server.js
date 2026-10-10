@@ -1624,7 +1624,38 @@ app.get("/api/saques", async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar histórico de saques" });
   }
 });
+// 1. Rota para listar saques com status "Aguardando Chat"
+app.get('/api/admin/pending-withdrawals', async (req, res) => {
+    const { adminKey } = req.query;
+    if (adminKey !== process.env.ADMIN_KEY) {
+        return res.status(403).json({ success: false, message: 'ADMIN_KEY inválida.' });
+    }
 
+    try {
+        const result = await db.query(
+            "SELECT id, telegram_id, valor_solicitado, chave_pix FROM saques WHERE status = 'Aguardando Chat' ORDER BY data_solicitacao DESC"
+        );
+        res.json({ success: true, withdrawals: result.rows });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 2. Rota para disparar a mensagem via Telegram Bot API
+app.post('/api/admin/notify', async (req, res) => {
+    const { adminKey, telegramId, message } = req.body;
+    if (adminKey !== process.env.ADMIN_KEY) {
+        return res.status(403).json({ success: false, message: 'ADMIN_KEY inválida.' });
+    }
+
+    try {
+        // Envia a mensagem direta via Telegram Bot API
+        await bot.telegram.sendMessage(telegramId, message);
+        res.json({ success: true, message: 'Mensagem enviada com sucesso.' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Erro no bot: ' + err.message });
+    }
+});
 
 
 // 🔹 7. trafico e mensurização
