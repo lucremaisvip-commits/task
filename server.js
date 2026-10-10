@@ -2138,8 +2138,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
         `👤 **Usuário ID:** \`${telegram_id}\`\n` +
         `💰 **Pontos Solicitados:** ${saque.pontos_solicitados} Pts\n` +
         `💵 **Valor em BRL:** R$ ${saque.valor_solicitado}\n` +
-        `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n` +
-        `🔗 [Acessar Painel de Aprovação](https://task-test-nrdn.onrender.com/private/saques-adm.html?key=plucremais_9xK!p2026)`;
+        `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n`;
 
       try {
         await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
