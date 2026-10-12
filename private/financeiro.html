@@ -239,7 +239,37 @@
       <canvas id="chartSaldosParceiros"></canvas>
     </div>
   </div>
+<!-- 🧮 CALCULADORA & CONVERSOR DE MOEDAS EM TEMPO REAL -->
+  <h2>🧮 Conversor Universal de Moedas (Base: Tabela Cotações)</h2>
+  <div class="action-card" style="border-left: 5px solid #2196f3; background: #f4f9ff;">
+    <div class="filter-group">
+      <label>Valor para Converter</label>
+      <input type="number" step="0.00000001" id="convValorInput" placeholder="Ex: 100" value="10" />
+    </div>
 
+    <div class="filter-group">
+      <label>Moeda de Origem</label>
+      <select id="convMoedaSelect">
+        <option value="USD">Dólar ($ USD)</option>
+        <option value="LTC">Litecoin (LTC)</option>
+        <option value="ZER">ZerCoin (ZER)</option>
+        <option value="Pts">Pontos (Pts do Bot)</option>
+        <option value="BRL">Real (R$ BRL)</option>
+      </select>
+    </div>
+
+    <div class="filter-group" style="flex: 0; align-self: flex-end;">
+      <button class="btn-primary" style="background: #2196f3;" onclick="calcularConversaoDireta()">🧮 Converter Moeda</button>
+    </div>
+
+    <!-- Resultado em Caixas Destacadas -->
+    <div id="resultadoConversaoBox" style="width: 100%; margin-top: 10px; display: none; padding: 12px; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <strong style="color: #2196f3; font-size: 13px;">📊 Resultado da Conversão:</strong>
+      <div id="resultadoConversaoConteudo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 8px;">
+        <!-- Preenchido via JavaScript -->
+      </div>
+    </div>
+  </div>
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <h2>📋 Saldos nos Parceiros Externos</h2>
     <button class="btn-primary" onclick="abrirModalParceiro()">➕ Novo Parceiro</button>
@@ -622,6 +652,72 @@
         alert("Erro: " + err.message);
       }
     }
+function calcularConversaoDireta() {
+  const valorInput = parseFloat(document.getElementById("convValorInput").value) || 0;
+  const moedaOrigem = document.getElementById("convMoedaSelect").value;
+  const boxResultado = document.getElementById("resultadoConversaoBox");
+  const conteudoresultado = document.getElementById("resultadoConversaoConteudo");
+
+  if (!cotacaoGlobal) {
+    alert("Cotações ainda não carregadas do banco. Insira a ADMIN_KEY e recarregue.");
+    return;
+  }
+
+  // Taxas por Ponto armazenadas no banco de dados
+  const ltcPorPonto = parseFloat(cotacaoGlobal.valor_ltc) || 0.00010309;
+  const usdPorPonto = parseFloat(cotacaoGlobal.valor_usd) || 0.00909091;
+  const zerPorPonto = parseFloat(cotacaoGlobal.valor_zer) || 2.5;
+  const brlPorPonto = parseFloat(cotacaoGlobal.valor_brl) || 0.05;
+
+  let totalPontosEquivalente = 0;
+
+  // 1. Converte qualquer moeda de entrada para o padrão em PONTOS
+  if (moedaOrigem === 'Pts') {
+    totalPontosEquivalente = valorInput;
+  } else if (moedaOrigem === 'USD') {
+    totalPontosEquivalente = usdPorPonto > 0 ? (valorInput / usdPorPonto) : 0;
+  } else if (moedaOrigem === 'LTC') {
+    totalPontosEquivalente = ltcPorPonto > 0 ? (valorInput / ltcPorPonto) : 0;
+  } else if (moedaOrigem === 'ZER') {
+    totalPontosEquivalente = zerPorPonto > 0 ? (valorInput / zerPorPonto) : 0;
+  } else if (moedaOrigem === 'BRL') {
+    totalPontosEquivalente = brlPorPonto > 0 ? (valorInput / brlPorPonto) : 0;
+  }
+
+  // 2. Calcula as equivalências de saída para todas as moedas
+  const resUsd = totalPontosEquivalente * usdPorPonto;
+  const resLtc = totalPontosEquivalente * ltcPorPonto;
+  const resZer = totalPontosEquivalente * zerPorPonto;
+  const resBrl = totalPontosEquivalente * brlPorPonto;
+  const resPts = totalPontosEquivalente;
+
+  // 3. Renderiza o resultado na tela
+  conteudoresultado.innerHTML = `
+    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+      <small style="color:#555; font-weight:bold;">💵 DÓLAR (USD)</small><br>
+      <strong style="color:#1e6e34; font-size:15px;">$${resUsd.toFixed(4)} USD</strong>
+    </div>
+    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+      <small style="color:#555; font-weight:bold;">⚡ LITECOIN (LTC)</small><br>
+      <strong style="color:#2196f3; font-size:15px;">${resLtc.toFixed(8)} LTC</strong>
+    </div>
+    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+      <small style="color:#555; font-weight:bold;">🪙 ZERCOIN (ZER)</small><br>
+      <strong style="color:#9c27b0; font-size:15px;">${resZer.toFixed(4)} ZER</strong>
+    </div>
+    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+      <small style="color:#555; font-weight:bold;">🎯 PONTOS (Pts)</small><br>
+      <strong style="color:#ff9800; font-size:15px;">${Math.round(resPts).toLocaleString()} Pts</strong>
+    </div>
+    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+      <small style="color:#555; font-weight:bold;">🇧🇷 REAL (BRL)</small><br>
+      <strong style="color:#666; font-size:15px;">R$ ${resBrl.toFixed(2)} BRL</strong>
+    </div>
+  `;
+
+  boxResultado.style.display = "block";
+}
+    
   </script>
 </body>
 </html>
