@@ -2241,9 +2241,17 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
   try {
     await client.query("BEGIN");
 
-    const userRes = await client.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-    const isEn = userRes.rows[0]?.lang === 'en';
+    const userRes = await client.query(
+      "SELECT pontos, lang FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
+      [telegram_id]
+    );
+    
+    if (userRes.rows.length === 0) throw new Error("USUARIO_NAO_ENCONTRADO");
+    const user = userRes.rows[0];
+    const isEn = user.lang === 'en';
+    const saldoAtual = parseFloat(user.pontos);
 
+    // 1. Busca o saque específico que está tentando confirmar
     const saqueRes = await client.query(
       "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
       [saqueId, telegram_id]
@@ -2255,34 +2263,49 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     }
 
     const saque = saqueRes.rows[0];
+    const pontosSolicitados = parseFloat(saque.pontos_solicitados);
 
-    // 1. Debita os pontos do usuário de verdade AGORA que ele confirmou
-    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [saque.pontos_solicitados, telegram_id]);
+    // 🛡️ 2. TRAVA DE SALDO ATÔMICA: Verifica se o usuário realmente tem saldo para este saque AGORA
+    if (saldoAtual < pontosSolicitados) {
+      await client.query("ROLLBACK");
+      // Cancela este saque por falta de saldo
+      await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1", [saqueId]);
+      return ctx.editMessageText(isEn ? "⚠️ Insufficient balance to complete this withdrawal." : "⚠️ Saldo insuficiente para concluir este saque.");
+    }
 
-    // 2. Registra a saída no histórico de ganhos
+    // 3. Debita os pontos do usuário de verdade
+    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
+
+    // 4. Registra a saída no histórico de ganhos
     await client.query(`
       INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
       VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-    `, [telegram_id, -Math.abs(saque.pontos_solicitados), saqueId]);
+    `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
 
-    // 3. Altera o status para 'Waiting' (Exatamente como o seu painel admin espera encontrar)
+    // 5. Altera o status para 'Waiting' para o painel admin
     await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
+
+    // 🛡️ 6. SEGURANÇA EXTRA: Cancela automaticamente quaisquer outros pedidos 'Aguardando Chat' antigos deste usuário
+    await client.query(
+      "UPDATE saques SET status = 'Cancelado' WHERE telegram_id = $1 AND status = 'Aguardando Chat' AND id != $2",
+      [telegram_id, saqueId]
+    );
 
     await client.query("COMMIT");
 
-    // 🚨 4. NOTIFICAÇÃO EM TEMPO REAL PARA O SEU TELEGRAM (ADMIN)
+    // 🚨 7. Notificação Admin (Mantida igual)
     const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
     if (adminId && typeof bot !== 'undefined') {
       const mensagemAdmin = `🚨 **NOVA SOLICITAÇÃO DE SAQUE!**\n\n` +
         `🆔 **ID do Saque:** #${saqueId}\n` +
         `👤 **Usuário ID:** \`${telegram_id}\`\n` +
-        `💰 **Pontos Solicitados:** ${saque.pontos_solicitados} Pts\n` +
+        `💰 **Pontos Solicitados:** ${pontosSolicitados} Pts\n` +
         `💵 **Valor em BRL:** R$ ${saque.valor_solicitado}\n` +
         `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n`;
 
       try {
         await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
-          parse_mode: "Markdown",
+          parse_mode: "Markdown", 
           disable_web_page_preview: true 
         });
       } catch (adminErr) {
@@ -2298,6 +2321,9 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
   } catch (err) {
     await client.query("ROLLBACK");
     console.error("Erro ao confirmar saque via chat:", err);
+    try {
+      await ctx.editMessageText("⚠️ Erro interno ao processar a confirmação do saque.");
+    } catch (e) {}
   } finally {
     client.release();
   }
