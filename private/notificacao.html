@@ -3,58 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Notificações - Admin</title>
+    <title>Admin - Central de Notificações</title>
     <style>
         :root {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --accent: #3b82f6;
-            --text: #f8fafc;
-            --text-muted: #94a3b8;
+            --bg: #f4f4f4;
+            --card: #ffffff;
+            --accent: #2a8f43;
+            --accent-hover: #1e6e34;
+            --text: #333333;
+            --text-muted: #666666;
             --warning: #f59e0b;
             --success: #10b981;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
-            margin: 0;
+            max-width: 1200px;
+            margin: auto;
             padding: 20px;
         }
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        nav a {
+            background: #2a8f43;
+            color: white;
+            padding: 10px 16px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        nav a:hover {
+            background: #1e6e34;
         }
 
-        h1 {
+        h1, h3 {
             color: var(--accent);
-            border-bottom: 2px solid var(--card);
-            padding-bottom: 10px;
         }
 
         .card {
             background-color: var(--card);
             border-radius: 8px;
-            padding: 20px;
+            padding: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 12px;
+            font-weight: bold;
             color: var(--text-muted);
+            text-transform: uppercase;
         }
 
-        input, select, textarea {
+        input[type="password"], input[type="text"], select, textarea {
             width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #334155;
-            background-color: #0f172a;
+            padding: 8px 12px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            background-color: #fff;
             color: var(--text);
             box-sizing: border-box;
             margin-bottom: 15px;
@@ -64,40 +80,37 @@
             background-color: var(--accent);
             color: white;
             border: none;
-            padding: 12px 20px;
-            border-radius: 6px;
+            padding: 10px 16px;
+            border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
-            transition: opacity 0.2s;
+            transition: background 0.2s;
         }
 
         button:hover {
-            opacity: 0.9;
-        }
-
-        .badge-warning {
-            background-color: var(--warning);
-            color: #000;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 0.8em;
-            font-weight: bold;
+            background-color: var(--accent-hover);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
             margin-top: 10px;
         }
 
         th, td {
-            text-align: left;
             padding: 10px;
-            border-bottom: 1px solid #334155;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
         }
 
         th {
-            color: var(--text-muted);
+            background: #2a8f43;
+            color: white;
         }
 
         .btn-action {
@@ -114,6 +127,19 @@
     </style>
 </head>
 <body>
+
+  <!-- Navegação Padrão com Repasse de Chave URL -->
+  <nav>
+    <a href="tarefas-adm.html">Tarefas</a>
+    <a href="saques-adm.html">Saques</a>
+    <a href="usuarios-adm.html">Usuários</a>
+    <a href="indicacoes-adm.html">Indicações</a>
+    <a href="config-adm.html">Config</a>
+    <a href="anuncios-adm.html">Anúncios</a>
+    <a href="historico.html">Histórico</a>
+    <a href="financeiro.html">Financeiro</a>
+    <a href="notificacao.html" style="background:#1e6e34;">Notificação</a>
+  </nav>
 
 <div class="container">
     <h1>📢 Central de Notificações & Suporte</h1>
@@ -146,8 +172,8 @@
                 <tr>
                     <th>ID Saque</th>
                     <th>Telegram ID</th>
-                    <th>Valor (R$)</th>
-                    <th>Chave Pix</th>
+                    <th>Valor (BRL / Moeda)</th>
+                    <th>Chave Pix / Carteira</th>
                     <th>Ação</th>
                 </tr>
             </thead>
@@ -165,13 +191,25 @@
 </div>
 
 <script>
-    const API_URL = "https://task-test-nrdn.onrender.com"; // Ajuste para a URL oficial da API do seu bot
+    const API_URL = ""; // Mantém relativo ao domínio atual da aplicação no Render
+
+    // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu e preenche automaticamente
+    const params = new URLSearchParams(window.location.search);
+    const privateKey = params.get("key");
+    if (privateKey) {
+        document.getElementById("adminKey").value = privateKey;
+        document.querySelectorAll("nav a").forEach(link => {
+            if (!link.href.includes("key=")) {
+                link.href += (link.href.includes("?") ? "&" : "?") + "key=" + privateKey;
+            }
+        });
+    }
 
     // Enviar mensagem direta para um Telegram ID específico
     async function sendDirectMessage() {
-        const adminKey = document.getElementById('adminKey').value;
-        const targetId = document.getElementById('targetId').value;
-        const message = document.getElementById('directMessage').value;
+        const adminKey = document.getElementById('adminKey').value.trim();
+        const targetId = document.getElementById('targetId').value.trim();
+        const message = document.getElementById('directMessage').value.trim();
 
         if (!adminKey || !targetId || !message) {
             showStatus('Preencha a ADMIN_KEY, o Telegram ID e a Mensagem!', 'warning');
@@ -181,7 +219,10 @@
         try {
             const response = await fetch(`${API_URL}/api/admin/notify`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-admin-key': adminKey
+                },
                 body: JSON.stringify({ adminKey, telegramId: targetId, message })
             });
 
@@ -190,7 +231,7 @@
                 showStatus(`✅ Mensagem enviada com sucesso para ${targetId}!`, 'success');
                 document.getElementById('directMessage').value = '';
             } else {
-                showStatus(`❌ Erro: ${data.message || 'Falha ao enviar mensagem.'}`, 'warning');
+                showStatus(`❌ Erro: ${data.message || data.error || 'Falha ao enviar mensagem.'}`, 'warning');
             }
         } catch (error) {
             showStatus(`❌ Erro de conexão com o servidor.`, 'warning');
@@ -199,27 +240,28 @@
 
     // Buscar saques com status 'Aguardando Chat'
     async function fetchPendingWithdrawals() {
-        const adminKey = document.getElementById('adminKey').value;
+        const adminKey = document.getElementById('adminKey').value.trim();
         if (!adminKey) {
             showStatus('Insira a ADMIN_KEY para carregar a lista.', 'warning');
             return;
         }
 
         try {
-            const response = await fetch(`${API_URL}/api/admin/pending-withdrawals?adminKey=${adminKey}`);
+            const response = await fetch(`${API_URL}/api/admin/pending-withdrawals?adminKey=${encodeURIComponent(adminKey)}`);
             const data = await response.json();
 
             const tbody = document.getElementById('withdrawalsBody');
             tbody.innerHTML = '';
 
-            if (data.withdrawals && data.withdrawals.length > 0) {
-                data.withdrawals.forEach(item => {
+            const lista = data.withdrawals || data; // Compatibilidade com diferentes retornos da API
+            if (Array.isArray(lista) && lista.length > 0) {
+                lista.forEach(item => {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>#${item.id}</td>
-                        <td>${item.telegram_id}</td>
-                        <td>R$ ${parseFloat(item.valor_solicitado).toFixed(2)}</td>
-                        <td>${item.chave_pix}</td>
+                        <td><code>${item.telegram_id}</code></td>
+                        <td>${item.valor_solicitado ? 'R$ ' + parseFloat(item.valor_solicitado).toFixed(2) : '-'}</td>
+                        <td>${item.chave_pix || '-'}</td>
                         <td>
                             <button class="btn-action" onclick="quickNotify('${item.telegram_id}', '${item.id}')">
                                 📩 Chamar no Bot
@@ -239,15 +281,15 @@
     // Preenche os campos para chamar o usuário do saque com um modelo pré-pronto
     function quickNotify(telegramId, saqueId) {
         document.getElementById('targetId').value = telegramId;
-        document.getElementById('directMessage').value = `Olá! Identificamos a sua solicitação de saque #${saqueId}. Por favor, confirme seu e-mail e chave Pix para darmos andamento ao seu pagamento no CashTaskBot!`;
+        document.getElementById('directMessage').value = `Olá! Identificamos a sua solicitação de saque #${saqueId}. Por favor, confirme suas informações para darmos andamento ao seu pagamento!`;
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function showStatus(text, type) {
         const log = document.getElementById('log-status');
         log.style.display = 'block';
-        log.style.backgroundColor = type === 'success' ? '#064e3b' : '#7f1d1d';
-        log.style.color = '#fff';
+        log.style.backgroundColor = type === 'success' ? '#10b981' : '#f59e0b';
+        log.style.color = type === 'success' ? '#fff' : '#000';
         log.innerHTML = text;
     }
 </script>
