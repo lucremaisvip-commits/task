@@ -35,7 +35,7 @@
       color: #2a8f43;
       margin-top: 25px;
     }
-    .auth-card, .filter-card, .action-card, .cotacao-card {
+    .auth-card, .action-card, .cotacao-card {
       background: #fff;
       padding: 15px;
       border-radius: 8px;
@@ -77,6 +77,19 @@
     }
     button.btn-primary:hover {
       background: #1e6e34;
+    }
+    button.btn-edit {
+      background: #2196f3;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 12px;
+    }
+    button.btn-edit:hover {
+      background: #1976d2;
     }
     .kpi-container {
       display: grid;
@@ -142,11 +155,30 @@
       background: #2a8f43;
       color: white;
     }
+
+    /* Modal de Edição */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
   </style>
 </head>
 <body>
 
-  <!-- Navegação Padrão com Repasse de Chave URL -->
+  <!-- Navegação Padrão -->
   <nav>
     <a href="tarefas-adm.html">Tarefas</a>
     <a href="saques-adm.html">Saques</a>
@@ -156,7 +188,7 @@
     <a href="anuncios-adm.html">Anúncios</a>
     <a href="historico.html">Histórico</a>
     <a href="financeiro.html" style="background:#1e6e34;">Financeiro</a>
-     <a href="notificacao.html">Notificação</a>
+    <a href="notificacao.html">Notificação</a>
   </nav>
 
   <h2>🔑 Chave de Ação Administrativa (ADMIN_KEY)</h2>
@@ -170,7 +202,7 @@
     </div>
   </div>
 
-  <!-- Banner de Cotações Ativas puxadas do Banco -->
+  <!-- Banner de Cotações Ativas -->
   <div class="cotacao-card" id="cardCotacoes">
     <div style="width: 100%;">
       <strong style="color: #2a8f43;">💱 Cotação Ativa no Banco de Dados (Sincronizada via CoinGecko):</strong>
@@ -208,7 +240,11 @@
     </div>
   </div>
 
-  <h2>📋 Saldos nos Parceiros Externos</h2>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <h2>📋 Saldos nos Parceiros Externos</h2>
+    <button class="btn-primary" onclick="abrirModalParceiro()">➕ Novo Parceiro</button>
+  </div>
+  
   <div style="overflow-x:auto;">
     <table>
       <thead>
@@ -219,10 +255,11 @@
           <th>Cliques Disp.</th>
           <th>Previsão Saque</th>
           <th>Status</th>
+          <th>Ação</th>
         </tr>
       </thead>
       <tbody id="tabelaParceirosBody">
-        <tr><td colspan="6" style="text-align:center;">Carregando dados...</td></tr>
+        <tr><td colspan="7" style="text-align:center;">Carregando dados...</td></tr>
       </tbody>
     </table>
   </div>
@@ -254,11 +291,52 @@
     </div>
   </div>
 
+  <!-- Modal de Adicionar/Editar Parceiro -->
+  <div class="modal-overlay" id="modalParceiro">
+    <div class="modal-content">
+      <h3 id="modalTitulo" style="color:#2a8f43; margin-top:0;">✏️ Editar Saldo do Parceiro</h3>
+      
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="font-size:12px; font-weight:bold;">Nome do Parceiro</label>
+        <input type="text" id="modalParceiroNome" placeholder="Ex: Monetag, ZerAds (Publisher)" />
+
+        <label style="font-size:12px; font-weight:bold;">Saldo USD (Se for em Dólar/USDT)</label>
+        <input type="number" step="0.0001" id="modalSaldoUsd" value="0.0000" />
+
+        <label style="font-size:12px; font-weight:bold;">Saldo ZER (Se for em ZER)</label>
+        <input type="number" step="0.0001" id="modalSaldoZer" value="0.0000" />
+
+        <label style="font-size:12px; font-weight:bold;">Cliques Disponíveis (Anúncios)</label>
+        <input type="number" id="modalCliques" value="0" />
+
+        <label style="font-size:12px; font-weight:bold;">Previsão de Saque</label>
+        <input type="date" id="modalPrevisaoSaque" />
+
+        <label style="font-size:12px; font-weight:bold;">Status do Saque</label>
+        <select id="modalStatusSaque">
+          <option value="acumulando">Acumulando</option>
+          <option value="solicitado">Solicitado</option>
+          <option value="pago">Pago / Recebido</option>
+          <option value="ativo">Ativo (Anúncios)</option>
+        </select>
+
+        <label style="font-size:12px; font-weight:bold;">Observações</label>
+        <input type="text" id="modalObs" placeholder="Ex: Saque mínimo é $5 USD" />
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
+          <button style="background:#6c757d; color:white; border:none;" onclick="fecharModalParceiro()">Cancelar</button>
+          <button class="btn-primary" onclick="salvarModalParceiro()">💾 Salvar Alterações</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let charts = {};
     let cotacaoGlobal = null;
+    let listaParceirosGlobal = [];
 
-    // Preserva a chave PRIVATE_KEY (?key=...) na navegação
+    // Preserva a chave na URL
     const params = new URLSearchParams(window.location.search);
     const privateKey = params.get("key");
     if (privateKey) {
@@ -273,7 +351,6 @@
       });
     }
 
-    // Função de Conversão Baseada na Tabela cotacoes
     function formatarValoresGlobal(valorNum, tipoMoeda) {
       const val = parseFloat(valorNum) || 0;
       
@@ -309,21 +386,17 @@
 
     async function carregarDadosFinanceiros() {
       const adminKey = document.getElementById("campoAdminKey").value.trim();
-      if (!adminKey) {
-        return alert("Por favor, insira sua ADMIN_KEY.");
-      }
+      if (!adminKey) return alert("Por favor, insira sua ADMIN_KEY.");
 
       try {
         const res = await fetch(`/api/financeiro/overview`, {
           headers: { "x-admin-key": adminKey }
         });
 
-        if (!res.ok) throw new Error("ADMIN_KEY inválida ou erro ao buscar dados financeiros.");
+        if (!res.ok) throw new Error("ADMIN_KEY inválida ou erro ao buscar dados.");
         const data = await res.json();
-
         if (!data.success) throw new Error(data.error || "Erro desconhecido");
 
-        // Guarda Cotações do Banco
         cotacaoGlobal = data.cotacao_atual;
         if (cotacaoGlobal) {
           document.getElementById("infoCotacaoTexto").innerHTML = `
@@ -332,26 +405,22 @@
           `;
         }
 
-        // Processa KPIs dos Saques (convertendo pontos reais da tabela saques)
         const totalPontosPagos = parseFloat(data.estatisticas_saques_usuarios.total_pontos || 0);
         const eqSaques = formatarValoresGlobal(totalPontosPagos, 'Pts');
 
-        document.getElementById("kpiTotalSaques").textContent = eqSaques.textoEq.split('|')[1].trim(); // Pega LTC
-        document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: ${eqSaques.textoEq.split('|')[0].trim()})`; // Pega USD
+        document.getElementById("kpiTotalSaques").textContent = eqSaques.textoEq.split('|')[1].trim();
+        document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: ${eqSaques.textoEq.split('|')[0].trim()})`;
         document.getElementById("kpiQtdSaques").textContent = data.estatisticas_saques_usuarios.qtd_saques || 0;
 
-        // KPI Marketing
         const totalMktUsd = parseFloat(data.resumo_marketing.total_mkt_usd || 0);
         const eqMkt = formatarValoresGlobal(totalMktUsd, 'USD');
         document.getElementById("kpiInvestimentoMkt").textContent = `$${totalMktUsd.toFixed(4)} USD`;
         document.getElementById("kpiInvestimentoMktEq").textContent = `(${eqMkt.textoEq.split('|')[1].trim()})`;
 
-        // Renderiza Tabela de Parceiros
-        renderizarTabelaParceiros(data.saldos_parceiros || []);
-
-        // Renderiza Gráficos
+        listaParceirosGlobal = data.saldos_parceiros || [];
+        renderizarTabelaParceiros(listaParceirosGlobal);
         renderizarGraficoTransacoes(data.resumo_transacoes || []);
-        renderizarGraficoParceiros(data.saldos_parceiros || []);
+        renderizarGraficoParceiros(listaParceirosGlobal);
 
       } catch (err) {
         alert(err.message);
@@ -363,7 +432,7 @@
       tbody.innerHTML = "";
 
       if (parceiros.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhum parceiro cadastrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Nenhum parceiro cadastrado.</td></tr>`;
         return;
       }
 
@@ -389,9 +458,92 @@
           <td>${p.cliques_disponiveis || 0}</td>
           <td>${p.previsao_saque ? new Date(p.previsao_saque).toLocaleDateString() : '-'}</td>
           <td><span style="padding:3px 8px; border-radius:4px; background:#eef; color:#2a8f43; font-weight:bold;">${p.status_saque}</span></td>
+          <td>
+            <button class="btn-edit" onclick="abrirModalParceiro('${p.parceiro}')">✏️ Editar</button>
+          </td>
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    // Lógica do Modal de Edição
+    function abrirModalParceiro(nomeParceiro = null) {
+      const modal = document.getElementById("modalParceiro");
+      const titulo = document.getElementById("modalTitulo");
+
+      if (nomeParceiro) {
+        const p = listaParceirosGlobal.find(item => item.parceiro === nomeParceiro);
+        if (p) {
+          titulo.textContent = `✏️ Editar Saldo: ${p.parceiro}`;
+          document.getElementById("modalParceiroNome").value = p.parceiro;
+          document.getElementById("modalParceiroNome").disabled = true; // Não altera o ID/Nome na edição
+          document.getElementById("modalSaldoUsd").value = p.saldo_pendente_usd || "0.0000";
+          document.getElementById("modalSaldoZer").value = p.saldo_pendente_zer || "0.0000";
+          document.getElementById("modalCliques").value = p.cliques_disponiveis || 0;
+          document.getElementById("modalPrevisaoSaque").value = p.previsao_saque ? p.previsao_saque.split('T')[0] : "";
+          document.getElementById("modalStatusSaque").value = p.status_saque || "acumulando";
+          document.getElementById("modalObs").value = p.observacao || "";
+        }
+      } else {
+        titulo.textContent = "➕ Cadastrar Novo Parceiro";
+        document.getElementById("modalParceiroNome").value = "";
+        document.getElementById("modalParceiroNome").disabled = false;
+        document.getElementById("modalSaldoUsd").value = "0.0000";
+        document.getElementById("modalSaldoZer").value = "0.0000";
+        document.getElementById("modalCliques").value = "0";
+        document.getElementById("modalPrevisaoSaque").value = "";
+        document.getElementById("modalStatusSaque").value = "acumulando";
+        document.getElementById("modalObs").value = "";
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function fecharModalParceiro() {
+      document.getElementById("modalParceiro").style.display = "none";
+    }
+
+    async function salvarModalParceiro() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      const parceiro = document.getElementById("modalParceiroNome").value.trim();
+      const saldo_pendente_usd = parseFloat(document.getElementById("modalSaldoUsd").value) || 0;
+      const saldo_pendente_zer = parseFloat(document.getElementById("modalSaldoZer").value) || 0;
+      const cliques_disponiveis = parseInt(document.getElementById("modalCliques").value) || 0;
+      const previsao_saque = document.getElementById("modalPrevisaoSaque").value || null;
+      const status_saque = document.getElementById("modalStatusSaque").value;
+      const observacao = document.getElementById("modalObs").value.trim();
+
+      if (!adminKey) return alert("Insira a ADMIN_KEY.");
+      if (!parceiro) return alert("Informe o nome do parceiro.");
+
+      try {
+        const res = await fetch('/api/financeiro/saldos-parceiros', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': adminKey
+          },
+          body: JSON.stringify({
+            parceiro,
+            saldo_pendente_usd,
+            saldo_pendente_zer,
+            cliques_disponiveis,
+            previsao_saque,
+            status_saque,
+            observacao
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Erro ao salvar parceiro.");
+
+        alert("✅ Saldo do parceiro atualizado com sucesso!");
+        fecharModalParceiro();
+        carregarDadosFinanceiros();
+
+      } catch (err) {
+        alert("Erro: " + err.message);
+      }
     }
 
     function renderizarGraficoTransacoes(transacoes) {
