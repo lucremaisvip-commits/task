@@ -2155,6 +2155,177 @@ app.get('/admin/historico-dados', async (req, res) => {
     client.release();
   }
 });
+
+
+// =========================================================================
+// 💰 MÓDULO FINANCEIRO (Adicionado direto no server.js)
+// =========================================================================
+
+// 1. GET /api/financeiro/overview - Visão geral e consolidados do caixa
+app.get('/api/financeiro/overview', async (req, res) => {
+    try {
+        const saldosParceiros = await pool.query('SELECT * FROM financeiro_saldos_parceiros ORDER BY parceiro ASC');
+        const totalSaques = await pool.query("SELECT COALESCE(SUM(valor_solicitado), 0) as pago_usd, COUNT(*) as qtd_saques FROM saques WHERE status = 'ok'");
+        const transacoesResumo = await pool.query(`
+            SELECT tipo, COALESCE(SUM(valor_usd), 0) as total_usd, COALESCE(SUM(valor_zer), 0) as total_zer 
+            FROM financeiro_transacoes GROUP BY tipo
+        `);
+        const mktResumo = await pool.query(`
+            SELECT COALESCE(SUM(valor_investido_usd), 0) as total_mkt_usd, COALESCE(SUM(valor_investido_zer), 0) as total_mkt_zer 
+            FROM financeiro_campanhas_mkt WHERE status = 'ativa'
+        `);
+
+        res.json({
+            success: true,
+            saldos_parceiros: saldosParceiros.rows,
+            estatisticas_saques_usuarios: totalSaques.rows[0],
+            resumo_transacoes: transacoesResumo.rows,
+            resumo_marketing: mktResumo.rows[0]
+        });
+    } catch (err) {
+        console.error("Erro no overview financeiro:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 2. GET /api/financeiro/transacoes - Lista o histórico de transações
+app.get('/api/financeiro/transacoes', async (req, res) => {
+    try {
+        const { limit = 50, offset = 0 } = req.query;
+        const result = await pool.query(
+            'SELECT * FROM financeiro_transacoes ORDER BY data_registro DESC LIMIT $1 OFFSET $2',
+            [parseInt(limit), parseInt(offset)]
+        );
+        res.json({ success: true, transacoes: result.rows });
+    } catch (err) {
+        console.error("Erro ao listar transações financeiras:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 3. POST /api/financeiro/transacoes - Insere transação com Split Automático (30/30/20/20)
+app.post('/api/financeiro/transacoes', async (req, res) => {
+    const { 
+        tipo, origem_destino, valor_usd = 0, valor_zer = 0, 
+        valor_brl = 0, cotacao_usd_zer = 0, categoria = '', 
+        referencia_id = null, observacao = '' 
+    } = req.body;
+    
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+
+        let split_faucetpay = 0;
+        let split_lucro = 0;
+        let split_reserva = 0;
+        let split_mkt = 0;
+
+        if (tipo === 'entrada_parceiro' && parseFloat(valor_usd) > 0) {
+            const baseUsd = parseFloat(valor_usd);
+            split_faucetpay = baseUsd * 0.30;
+            split_lucro = baseUsd * 0.30;
+            split_reserva = baseUsd * 0.20;
+            split_mkt = baseUsd * 0.20;
+        }
+
+        const query = `
+            INSERT INTO financeiro_transacoes 
+            (tipo, origem_destino, valor_usd, valor_zer, valor_brl, cotacao_usd_zer, split_faucetpay, split_lucro, split_reserva, split_mkt, categoria, referencia_id, observacao)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
+        `;
+        
+        const values = [
+            tipo, origem_destino, valor_usd, valor_zer, valor_brl, cotacao_usd_zer,
+            split_faucetpay, split_lucro, split_reserva, split_mkt, categoria, referencia_id, observacao
+        ];
+
+        const novoMovimento = await client.query(query, values);
+        await client.query("COMMIT");
+
+        res.json({ success: true, transacao: novoMovimento.rows[0] });
+
+    } catch (err) {
+        await client.query("ROLLBACK");
+        console.error("Erro ao inserir transação financeira:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// 4. POST /api/financeiro/saldos-parceiros - Atualiza saldo em painel externo
+app.post('/api/financeiro/saldos-parceiros', async (req, res) => {
+    const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao } = req.body;
+    
+    if (!parceiro) {
+        return res.status(400).json({ success: false, error: "O campo 'parceiro' é obrigatório." });
+    }
+
+    try {
+        const query = `
+            INSERT INTO financeiro_saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao, data_atualizacao)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+            ON CONFLICT (parceiro) 
+            DO UPDATE SET 
+                saldo_pendente_usd = EXCLUDED.saldo_pendente_usd,
+                saldo_pendente_zer = EXCLUDED.saldo_pendente_zer,
+                cliques_disponiveis = EXCLUDED.cliques_disponiveis,
+                previsao_saque = EXCLUDED.previsao_saque,
+                status_saque = EXCLUDED.status_saque,
+                observacao = EXCLUDED.observacao,
+                data_atualizacao = NOW()
+            RETURNING *;
+        `;
+        const values = [
+            parceiro, 
+            saldo_pendente_usd || 0, 
+            saldo_pendente_zer || 0, 
+            cliques_disponiveis || 0, 
+            previsao_saque || null, 
+            status_saque || 'acumulando', 
+            observacao || ''
+        ];
+        
+        const resultado = await pool.query(query, values);
+        res.json({ success: true, saldo: resultado.rows[0] });
+
+    } catch (err) {
+        console.error("Erro ao atualizar saldo do parceiro:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 5. POST /api/financeiro/campanhas - Gerencia campanhas de tráfego/marketing
+app.post('/api/financeiro/campanhas', async (req, res) => {
+    const { plataforma, nome_campanha, valor_investido_zer, valor_investido_usd, cliques_comprados, cpc_estimado_usd, status, observacao } = req.body;
+
+    try {
+        const query = `
+            INSERT INTO financeiro_campanhas_mkt 
+            (plataforma, nome_campanha, valor_investido_zer, valor_investido_usd, cliques_comprados, cpc_estimado_usd, status, observacao, data_inicio)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *;
+        `;
+        const values = [
+            plataforma || 'ZerAds',
+            nome_campanha,
+            valor_investido_zer || 0,
+            valor_investido_usd || 0,
+            cliques_comprados || 0,
+            cpc_estimado_usd || 0,
+            status || 'ativa',
+            observacao || ''
+        ];
+
+        const result = await pool.query(query, values);
+        res.json({ success: true, campanha: result.rows[0] });
+    } catch (err) {
+        console.error("Erro ao registrar campanha de marketing:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+
+
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
 // =========================================================================
