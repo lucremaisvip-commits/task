@@ -2158,38 +2158,73 @@ app.get('/admin/historico-dados', async (req, res) => {
 
 
 // =========================================================================
-// 💰 MÓDULO FINANCEIRO (Adicionado direto no server.js)
+// 💰 MÓDULO FINANCEIRO (Com Cotação em Tempo Real & Saques Reais)
 // =========================================================================
 
-// 1. GET /api/financeiro/overview - Visão geral e consolidados do caixa
-app.get('/api/financeiro/overview', async (req, res) => {
+// Middleware simples de validação da ADMIN_KEY (opcional, ou use a validação da rota)
+const verificarAdminKey = (req, res, next) => {
+    const key = req.headers['x-admin-key'] || req.query.key;
+    if (!key || key !== process.env.ADMIN_KEY) {
+        return res.status(403).json({ success: false, error: "ADMIN_KEY inválida ou não informada." });
+    }
+    next();
+};
+
+// 1. GET /api/financeiro/overview - Visão Geral do Caixa + Cotações Ativas
+app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     try {
+        // Saldos acumulados nos parceiros externos
         const saldosParceiros = await pool.query('SELECT * FROM financeiro_saldos_parceiros ORDER BY parceiro ASC');
-        const totalSaques = await pool.query("SELECT COALESCE(SUM(valor_solicitado), 0) as pago_usd, COUNT(*) as qtd_saques FROM saques WHERE status = 'ok'");
-        const transacoesResumo = await pool.query(`
-            SELECT tipo, COALESCE(SUM(valor_usd), 0) as total_usd, COALESCE(SUM(valor_zer), 0) as total_zer 
-            FROM financeiro_transacoes GROUP BY tipo
+        
+        // Total real pago em saques (status = 'ok')
+        const totalSaques = await pool.query(`
+            SELECT COALESCE(SUM(valor_solicitado), 0) as total_pago,
+                   COALESCE(SUM(pontos_solicitados), 0) as total_pontos,
+                   COUNT(*) as qtd_saques 
+            FROM saques 
+            WHERE LOWER(status) = 'ok'
         `);
+
+        // Resumo de movimentações internas por tipo
+        const transacoesResumo = await pool.query(`
+            SELECT tipo, 
+                   COALESCE(SUM(valor_usd), 0) as total_usd, 
+                   COALESCE(SUM(valor_zer), 0) as total_zer 
+            FROM financeiro_transacoes 
+            GROUP BY tipo
+        `);
+        
+        // Investimentos em Marketing
         const mktResumo = await pool.query(`
-            SELECT COALESCE(SUM(valor_investido_usd), 0) as total_mkt_usd, COALESCE(SUM(valor_investido_zer), 0) as total_mkt_zer 
-            FROM financeiro_campanhas_mkt WHERE status = 'ativa'
+            SELECT COALESCE(SUM(valor_investido_usd), 0) as total_mkt_usd, 
+                   COALESCE(SUM(valor_investido_zer), 0) as total_mkt_zer 
+            FROM financeiro_campanhas_mkt 
+            WHERE status = 'ativa'
+        `);
+
+        // Cotação ativa do dia (da tabela cotacoes)
+        const cotacaoRes = await pool.query(`
+            SELECT valor_ltc, valor_usd, valor_zer, valor_brl, data_registro 
+            FROM cotacoes 
+            ORDER BY data_registro DESC, id DESC LIMIT 1
         `);
 
         res.json({
             success: true,
+            cotacao_atual: cotacaoRes.rows[0] || null,
             saldos_parceiros: saldosParceiros.rows,
             estatisticas_saques_usuarios: totalSaques.rows[0],
             resumo_transacoes: transacoesResumo.rows,
             resumo_marketing: mktResumo.rows[0]
         });
     } catch (err) {
-        console.error("Erro no overview financeiro:", err);
+        console.error("🔥 Erro no overview financeiro:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 2. GET /api/financeiro/transacoes - Lista o histórico de transações
-app.get('/api/financeiro/transacoes', async (req, res) => {
+// 2. GET /api/financeiro/transacoes - Histórico de Transações
+app.get('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     try {
         const { limit = 50, offset = 0 } = req.query;
         const result = await pool.query(
@@ -2198,13 +2233,13 @@ app.get('/api/financeiro/transacoes', async (req, res) => {
         );
         res.json({ success: true, transacoes: result.rows });
     } catch (err) {
-        console.error("Erro ao listar transações financeiras:", err);
+        console.error("🔥 Erro ao listar transações:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 3. POST /api/financeiro/transacoes - Insere transação com Split Automático (30/30/20/20)
-app.post('/api/financeiro/transacoes', async (req, res) => {
+// 3. POST /api/financeiro/transacoes - Lança Transação com Split Automático (30/30/20/20)
+app.post('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     const { 
         tipo, origem_destino, valor_usd = 0, valor_zer = 0, 
         valor_brl = 0, cotacao_usd_zer = 0, categoria = '', 
@@ -2246,15 +2281,15 @@ app.post('/api/financeiro/transacoes', async (req, res) => {
 
     } catch (err) {
         await client.query("ROLLBACK");
-        console.error("Erro ao inserir transação financeira:", err);
+        console.error("🔥 Erro ao inserir transação financeira:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         client.release();
     }
 });
 
-// 4. POST /api/financeiro/saldos-parceiros - Atualiza saldo em painel externo
-app.post('/api/financeiro/saldos-parceiros', async (req, res) => {
+// 4. POST /api/financeiro/saldos-parceiros - Atualiza Saldo nos Parceiros Externos
+app.post('/api/financeiro/saldos-parceiros', verificarAdminKey, async (req, res) => {
     const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao } = req.body;
     
     if (!parceiro) {
@@ -2290,13 +2325,13 @@ app.post('/api/financeiro/saldos-parceiros', async (req, res) => {
         res.json({ success: true, saldo: resultado.rows[0] });
 
     } catch (err) {
-        console.error("Erro ao atualizar saldo do parceiro:", err);
+        console.error("🔥 Erro ao atualizar saldo do parceiro:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 5. POST /api/financeiro/campanhas - Gerencia campanhas de tráfego/marketing
-app.post('/api/financeiro/campanhas', async (req, res) => {
+// 5. POST /api/financeiro/campanhas - Registra e Atualiza Campanhas MKT
+app.post('/api/financeiro/campanhas', verificarAdminKey, async (req, res) => {
     const { plataforma, nome_campanha, valor_investido_zer, valor_investido_usd, cliques_comprados, cpc_estimado_usd, status, observacao } = req.body;
 
     try {
@@ -2319,11 +2354,10 @@ app.post('/api/financeiro/campanhas', async (req, res) => {
         const result = await pool.query(query, values);
         res.json({ success: true, campanha: result.rows[0] });
     } catch (err) {
-        console.error("Erro ao registrar campanha de marketing:", err);
+        console.error("🔥 Erro ao registrar campanha:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
 
 
 // =========================================================================
