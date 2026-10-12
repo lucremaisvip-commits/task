@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Admin - Módulo Financeiro</title>
+  <title>Admin - Módulo Financeiro Global</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- Biblioteca Chart.js para Renderização de Gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -35,7 +35,7 @@
       color: #2a8f43;
       margin-top: 25px;
     }
-    .auth-card, .filter-card, .action-card {
+    .auth-card, .filter-card, .action-card, .cotacao-card {
       background: #fff;
       padding: 15px;
       border-radius: 8px;
@@ -45,6 +45,10 @@
       flex-wrap: wrap;
       gap: 15px;
       align-items: center;
+    }
+    .cotacao-card {
+      border-left: 5px solid #2a8f43;
+      background: #eef9f0;
     }
     .filter-group {
       display: flex;
@@ -76,7 +80,7 @@
     }
     .kpi-container {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 15px;
       margin-bottom: 20px;
     }
@@ -96,9 +100,16 @@
     }
     .kpi-card p {
       margin: 10px 0 0;
-      font-size: 18px;
+      font-size: 16px;
       font-weight: bold;
       color: #333;
+    }
+    .sub-eq {
+      font-size: 11px;
+      color: #666;
+      font-weight: normal;
+      margin-top: 4px;
+      display: block;
     }
     .chart-grid {
       display: grid;
@@ -158,19 +169,31 @@
     </div>
   </div>
 
+  <!-- Banner de Cotações Ativas puxadas do Banco -->
+  <div class="cotacao-card" id="cardCotacoes">
+    <div style="width: 100%;">
+      <strong style="color: #2a8f43;">💱 Cotação Ativa no Banco de Dados (Sincronizada via CoinGecko):</strong>
+      <div id="infoCotacaoTexto" style="margin-top: 5px; font-size: 13px; color: #444;">
+        Carregando taxas oficiais...
+      </div>
+    </div>
+  </div>
+
   <h2>📊 Visão Geral do Caixa (KPIs)</h2>
   <div class="kpi-container">
     <div class="kpi-card">
-      <h3>Total Pago (Saques)</h3>
-      <p id="kpiTotalSaques">$0.00 USD</p>
+      <h3>Total Pago aos Usuários</h3>
+      <p id="kpiTotalSaques">0.00000000 LTC</p>
+      <span class="sub-eq" id="kpiTotalSaquesEq">(Equivalente: $0.00 USD)</span>
     </div>
     <div class="kpi-card" style="border-left-color: #f0ad4e;">
-      <h3>Qtd. Saques Aprovados</h3>
+      <h3>Qtd. Saques Efetivados</h3>
       <p id="kpiQtdSaques">0</p>
     </div>
     <div class="kpi-card" style="border-left-color: #5bc0de;">
       <h3>Investimento MKT Ativo</h3>
       <p id="kpiInvestimentoMkt">$0.00 USD</p>
+      <span class="sub-eq" id="kpiInvestimentoMktEq">(0.00000000 LTC)</span>
     </div>
   </div>
 
@@ -190,8 +213,8 @@
       <thead>
         <tr>
           <th>Parceiro</th>
-          <th>Saldo USD</th>
-          <th>Saldo ZER</th>
+          <th>Saldo Declarado (Nativo)</th>
+          <th>Equivalente Universal (USD | LTC)</th>
           <th>Cliques Disp.</th>
           <th>Previsão Saque</th>
           <th>Status</th>
@@ -232,8 +255,9 @@
 
   <script>
     let charts = {};
+    let cotacaoGlobal = null;
 
-    // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu e preenche automaticamente se houver no localStorage/URL
+    // Preserva a chave PRIVATE_KEY (?key=...) na navegação
     const params = new URLSearchParams(window.location.search);
     const privateKey = params.get("key");
     if (privateKey) {
@@ -243,10 +267,43 @@
           link.href += (link.href.includes("?") ? "&" : "?") + "key=" + privateKey;
         }
       });
-      // Carrega automaticamente ao abrir com a chave na URL
       window.addEventListener("DOMContentLoaded", () => {
         carregarDadosFinanceiros();
       });
+    }
+
+    // Função de Conversão Baseada na Tabela cotacoes
+    function formatarValoresGlobal(valorNum, tipoMoeda) {
+      const val = parseFloat(valorNum) || 0;
+      
+      const ltcPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_ltc) : 0.00010309;
+      const usdPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_usd) : 0.00909091;
+      const zerPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_zer) : 2.5;
+
+      let eqUsd = 0;
+      let eqLtc = 0;
+
+      if (tipoMoeda === 'USD' || tipoMoeda === 'USDT') {
+        eqUsd = val;
+        const proporcaoLtcUsd = usdPorPonto > 0 ? (ltcPorPonto / usdPorPonto) : 0.00001133;
+        eqLtc = val * proporcaoLtcUsd;
+      } else if (tipoMoeda === 'ZER') {
+        const pts = val / zerPorPonto;
+        eqUsd = pts * usdPorPonto;
+        eqLtc = pts * ltcPorPonto;
+      } else if (tipoMoeda === 'Pts') {
+        eqUsd = val * usdPorPonto;
+        eqLtc = val * ltcPorPonto;
+      } else if (tipoMoeda === 'LTC') {
+        eqLtc = val;
+        const proporcaoUsdLtc = ltcPorPonto > 0 ? (usdPorPonto / ltcPorPonto) : 88.18;
+        eqUsd = val * proporcaoUsdLtc;
+      }
+
+      return {
+        textoNativo: `${val.toFixed(4)} ${tipoMoeda}`,
+        textoEq: `$${eqUsd.toFixed(4)} USD | ${eqLtc.toFixed(8)} LTC`
+      };
     }
 
     async function carregarDadosFinanceiros() {
@@ -265,10 +322,28 @@
 
         if (!data.success) throw new Error(data.error || "Erro desconhecido");
 
-        // Atualiza KPIs
-        document.getElementById("kpiTotalSaques").textContent = `$${parseFloat(data.estatisticas_saques_usuarios.pago_usd || 0).toFixed(4)} USD`;
+        // Guarda Cotações do Banco
+        cotacaoGlobal = data.cotacao_atual;
+        if (cotacaoGlobal) {
+          document.getElementById("infoCotacaoTexto").innerHTML = `
+            <strong>1 Ponto:</strong> ${cotacaoGlobal.valor_ltc} LTC | $${cotacaoGlobal.valor_usd} USD | ${cotacaoGlobal.valor_zer} ZER
+            <br/><small style="color:#777;">Data do registro: ${new Date(cotacaoGlobal.data_registro).toLocaleDateString()}</small>
+          `;
+        }
+
+        // Processa KPIs dos Saques (convertendo pontos reais da tabela saques)
+        const totalPontosPagos = parseFloat(data.estatisticas_saques_usuarios.total_pontos || 0);
+        const eqSaques = formatarValoresGlobal(totalPontosPagos, 'Pts');
+
+        document.getElementById("kpiTotalSaques").textContent = eqSaques.textoEq.split('|')[1].trim(); // Pega LTC
+        document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: ${eqSaques.textoEq.split('|')[0].trim()})`; // Pega USD
         document.getElementById("kpiQtdSaques").textContent = data.estatisticas_saques_usuarios.qtd_saques || 0;
-        document.getElementById("kpiInvestimentoMkt").textContent = `$${parseFloat(data.resumo_marketing.total_mkt_usd || 0).toFixed(4)} USD`;
+
+        // KPI Marketing
+        const totalMktUsd = parseFloat(data.resumo_marketing.total_mkt_usd || 0);
+        const eqMkt = formatarValoresGlobal(totalMktUsd, 'USD');
+        document.getElementById("kpiInvestimentoMkt").textContent = `$${totalMktUsd.toFixed(4)} USD`;
+        document.getElementById("kpiInvestimentoMktEq").textContent = `(${eqMkt.textoEq.split('|')[1].trim()})`;
 
         // Renderiza Tabela de Parceiros
         renderizarTabelaParceiros(data.saldos_parceiros || []);
@@ -292,11 +367,24 @@
       }
 
       parceiros.forEach(p => {
+        let valorDeclarado = 0;
+        let moedaNativa = 'USD';
+
+        if (parseFloat(p.saldo_pendente_zer || 0) > 0) {
+          valorDeclarado = parseFloat(p.saldo_pendente_zer);
+          moedaNativa = 'ZER';
+        } else {
+          valorDeclarado = parseFloat(p.saldo_pendente_usd || 0);
+          moedaNativa = 'USD';
+        }
+
+        const eq = formatarValoresGlobal(valorDeclarado, moedaNativa);
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><strong>${p.parceiro}</strong></td>
-          <td>$${parseFloat(p.saldo_pendente_usd || 0).toFixed(4)}</td>
-          <td>${parseFloat(p.saldo_pendente_zer || 0).toFixed(4)} ZER</td>
+          <td><strong>${eq.textoNativo}</strong></td>
+          <td><span style="font-size:12px; color:#555;">${eq.textoEq}</span></td>
           <td>${p.cliques_disponiveis || 0}</td>
           <td>${p.previsao_saque ? new Date(p.previsao_saque).toLocaleDateString() : '-'}</td>
           <td><span style="padding:3px 8px; border-radius:4px; background:#eef; color:#2a8f43; font-weight:bold;">${p.status_saque}</span></td>
