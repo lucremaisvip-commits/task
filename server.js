@@ -2595,7 +2595,7 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
 // =========================================================================
 
 // 1. Botão: Checar Atividades Recentes do Usuário
-// 1. Botão: Checar Atividades Recentes do Usuário
+// 1. Botão: Checar Atividades Recentes do Usuário (Versão sem erro de Markdown)
 bot.action(/admin_checar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -2615,24 +2615,25 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
     );
 
     if (res.rows.length === 0) {
-      return ctx.reply(`⚠️ Nenhuma atividade recente encontrada para o usuário \`${telegramId}\`.`, { parse_mode: "Markdown" });
+      return ctx.reply(`⚠️ Nenhuma atividade recente encontrada para o usuário ${telegramId}.`);
     }
 
-    let relatorio = `📊 **AUDITORIA DE ATIVIDADES - User:** \`${telegramId}\`\n\n`;
+    let relatorio = `📊 AUDITORIA DE ATIVIDADES - User: ${telegramId}\n\n`;
     let saldoRecenteTotal = 0;
 
     res.rows.forEach((row, index) => {
       const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
-      const nomeAcao = row.nome_tarefa || row.origem; // Linha corrigida
-      relatorio += `${index + 1}. **${nomeAcao}** (${row.origem})\n`;
-      relatorio += `   Pontos: \`${row.pontos}\` | Data: ${dataFormatada}\n\n`;
+      const nomeAcao = row.nome_tarefa || row.origem;
+      relatorio += `${index + 1}. [${row.origem.toUpperCase()}] ${nomeAcao}\n`;
+      relatorio += `   Pontos: ${row.pontos} | Data: ${dataFormatada}\n\n`;
       saldoRecenteTotal += parseFloat(row.pontos);
     });
 
     relatorio += `-----------------------------------\n`;
-    relatorio += `🔹 **Balanço das últimas 10 ações:** \`${saldoRecenteTotal.toFixed(2)} Pts\``;
+    relatorio += `🔹 Balanço das últimas 10 ações: ${saldoRecenteTotal.toFixed(2)} Pts`;
 
-    await ctx.reply(relatorio, { parse_mode: "Markdown" });
+    // Enviando sem parse_mode para evitar qualquer conflito de caracteres especiais
+    await ctx.reply(relatorio);
 
   } catch (err) {
     console.error("Erro ao checar atividades via chat:", err);
