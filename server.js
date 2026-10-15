@@ -2595,6 +2595,7 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
 // =========================================================================
 
 // 1. Botão: Checar Atividades Recentes do Usuário
+// 1. Botão: Checar Atividades Recentes do Usuário
 bot.action(/admin_checar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -2605,7 +2606,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
   try {
     await ctx.answerCbQuery("Buscando histórico recente...");
 
-    // Traz as últimas 10 transações para você auditar o que ele fez recentemente
     const res = await pool.query(
       `SELECT origem, nome_tarefa, pontos, data_registro 
        FROM historico_ganhos 
@@ -2623,7 +2623,8 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
 
     res.rows.forEach((row, index) => {
       const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
-      relatorio += `${index + 1}. **${row.nome_tarefa \vert{}\vert{} row.origem}** (${row.origem})\n`;
+      const nomeAcao = row.nome_tarefa || row.origem; // Linha corrigida
+      relatorio += `${index + 1}. **${nomeAcao}** (${row.origem})\n`;
       relatorio += `   Pontos: \`${row.pontos}\` | Data: ${dataFormatada}\n\n`;
       saldoRecenteTotal += parseFloat(row.pontos);
     });
