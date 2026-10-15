@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instant Litecoin Faucet & Task Bot - LucreMais v2</title>
+
+  <!-- ⚡ Preconnect & DNS Prefetch -->
+  <link rel="preconnect" href="https://www.clarity.ms">
+  <link rel="dns-prefetch" href="//www.clarity.ms">
+
+  <!-- Microsoft Clarity -->
+  <script async>
+    (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+      t = l.createElement(r);
+      t.async = 1;
+      t.src = "https://www.clarity.ms/tag/" + i;
+      y = l.getElementsByTagName(r)[0];
+      y.parentNode.insertBefore(t, y);
+    })(window, document, "clarity", "script", "wvaap53gz0");
+  </script>
+
+  <style>
+    :root {
+      --primary: #38bdf8; /* Azul Cyan vibrante para destacar de anúncios normais */
+      --accent: #22c55e;  /* Verde Sucesso FaucetPay */
+      --bg: #0b0f19;
+      --card-bg: #111827;
+      --border: #1e293b;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: #f8fafc;
+      text-align: center;
+      padding-bottom: 40px;
+    }
+
+    header {
+      background: rgba(17, 24, 39, 0.8);
+      backdrop-filter: blur(8px);
+      padding: 14px 20px;
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--primary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .badge-live {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent);
+      border-radius: 50%;
+      animation: blink 1.2s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .hero {
+      padding: 30px 18px 20px 18px;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 900;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+
+    .hero .highlight {
+      color: var(--primary);
+      -webkit-text-fill-color: var(--primary);
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 25px;
+    }
+
+    /* CARD DE RECOMPENSA DE BOAS-VINDAS */
+    .reward-box {
+      background: radial-gradient(circle at top, #1e293b 0%, #111827 100%);
+      border: 2px solid var(--primary);
+      border-radius: 16px;
+      padding: 22px;
+      margin-bottom: 25px;
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.15);
+    }
+
+    .reward-box h2 {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0 0 8px 0;
+    }
+
+    .reward-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--accent);
+      margin-bottom: 15px;
+    }
+
+    .cta-btn {
+      background: linear-gradient(135deg, #38bdf8, #0284c7);
+      color: #ffffff;
+      font-weight: 800;
+      border: none;
+      padding: 18px 30px;
+      font-size: 1.2rem;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .cta-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 25px rgba(56, 189, 248, 0.6);
+    }
+
+    /* FEED DE PAGAMENTOS EM TEMPO REAL (PROVA SOCIAL) */
+    .payout-feed {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 15px;
+      max-width: 600px;
+      margin: 20px auto;
+      text-align: left;
+    }
+
+    .payout-feed h3 {
+      font-size: 0.85rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0 0 12px 0;
+    }
+
+    .payout-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.9rem;
+    }
+
+    .payout-item:last-child {
+      border-bottom: none;
+    }
+
+    .user-id {
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
+    .payout-amount {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .payout-method {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    /* MODAL ISCA GAMIFICADA */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 25px;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 35px rgba(34, 197, 94, 0.25);
+    }
+
+    .modal-box h3 {
+      color: var(--accent);
+      font-size: 1.4rem;
+      margin-top: 0;
+    }
+
+    .modal-box p {
+      color: #cbd5Aqui está o código completo do **`v2.html`**. 
+
+Nesta versão, mudamos o foco estratégico: em vez de um layout institucional longo, adotamos uma abordagem **ultra-direta de Faucet/Micro-jobs**, focando em **prova social visual de pagamentos em Litecoin**, **velocidade (saque em menos de 1 minuto)** e uma **interface no estilo "Painel de Dashboard"** que gera desejo imediato no usuário do ZerAds.
+
+---
+
+### 📄 Código do `v2.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463" content="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463">
+
+  <title>Instant LTC Faucet & Telegram Rewards - LucreMais v2</title>
+
+  <!-- ⚡ Preconnect & DNS Prefetch -->
+  <link rel="preconnect" href="[https://www.highperformanceformat.com](https://www.highperformanceformat.com)" crossorigin>
+  <link rel="preconnect" href="[https://quarrelsomebitter.com](https://quarrelsomebitter.com)" crossorigin>
+  <link rel="preconnect" href="[https://zerads.com](https://zerads.com)" crossorigin>
+
+  <!-- Microsoft Clarity -->
+  <script async>
+    (function (c, l, a, r, i, t, y) {
+      c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+      t = l.createElement(r);
+      t.async = 1;
+      t.src = "[https://www.clarity.ms/tag/](https://www.clarity.ms/tag/)" + i;
+      y = l.getElementsByTagName(r)[0];
+      y.parentNode.insertBefore(t, y);
+    })(window, document, "clarity", "script", "wvaap53gz0");
+  </script>
+
+  <!-- 🎨 HIGH CONVERSION DASHBOARD STYLE FOR PTC/FAUCET TRAFFIC -->
+  <style>
+    :root {
+      --primary: #00e676;
+      --primary-hover: #00c853;
+      --bg: #0b0f12;
+      --card-bg: #141c22;
+      --border: #1e2a34;
+      --text: #f1f5f9;
+      --subtext: #94a3b8;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      text-align: center;
+      padding-bottom: 40px;
+    }
+
+    /* TOP ANNOUNCEMENT BAR */
+    .top-bar {
+      background: linear-gradient(90deg, #1b3323, #0d2114);
+      color: var(--primary);
+      padding: 10px 15px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--primary);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--primary);
+      animation: blink 1s infinite alternate;
+    }
+
+    @keyframes blink {
+      from { opacity: 0.3; }
+      to { opacity: 1; }
+    }
+
+    /* HERO SECTION */
+    .hero {
+      padding: 30px 15px 15px 15px;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+
+    .badge-faucet {
+      display: inline-block;
+      background: rgba(0, 230, 118, 0.1);
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      font-size: 2rem;
+      line-height: 1.2;
+      margin-bottom: 12px;
+      color: #ffffff;
+    }
+
+    h1 span {
+      color: var(--primary);
+      text-shadow: 0 0 15px rgba(0, 230, 118, 0.3);
+    }
+
+    p.subtitle {
+      color: var(--subtext);
+      font-size: 1rem;
+      line-height: 1.5;
+      margin-bottom: 25px;
+    }
+
+    /* LIVE FAUCET PAYOUT CARD */
+    .payout-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      max-width: 450px;
+      margin: 0 auto 25px auto;
+      text-align: left;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    }
+
+    .payout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      font-size: 0.85rem;
+      color: var(--subtext);
+    }
+
+    .payout-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+    }
+
+    .payout-row strong {
+      color: var(--primary);
+    }
+
+    .status-tag {
+      background: #143823;
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+
+    /* MAIN CTA BUTTON */
+    .cta-container {
+      margin: 25px 0;
+    }
+
+    .btn-main {
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: #000;
+      font-weight: 900;
+      border: none;
+      padding: 20px 40px;
+      font-size: 1.3rem;
+      border-radius: 14px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 6px 25px rgba(0, 230, 118, 0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0, 230, 118, 0.5);
+    }
+
+    /* MICRO STEPS */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-width: 500px;
+      margin: 30px auto;
+      padding: 0 10px;
+    }
+
+    .step-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      padding: 12px 8px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+    }
+
+    .step-number {
+      background: var(--border);
+      color: var(--primary);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 6px auto;
+      font-weight: bold;
+    }
+
+    footer {
+      margin-top: 40px;
+      color: #475569;
+      font-size: 0.8rem;
+    }
+
+    /* MODAL EXCLUSIVO FAUCETPAY */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      backdrop-filter: blur(5px);
+    }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 2px solid var(--primary);
+      border-radius: 16px;
+      padding: 25px;
+      max-width: 360px;
+      width: 88%;
+      text-align: center;
+      box-shadow: 0 0 35px rgba(0, 230, 118, 0.25);
+    }
+
+    .modal-box h3 {
+      color: var(--primary);
+      margin-top: 0;
+      font-size: 1.3rem;
+    }
+
+    .modal-box p {
+      color: #cbd5e1;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      margin-bottom: 20px;
+    }
+
+    .modal-box button {
+      background: var(--primary);
+      color: #000;
+      border: none;
+      padding: 14px 20px;
+      font-weight: bold;
+      font-size: 1rem;
+      border-radius: 10px;
+      width: 100%;
+      cursor: pointer;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- TOP LIVE ANNOUNCEMENT -->
+  <div class="top-bar">
+    <div class="pulse-dot"></div>
+    <span>FAUCETPAY POOL STATUS: ACTIVE & READY</span>
+  </div>
+
+  <!-- POPUP DE RETENÇÃO INSTANTÂNEA -->
+  <div id="pop-faucet-v2" class="modal-overlay">
+    <div class="modal-box">
+      <span onclick="fecharIsca()" style="float:right;cursor:pointer;color:var(--subtext);font-size:1.2rem;">×</span>
+      <h3>⚡ INSTANT LTC PAYMENT</h3>
+      <p>Complete 1 quick task on Telegram and withdraw your earnings directly to your <b>FaucetPay Wallet</b> now.</p>
+      <button onclick="fecharIsca()">🚀 START EARNING NOW</button>
+    </div>
+  </div>
+
+  <!-- HERO SECTION -->
+  <section class="hero">
+    <span class="badge-faucet">Instant Withdrawal • No Minimum Wait</span>
+    <h1>Withdraw <span>Litecoin (LTC)</span> Directly To FaucetPay</h1>
+    <p class="subtitle">Join thousands of daily earners. Complete simple tasks, view short ads & get paid instantly in your Telegram app!</p>
+
+    <!-- LIVE PROOF / SIMULATED DASHBOARD ROW -->
+    <div class="payout-card">
+      <div class="payout-header">
+        <span>⚡ Recent Faucet Transaction</span>
+        <span>Just Now</span>
+      </div>
+      <div class="payout-row">
+        <span>Payout Method:</span>
+        <strong>FaucetPay (LTC)</strong>
+      </div>
+      <div class="payout-row">
+        <span>Average User Daily:</span>
+        <strong>2.02802 Pts / Day</strong>
+      </div>
+      <div class="payout-row">
+        <span>Status:</span>
+        <span class="status-tag">CONFIRMED ON BLOCKCHAIN</span>
+      </div>
+    </div>
+
+    <!-- MAIN CTA BUTTON -->
+    <div class="cta-container">
+      <button class="btn-main" onclick="abrirBot()">📲 CLAIM LTC ON TELEGRAM</button>
+    </div>
+
+    <!-- 3 SIMPLE STEPS -->
+    <div class="steps-grid">
+      <div class="step-box">
+        <div class="step-number">1</div>
+        <b>Open Bot</b><br><span style="color:var(--subtext)">Start in Telegram</span>
+      </div>
+      <div class="step-box">
+        <div class="step-number">2</div>
+        <b>Do Tasks</b><br><span style="color:var(--subtext)">View Ads & Spin</span>
+      </div>
+      <div class="step-box">
+        <div class="step-number">3</div>
+        <b>Instant Pay</b><br><span style="color:var(--subtext)">FaucetPay LTC</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>© 2026 LucreMais Rewards Engine. All rights reserved.</footer>
+
+  <!-- TELEMETRY & ROUTING SCRIPTS -->
+  <script>
+    function fecharIsca() {
+      document.getElementById("pop-faucet-v2").style.display = "none";
+      setTimeout(function() { try { document.body.click(); } catch(e) {} }, 100);
+    }
+
+    async function abrirBot() {
+      await registrarLog(true);
+      // Link direto com tracking da Campanha B (v2)
+      window.open("[https://t.me/lucremais_test_bot?start=1677694125](https://t.me/lucremais_test_bot?start=1677694125)", "_blank");
+    }
+
+    async function registrarLog(converteu) {
+      const params = new URLSearchParams(window.location.search);
+      const logData = {
+        utm_source: params.get('utm_source') || 'zerads',
+        utm_medium: params.get('utm_medium') || 'ptc',
+        utm_campaign: params.get('utm_campaign') || 'campanha_v2',
+        is_converted: converteu
+      };
+
+      try {
+        await fetch('/api/log-traffic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logData)
+        });
+      } catch (e) {
+        console.log("Log error:", e);
+      }
+    }
+
+    window.onload = () => registrarLog(false);
+  </script>
+
+</body>
+</html>
