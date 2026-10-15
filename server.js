@@ -2433,6 +2433,9 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
     await ctx.reply(dicionario[lang || 'en'].erro);
   }
 });
+// =========================================================================
+// 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO (NO CHAT)
+// =========================================================================
 
 bot.action(/conf_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
@@ -2456,7 +2459,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     const isEn = user.lang === 'en';
     const saldoAtual = parseFloat(user.pontos);
 
-    // 1. Busca o saque específico que está tentando confirmar
     const saqueRes = await client.query(
       "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
       [saqueId, telegram_id]
@@ -2470,27 +2472,25 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     const saque = saqueRes.rows[0];
     const pontosSolicitados = parseFloat(saque.pontos_solicitados);
 
-    // 🛡️ 2. TRAVA DE SALDO ATÔMICA: Verifica se o usuário realmente tem saldo para este saque AGORA
     if (saldoAtual < pontosSolicitados) {
       await client.query("ROLLBACK");
-      // Cancela este saque por falta de saldo
       await pool.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1", [saqueId]);
       return ctx.editMessageText(isEn ? "⚠️ Insufficient balance to complete this withdrawal." : "⚠️ Saldo insuficiente para concluir este saque.");
     }
 
-    // 3. Debita os pontos do usuário de verdade
+    // Debita os pontos do usuário
     await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
 
-    // 4. Registra a saída no histórico de ganhos
+    // Registra no histórico de ganhos como débito de saque
     await client.query(`
       INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
       VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
     `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
 
-    // 5. Altera o status para 'Waiting' para o painel admin
+    // Altera para 'Waiting' para o painel / admin
     await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
 
-    // 🛡️ 6. SEGURANÇA EXTRA: Cancela automaticamente quaisquer outros pedidos 'Aguardando Chat' antigos deste usuário
+    // Cancela pedidos antigos 'Aguardando Chat'
     await client.query(
       "UPDATE saques SET status = 'Cancelado' WHERE telegram_id = $1 AND status = 'Aguardando Chat' AND id != $2",
       [telegram_id, saqueId]
@@ -2498,7 +2498,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
 
     await client.query("COMMIT");
 
-    // 🚨 7. Notificação Admin (Mantida igual)
+    // 🚨 NOTIFICAÇÃO DO ADMIN EQUIPADA COM OS 2 BOTÕES INTERATIVOS
     const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
     if (adminId && typeof bot !== 'undefined') {
       const mensagemAdmin = `🚨 **NOVA SOLICITAÇÃO DE SAQUE!**\n\n` +
@@ -2506,12 +2506,26 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
         `👤 **Usuário ID:** \`${telegram_id}\`\n` +
         `💰 **Pontos Solicitados:** ${pontosSolicitados} Pts\n` +
         `💵 **Valor em BRL:** R$ ${saque.valor_solicitado}\n` +
-        `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n`;
+        `📧 **FaucetPay:** \`${saque.chave_pix}\`\n\n` +
+        `*Escolha uma opção abaixo:*`;
+
+      // Teclado Inline com os 2 botões solicitados
+      const tecladoAdmin = {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` },
+              { text: "✅ Aprovar Saque", callback_data: `admin_aprovar_${saqueId}` }
+            ]
+          ]
+        }
+      };
 
       try {
         await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
           parse_mode: "Markdown", 
-          disable_web_page_preview: true 
+          disable_web_page_preview: true,
+          ...tecladoAdmin
         });
       } catch (adminErr) {
         console.error("⚠️ Erro ao enviar notificação de saque para o admin:", adminErr.message);
@@ -2533,6 +2547,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     client.release();
   }
 });
+
 bot.action(/canc_saque_(\d+)/, async (ctx) => {
   const saqueId = ctx.match[1];
   const telegram_id = ctx.from.id.toString();
@@ -2558,9 +2573,7 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
       return ctx.editMessageText(isEn ? "⚠️ This withdrawal request cannot be cancelled." : "⚠️ Este pedido de saque não pode mais ser cancelado.");
     }
 
-    // Apenas marca como cancelado (como os pontos nunca tinham saído, não precisa estornar)
     await client.query("UPDATE saques SET status = 'Cancelado' WHERE id = $1", [saqueId]);
-
     await client.query("COMMIT");
 
     await ctx.editMessageText(isEn 
@@ -2576,6 +2589,131 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
   }
 });
 
+
+// =========================================================================
+// 🔹 AÇÕES DO ADMINISTRADOR DITO PELO TELEGRAM (BOTÕES INTERATIVOS)
+// =========================================================================
+
+// 1. Botão: Checar Atividades Recentes do Usuário
+bot.action(/admin_checar_(\d+)/, async (ctx) => {
+  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+  if (ctx.from.id.toString() !== adminId) {
+    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
+  }
+
+  const telegramId = ctx.match[1];
+  try {
+    await ctx.answerCbQuery("Buscando histórico recente...");
+
+    // Traz as últimas 10 transações para você auditar o que ele fez recentemente
+    const res = await pool.query(
+      `SELECT origem, nome_tarefa, pontos, data_registro 
+       FROM historico_ganhos 
+       WHERE telegram_id = $1 
+       ORDER BY data_registro DESC LIMIT 10`,
+      [telegramId]
+    );
+
+    if (res.rows.length === 0) {
+      return ctx.reply(`⚠️ Nenhuma atividade recente encontrada para o usuário \`${telegramId}\`.`, { parse_mode: "Markdown" });
+    }
+
+    let relatorio = `📊 **AUDITORIA DE ATIVIDADES - User:** \`${telegramId}\`\n\n`;
+    let saldoRecenteTotal = 0;
+
+    res.rows.forEach((row, index) => {
+      const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
+      relatorio += `${index + 1}. **${row.nome_tarefa \vert{}\vert{} row.origem}** (${row.origem})\n`;
+      relatorio += `   Pontos: \`${row.pontos}\` | Data: ${dataFormatada}\n\n`;
+      saldoRecenteTotal += parseFloat(row.pontos);
+    });
+
+    relatorio += `-----------------------------------\n`;
+    relatorio += `🔹 **Balanço das últimas 10 ações:** \`${saldoRecenteTotal.toFixed(2)} Pts\``;
+
+    await ctx.reply(relatorio, { parse_mode: "Markdown" });
+
+  } catch (err) {
+    console.error("Erro ao checar atividades via chat:", err);
+    await ctx.reply("❌ Erro ao consultar o banco de dados.");
+  }
+});
+
+// 2. Botão: Aprovar e Pagar o Saque Direto pela FaucetPay
+bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
+  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+  if (ctx.from.id.toString() !== adminId) {
+    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
+  }
+
+  const saqueId = ctx.match[1];
+  try {
+    await ctx.answerCbQuery("Processando pagamento via FaucetPay...");
+
+    const saqueRes = await pool.query(
+      `SELECT s.*, u.lang FROM saques s JOIN usuarios u ON s.telegram_id = u.telegram_id WHERE s.id = $1 AND s.status = 'Waiting'`,
+      [saqueId]
+    );
+
+    if (saqueRes.rows.length === 0) {
+      return ctx.editMessageText("⚠️ Este saque já foi processado ou não está mais pendente.");
+    }
+
+    const saque = saqueRes.rows[0];
+    const isEn = saque.lang === 'en';
+
+    const TAXA_PONTO_LTC = 0.000001; 
+    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
+
+    // Chamada oficial à API do FaucetPay
+    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
+      api_key: FAUCETPAY_API_KEY, 
+      amount: amountEmSatoshis,
+      to: saque.chave_pix,       
+      currency: "LTC"
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (response.data.status === 200) {
+      const payoutId = response.data.payout_id;
+
+      await pool.query(
+        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
+        [payoutId, saqueId]
+      );
+
+      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
+      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
+
+      const mensagemSucessoUser = isEn
+        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
+        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
+
+      // Notifica o usuário no chat dele
+      try {
+        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucessoUser, {
+          parse_mode: "Markdown",
+          disable_web_page_preview: true
+        });
+      } catch (e) {}
+
+      // Atualiza a mensagem no chat do admin com o comprovante
+      await ctx.editMessageText(`✅ **Saque #${saqueId} APROVADO E PAGO COM SUCESSO!**\n\nTX: \`${payoutId}\`\n🔗 [Ver no FaucetPay](${linkComprovante})`, {
+        parse_mode: "Markdown",
+        disable_web_page_preview: true
+      });
+
+    } else {
+      console.error("❌ Erro FaucetPay:", response.data.message);
+      await ctx.reply(`❌ Erro FaucetPay: ${response.data.message}`);
+    }
+
+  } catch (err) {
+    console.error("Erro ao aprovar saque via chat:", err);
+    await ctx.reply("❌ Erro interno ao processar o pagamento.");
+  }
+});
 
 // =========================================================================
 // 🔹 AUTOMATIZAÇÃO DE COTAÇÕES (1 VEZ AO DIA ÀS 12:00 DE BRASÍLIA)
