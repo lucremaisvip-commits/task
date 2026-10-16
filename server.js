@@ -2046,90 +2046,119 @@ app.post("/api/pagar-saque", async (req, res) => {
   }
 });
 
-// 🔹 Endpoint de Dados para o Painel de Histórico (Completo e Validado)
+// 🔹 Endpoint de Dados para o Painel de Histórico (Com Multi-Campanha A/B)
 app.get('/admin/historico-dados', async (req, res) => {
   const adminKey = req.headers['x-admin-key'];
-  const envKey = process.env.ADMIN_KEY || "plucremais_9xK!p2026";
+  const envKey = process.env.ADMIN_KEY || "lucremais_9xK!p#2026";
 
   if (!adminKey || adminKey !== envKey) {
     return res.status(403).json({ error: "Acesso negado. Chave inválida." });
   }
 
-  const { inicio, fim } = req.query;
+  const { inicio, fim, campanhas } = req.query;
   const dataInicio = inicio ? `${inicio} 00:00:00` : new Date(Date.now() - 7*24*60*60*1000).toISOString();
   const dataFim = fim ? `${fim} 23:59:59` : new Date().toISOString();
 
+  const listCampanhas = campanhas ? campanhas.split(',').filter(c => c && c !== 'TODAS') : [];
+  const filtrarPorCampanha = listCampanhas.length > 0;
+
   const client = await pool.connect();
   try {
-    // 1. KPIs Gerais no Período
+    // Lista todas as campanhas existentes no banco para preencher o select
+    const resumoCampanhas = await client.query("SELECT DISTINCT utm_campaign FROM traffic_logs WHERE utm_campaign IS NOT NULL");
+    const listaCampanhas = resumoCampanhas.rows.map(r => r.utm_campaign);
+
+    // Condicional SQL para filtrar usuários vinculados às campanhas escolhidas via traffic_logs
+    let sqlJoinTraffic = "";
+    let paramsBase = [dataInicio, dataFim];
+
+    if (filtrarPorCampanha) {
+      sqlJoinTraffic = ` AND u.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))`;
+      paramsBase.push(listCampanhas);
+    }
+
+    // 1. KPIs
     const novosUsuarios = await client.query(
-      "SELECT COUNT(*) FROM usuarios WHERE data_registro BETWEEN $1 AND $2",
-      [dataInicio, dataFim]
+      `SELECT COUNT(*) FROM usuarios u WHERE u.data_registro BETWEEN $1 AND $2${sqlJoinTraffic}`,
+      paramsBase
     );
 
     const usuariosAtivos = await client.query(
-      "SELECT COUNT(DISTINCT telegram_id) FROM historico_ganhos WHERE data_registro BETWEEN $1 AND $2",
-      [dataInicio, dataFim]
+      `SELECT COUNT(DISTINCT h.telegram_id) FROM historico_ganhos h WHERE h.data_registro BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``),
+      paramsBase
     );
 
     const retornoUsuarios = await client.query(
       `SELECT COUNT(*) FROM (
-         SELECT telegram_id FROM historico_ganhos 
-         WHERE data_registro BETWEEN $1 AND $2 
-         GROUP BY telegram_id 
-         HAVING COUNT(DISTINCT data_registro::date) > 1
+         SELECT h.telegram_id FROM historico_ganhos h 
+         WHERE h.data_registro BETWEEN $1 AND $2 ` +
+         (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``) +
+         ` GROUP BY h.telegram_id HAVING COUNT(DISTINCT h.data_registro::date) > 1
        ) as t`,
-      [dataInicio, dataFim]
+      paramsBase
     );
 
     const bloqueiosBot = await client.query(
-      "SELECT COUNT(*) FROM usuarios WHERE status_conta = 'bloqueado' AND data_registro BETWEEN $1 AND $2",
-      [dataInicio, dataFim]
+      `SELECT COUNT(*) FROM usuarios u WHERE u.status_conta = 'bloqueado' AND u.data_registro BETWEEN $1 AND $2${sqlJoinTraffic}`,
+      paramsBase
     );
 
     const tarefasFeitas = await client.query(
-      "SELECT COUNT(*) FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2",
-      [dataInicio, dataFim]
+      `SELECT COUNT(*) FROM historico_ganhos h WHERE h.origem != 'saque' AND h.data_registro BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``),
+      paramsBase
     );
 
     const saquesSolicitados = await client.query(
-      "SELECT COUNT(*) FROM saques WHERE data_solicitacao BETWEEN $1 AND $2",
-      [dataInicio, dataFim]
+      `SELECT COUNT(*) FROM saques s WHERE s.data_solicitacao BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND s.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``),
+      paramsBase
     );
 
-    // 2. Dados para Gráficos (Agrupados por Dia e Origens)
+    // 2. Séries para Gráficos
     const serieUsuarios = await client.query(
-      "SELECT DATE(data_registro) as dia, COUNT(*) as total FROM usuarios WHERE data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
-      [dataInicio, dataFim]
+      `SELECT DATE(u.data_registro) as dia, COUNT(*) as total FROM usuarios u WHERE u.data_registro BETWEEN $1 AND $2${sqlJoinTraffic} GROUP BY DATE(u.data_registro) ORDER BY dia ASC`,
+      paramsBase
     );
 
-    // 🔥 Adicionado para cobrir a evolução diária de Usuários Ativos (DAU por dia)
     const serieAtivos = await client.query(
-      "SELECT DATE(data_registro) as dia, COUNT(DISTINCT telegram_id) as total FROM historico_ganhos WHERE data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
-      [dataInicio, dataFim]
+      `SELECT DATE(h.data_registro) as dia, COUNT(DISTINCT h.telegram_id) as total FROM historico_ganhos h WHERE h.data_registro BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``) +
+      ` GROUP BY DATE(h.data_registro) ORDER BY dia ASC`,
+      paramsBase
     );
 
     const tiposTarefas = await client.query(
-      "SELECT origem, COUNT(*) as total FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2 GROUP BY origem ORDER BY total DESC",
-      [dataInicio, dataFim]
+      `SELECT h.origem, COUNT(*) as total FROM historico_ganhos h WHERE h.origem != 'saque' AND h.data_registro BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``) +
+      ` GROUP BY h.origem ORDER BY total DESC`,
+      paramsBase
     );
 
     const serieTarefas = await client.query(
-      "SELECT DATE(data_registro) as dia, COUNT(*) as total FROM historico_ganhos WHERE origem != 'saque' AND data_registro BETWEEN $1 AND $2 GROUP BY DATE(data_registro) ORDER BY dia ASC",
-      [dataInicio, dataFim]
+      `SELECT DATE(h.data_registro) as dia, COUNT(*) as total FROM historico_ganhos h WHERE h.origem != 'saque' AND h.data_registro BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND h.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``) +
+      ` GROUP BY DATE(h.data_registro) ORDER BY dia ASC`,
+      paramsBase
     );
 
     const serieSaques = await client.query(
-      "SELECT DATE(data_solicitacao) as dia, COUNT(*) as total FROM saques WHERE data_solicitacao BETWEEN $1 AND $2 GROUP BY DATE(data_solicitacao) ORDER BY dia ASC",
-      [dataInicio, dataFim]
+      `SELECT DATE(s.data_solicitacao) as dia, COUNT(*) as total FROM saques s WHERE s.data_solicitacao BETWEEN $1 AND $2` +
+      (filtrarPorCampanha ? ` AND s.telegram_id::text IN (SELECT DISTINCT telegram_id::text FROM traffic_logs WHERE utm_campaign = ANY($3::text[]))` : ``) +
+      ` GROUP BY DATE(s.data_solicitacao) ORDER BY dia ASC`,
+      paramsBase
     );
 
     const serieCampanhas = await client.query(
-      "SELECT utm_source, COUNT(*) as total FROM traffic_logs WHERE data_registro BETWEEN $1 AND $2 GROUP BY utm_source ORDER BY total DESC LIMIT 5",
-      [dataInicio, dataFim]
+      filtrarPorCampanha
+        ? `SELECT utm_campaign, COUNT(*) as total FROM traffic_logs WHERE data_registro BETWEEN $1 AND $2 AND utm_campaign = ANY($3::text[]) GROUP BY utm_campaign ORDER BY total DESC`
+        : `SELECT utm_campaign, COUNT(*) as total FROM traffic_logs WHERE data_registro BETWEEN $1 AND $2 GROUP BY utm_campaign ORDER BY total DESC`,
+      paramsBase
     );
 
     res.json({
+      listaCampanhas,
       kpis: {
         usuarios: parseInt(novosUsuarios.rows[0].count),
         ativos: parseInt(usuariosAtivos.rows[0].count),
@@ -2140,7 +2169,7 @@ app.get('/admin/historico-dados', async (req, res) => {
       },
       graficos: {
         usuarios: serieUsuarios.rows,
-        ativosDiarios: serieAtivos.rows, // 👈 Entregue para o front-end
+        ativosDiarios: serieAtivos.rows,
         tiposTarefas: tiposTarefas.rows,
         tarefas: serieTarefas.rows,
         saques: serieSaques.rows,
@@ -2155,7 +2184,6 @@ app.get('/admin/historico-dados', async (req, res) => {
     client.release();
   }
 });
-
 
 // =========================================================================
 // 💰 MÓDULO FINANCEIRO (Com Cotação em Tempo Real & Saques Reais)
