@@ -2386,7 +2386,59 @@ app.post('/api/financeiro/campanhas', verificarAdminKey, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+// 🔹 Endpoint Financeiro: Visão Geral de Geração de Renda e Lucro Teórico por Atividade
+app.get('/admin/financeiro-renda', async (req, res) => {
+  const adminKey = req.headers['x-admin-key'];
+  const envKey = process.env.ADMIN_KEY || "lucremais_9xK!p#2026";
 
+  if (!adminKey || adminKey !== envKey) {
+    return res.status(403).json({ error: "Acesso negado. Chave inválida." });
+  }
+
+  const client = await pool.connect();
+  try {
+    // Consulta agrupada por origem no histórico de ganhos
+    // Mostra o total de pontos pagos aos usuários (Y) e a quantidade de ações realizadas
+    const queryRenda = `
+      SELECT 
+        origem,
+        COUNT(*) as total_acoes,
+        SUM(pontos) as total_pago_usuarios
+      FROM historico_ganhos
+      WHERE origem != 'saque'
+      GROUP BY origem
+      ORDER BY total_pago_usuarios DESC;
+    `;
+
+    const resultado = await client.query(queryRenda);
+
+    // Mapeia e estrutura os dados para exibir na interface financeira
+    // Aqui simulamos a receita bruta (X) baseada no fator de repasse de 40% (ou seja, X = Y / 0.40)
+    const relatorioAtividades = resultado.rows.map(row => {
+      const totalPagoY = parseFloat(row.total_pago_usuarios || 0);
+      
+      // Como o repasse configurado nas rotas é de 40%, a receita bruta gerada (X) é totalPagoY / 0.40
+      const receitaGeradaX = totalPagoY / 0.40; 
+      const lucroTeorico = receitaGeradaX - totalPagoY; // 60% que fica para o sistema
+
+      return {
+        origem: row.origem.toUpperCase(),
+        totalAcoes: parseInt(row.total_acoes),
+        receitaGeradaX: receitaGeradaX.toFixed(4),
+        totalPagoY: totalPagoY.toFixed(4),
+        lucroTeorico: lucroTeorico.toFixed(4)
+      };
+    });
+
+    res.json({ atividades: relatorioAtividades });
+
+  } catch (err) {
+    console.error("Erro ao calcular renda financeira:", err);
+    res.status(500).json({ error: "Erro interno no servidor." });
+  } finally {
+    client.release();
+  }
+});
 
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
