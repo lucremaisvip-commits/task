@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Admin - Histórico & Métricas</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Biblioteca Chart.js para Renderização de Gráficos -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -73,6 +73,23 @@
       background: #2a8f43;
       color: #fff;
     }
+    .btn-action {
+      background: #2a8f43;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-export {
+      background: #0284c7;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-export:hover {
+      background: #0369a1;
+    }
     .kpi-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -124,7 +141,7 @@
     <a href="anuncios-adm.html">Anúncios</a>
     <a href="historico.html" style="background:#1e6e34;">Histórico</a>
     <a href="financeiro.html">Financeiro</a>
-     <a href="notificacao.html">Notificação</a>
+    <a href="notificacao.html">Notificação</a>
   </nav>
 
   <h2>🔑 Chave de Ação Administrativa (ADMIN_KEY)</h2>
@@ -134,11 +151,11 @@
       <input type="password" id="campoAdminKey" placeholder="Insira a chave de ações..." />
     </div>
     <div class="filter-group" style="align-self: flex-end;">
-      <button style="background:#2a8f43; color:white; font-weight:bold; cursor:pointer;" onclick="testarEColherDados()">✅ Usar Chave</button>
+      <button class="btn-action" onclick="testarEColherDados()">✅ Usar Chave</button>
     </div>
   </div>
 
-  <h2>📊 Filtros de Período</h2>
+  <h2>📊 Filtros de Período & Campanhas</h2>
   <div class="filter-card">
     <div class="filter-group">
       <label>Atalhos Rápidos</label>
@@ -159,12 +176,21 @@
       <input type="date" id="dataFim" />
     </div>
 
-    <div class="filter-group" style="align-self: flex-end;">
-      <button style="background:#2a8f43; color:white; font-weight:bold; cursor:pointer;" onclick="carregarDadosMetricas()">🔍 Filtrar Dados</button>
+    <!-- SELETOR MULTI-CAMPANHA (A/B, A/C, etc) -->
+    <div class="filter-group" style="min-width: 200px;">
+      <label>Campanhas (Segure Ctrl para várias)</label>
+      <select id="filtroCampanha" multiple size="3" style="height: 75px;">
+        <option value="TODAS" selected>-- Todas as Campanhas --</option>
+      </select>
+    </div>
+
+    <div class="filter-group" style="align-self: flex-end; gap: 8px;">
+      <button class="btn-action" onclick="carregarDadosMetricas()">🔍 Filtrar Dados</button>
+      <button class="btn-export" onclick="extrairDadosJSON()">📥 Extrair Dados (JSON)</button>
     </div>
   </div>
 
-  <!-- Cards de Visão Geral (KPIs Expandidos) -->
+  <!-- Cards de KPIs -->
   <div class="kpi-container">
     <div class="kpi-card">
       <h3>Novos Usuários</h3>
@@ -192,7 +218,7 @@
     </div>
   </div>
 
-  <!-- Área dos Gráficos (Expandida) -->
+  <!-- Gráficos -->
   <h2>📈 Análise Visual em Tempo Real</h2>
   <div class="chart-grid">
     <div class="chart-card">
@@ -211,8 +237,8 @@
 
   <script>
   let charts = {};
+  let ultimosDadosBrutos = null; // Armazena o payload para extração
 
-  // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu
   const params = new URLSearchParams(window.location.search);
   const privateKey = params.get("key");
   if (privateKey) {
@@ -250,20 +276,25 @@
     const adminKey = document.getElementById("campoAdminKey").value.trim();
     const inicio = document.getElementById("dataInicio").value;
     const fim = document.getElementById("dataFim").value;
+    
+    const select = document.getElementById("filtroCampanha");
+    const campanhasSelecionadas = Array.from(select.selectedOptions).map(opt => opt.value);
 
     if (!adminKey) {
       return alert("Por favor, insira e clique em 'Usar Chave' com sua ADMIN_KEY primeiro.");
     }
 
     try {
-      const res = await fetch(`/admin/historico-dados?inicio=${inicio}&fim=${fim}`, {
+      const res = await fetch(`/admin/historico-dados?inicio=${inicio}&fim=${fim}&campanhas=${encodeURIComponent(campanhasSelecionadas.join(','))}`, {
         headers: { "x-admin-key": adminKey }
       });
 
       if (!res.ok) throw new Error("ADMIN_KEY inválida ou falha ao carregar dados.");
       const data = await res.json();
+      ultimosDadosBrutos = data; // Salva para o botão de extração
 
-      // Atualiza os 6 Cards de KPIs
+      atualizarSelectCampanhas(data.listaCampanhas || [], campanhasSelecionadas);
+
       document.getElementById("kpiUsuarios").textContent = data.kpis.usuarios || 0;
       document.getElementById("kpiAtivos").textContent = data.kpis.ativos || 0;
       document.getElementById("kpiRetorno").textContent = data.kpis.retorno || 0;
@@ -271,7 +302,6 @@
       document.getElementById("kpiTarefas").textContent = data.kpis.tarefas || 0;
       document.getElementById("kpiSaques").textContent = data.kpis.saques || 0;
 
-      // Renderiza os Gráficos com todas as séries validadas
       renderizarGraficoUsuarios(data.graficos.usuarios || [], data.graficos.ativosDiarios || []);
       renderizarGraficoTiposTarefas(data.graficos.tiposTarefas || []);
       renderizarGraficoTarefasSaques(data.graficos.tarefas || [], data.graficos.saques || []);
@@ -282,10 +312,34 @@
     }
   }
 
+  function atualizarSelectCampanhas(listaCampanhas, selecionadas) {
+    const select = document.getElementById("filtroCampanha");
+    const mantemTodas = selecionadas.includes("TODAS") || selecionadas.length === 0;
+    
+    select.innerHTML = `<option value="TODAS" ${mantemTodas ? 'selected' : ''}>-- Todas as Campanhas --</option>`;
+    
+    listaCampanhas.forEach(camp => {
+      const isSelected = selecionadas.includes(camp);
+      select.innerHTML += `<option value="${camp}" ${isSelected ? 'selected' : ''}>${camp}</option>`;
+    });
+  }
+
+  function extrairDadosJSON() {
+    if (!ultimosDadosBrutos) {
+      return alert("Nenhum dado carregado ainda. Faça a filtragem primeiro.");
+    }
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(ultimosDadosBrutos, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `lucremais_historico_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
   function renderizarGraficoUsuarios(novos, ativos) {
     const ctx = document.getElementById('chartNovosUsuarios').getContext('2d');
     if (charts.usuarios) charts.usuarios.destroy();
-
     const dias = [...new Set([...novos.map(d => d.dia), ...ativos.map(d => d.dia)])].sort();
 
     charts.usuarios = new Chart(ctx, {
@@ -295,36 +349,17 @@
         datasets: [
           {
             label: 'Novos Usuários',
-            data: dias.map(dia => {
-              const item = novos.find(d => d.dia === dia);
-              return item ? item.total : 0;
-            }),
-            borderColor: '#2a8f43',
-            backgroundColor: 'rgba(42, 143, 67, 0.1)',
-            fill: true,
-            tension: 0.2
+            data: dias.map(dia => { const item = novos.find(d => d.dia === dia); return item ? item.total : 0; }),
+            borderColor: '#2a8f43', backgroundColor: 'rgba(42, 143, 67, 0.1)', fill: true, tension: 0.2
           },
           {
             label: 'Usuários Ativos (DAU)',
-            data: dias.map(dia => {
-              const item = ativos.find(d => d.dia === dia);
-              return item ? item.total : 0;
-            }),
-            borderColor: '#f0ad4e',
-            backgroundColor: 'rgba(240, 173, 78, 0.1)',
-            fill: true,
-            tension: 0.2
+            data: dias.map(dia => { const item = ativos.find(d => d.dia === dia); return item ? item.total : 0; }),
+            borderColor: '#f0ad4e', backgroundColor: 'rgba(240, 173, 78, 0.1)', fill: true, tension: 0.2
           }
         ]
       },
-      options: {
-        plugins: {
-          title: {
-            display: true,
-            text: 'Crescimento vs. Atividade Diária'
-          }
-        }
-      }
+      options: { plugins: { title: { display: true, text: 'Crescimento vs. Atividade Diária' } } }
     });
   }
 
@@ -336,27 +371,15 @@
       type: 'bar',
       data: {
         labels: dados.map(d => d.origem || 'Outros'),
-        datasets: [{
-          label: 'Volume por Categoria (ZerAds, Roleta, Tarefas, etc.)',
-          data: dados.map(d => d.total),
-          backgroundColor: '#5bc0de'
-        }]
+        datasets: [{ label: 'Volume por Categoria', data: dados.map(d => d.total), backgroundColor: '#5bc0de' }]
       },
-      options: {
-        plugins: {
-          title: {
-            display: true,
-            text: 'Tarefas Realizadas por Origem'
-          }
-        }
-      }
+      options: { plugins: { title: { display: true, text: 'Tarefas Realizadas por Origem' } } }
     });
   }
 
   function renderizarGraficoTarefasSaques(tarefas, saques) {
     const ctx = document.getElementById('chartTarefasSaques').getContext('2d');
     if (charts.tarefasSaques) charts.tarefasSaques.destroy();
-
     const dias = [...new Set([...tarefas.map(t => t.dia), ...saques.map(s => s.dia)])].sort();
 
     charts.tarefasSaques = new Chart(ctx, {
@@ -364,32 +387,11 @@
       data: {
         labels: dias,
         datasets: [
-          {
-            label: 'Tarefas Realizadas',
-            data: dias.map(dia => {
-              const item = tarefas.find(t => t.dia === dia);
-              return item ? item.total : 0;
-            }),
-            backgroundColor: '#2a8f43'
-          },
-          {
-            label: 'Saques Solicitados',
-            data: dias.map(dia => {
-              const item = saques.find(s => s.dia === dia);
-              return item ? item.total : 0;
-            }),
-            backgroundColor: '#d9534f'
-          }
+          { label: 'Tarefas Realizadas', data: dias.map(dia => { const item = tarefas.find(t => t.dia === dia); return item ? item.total : 0; }), backgroundColor: '#2a8f43' },
+          { label: 'Saques Solicitados', data: dias.map(dia => { const item = saques.find(s => s.dia === dia); return item ? item.total : 0; }), backgroundColor: '#d9534f' }
         ]
       },
-      options: {
-        plugins: {
-          title: {
-            display: true,
-            text: 'Produtividade (Tarefas) vs. Caixa (Saques)'
-          }
-        }
-      }
+      options: { plugins: { title: { display: true, text: 'Produtividade vs. Saques' } } }
     });
   }
 
@@ -400,25 +402,14 @@
     charts.campanhas = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: dados.map(d => d.utm_source || 'Direto / Orgânico'),
-        datasets: [{
-          data: dados.map(d => d.total),
-          backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d']
-        }]
+        labels: dados.map(d => d.utm_campaign || d.utm_source || 'Direto'),
+        datasets: [{ data: dados.map(d => d.total), backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d'] }]
       },
-      options: {
-        plugins: {
-          title: {
-            display: true,
-            text: 'Origem de Tráfego (UTM Source)'
-          }
-        }
-      }
+      options: { plugins: { title: { display: true, text: 'Origem de Tráfego por Campanha' } } }
     });
   }
 
-  // Inicializa datas com os últimos 7 dias por padrão ao carregar a página
   aplicarFiltroRapido('semana');
-</script>
+  </script>
 </body>
 </html>
