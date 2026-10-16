@@ -230,6 +230,31 @@
     </div>
   </div>
 
+  <!-- Seção: Visão Geral de Geração de Renda por Atividade -->
+  <h2>💰 Visão Geral de Geração de Renda & Lucro Teórico</h2>
+  <div class="auth-card" style="display: block;">
+    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
+      Análise comparativa entre o volume gerado pelas fontes de anúncios/tarefas (Receita Bruta $X$) e o montante repassado aos usuários (Custo $Y$).
+    </p>
+    
+    <div style="overflow-x: auto;">
+      <table id="tabelaRenda" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+        <thead>
+          <tr style="background: #2a8f43; color: white;">
+            <th style="padding: 10px;">Origem / Atividade</th>
+            <th style="padding: 10px;">Ações Realizadas</th>
+            <th style="padding: 10px;">Receita Gerada (X)</th>
+            <th style="padding: 10px;">Pago aos Usuários (Y)</th>
+            <th style="padding: 10px;">Lucro Teórico (X - Y)</th>
+          </tr>
+        </thead>
+        <tbody id="corpoTabelaRenda">
+          <tr><td colspan="5" style="text-align:center; padding:15px;">Carregando dados de renda...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <h2>📈 Análise Gráfica do Caixa</h2>
   <div class="chart-grid">
     <div class="chart-card">
@@ -239,7 +264,8 @@
       <canvas id="chartSaldosParceiros"></canvas>
     </div>
   </div>
-<!-- 🧮 CALCULADORA & CONVERSOR DE MOEDAS EM TEMPO REAL -->
+
+  <!-- 🧮 CALCULADORA & CONVERSOR DE MOEDAS EM TEMPO REAL -->
   <h2>🧮 Conversor Universal de Moedas (Base: Tabela Cotações)</h2>
   <div class="action-card" style="border-left: 5px solid #2196f3; background: #f4f9ff;">
     <div class="filter-group">
@@ -270,6 +296,7 @@
       </div>
     </div>
   </div>
+
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <h2>📋 Saldos nos Parceiros Externos</h2>
     <button class="btn-primary" onclick="abrirModalParceiro()">➕ Novo Parceiro</button>
@@ -354,7 +381,7 @@
         <input type="text" id="modalObs" placeholder="Ex: Saque mínimo é $5 USD" />
 
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
-          <button style="background:#6c757d; color:white; border:none;" onclick="fecharModalParceiro()">Cancelar</button>
+          <button style="background:#6c757d; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer;" onclick="fecharModalParceiro()">Cancelar</button>
           <button class="btn-primary" onclick="salvarModalParceiro()">💾 Salvar Alterações</button>
         </div>
       </div>
@@ -378,6 +405,7 @@
       });
       window.addEventListener("DOMContentLoaded", () => {
         carregarDadosFinanceiros();
+        carregarRendaFinanceira();
       });
     }
 
@@ -452,8 +480,48 @@
         renderizarGraficoTransacoes(data.resumo_transacoes || []);
         renderizarGraficoParceiros(listaParceirosGlobal);
 
+        // Dispara também o carregamento da tabela de renda
+        carregarRendaFinanceira();
+
       } catch (err) {
         alert(err.message);
+      }
+    }
+
+    async function carregarRendaFinanceira() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      if (!adminKey) return;
+
+      try {
+        const res = await fetch('/admin/financeiro-renda', {
+          headers: { "x-admin-key": adminKey }
+        });
+
+        if (!res.ok) throw new Error("Falha ao carregar dados de renda financeira.");
+        const data = await res.json();
+
+        const tbody = document.getElementById("corpoTabelaRenda");
+        tbody.innerHTML = "";
+
+        if (!data.atividades || data.atividades.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px;">Nenhum registro encontrado.</td></tr>`;
+          return;
+        }
+
+        data.atividades.forEach(item => {
+          tbody.innerHTML += `
+            <tr style="border-bottom: 1px solid #ddd;">
+              <td style="padding: 10px; font-weight: bold; color: #2a8f43;">${item.origem}</td>
+              <td style="padding: 10px;">${item.totalAcoes}</td>
+              <td style="padding: 10px; color: #0284c7;">$${item.receitaGeradaX}</td>
+              <td style="padding: 10px; color: #d9534f;">-$${item.totalPagoY}</td>
+              <td style="padding: 10px; font-weight: bold; color: #1e6e34;">+$${item.lucroTeorico}</td>
+            </tr>
+          `;
+        });
+
+      } catch (err) {
+        console.error("Erro ao carregar renda:", err.message);
       }
     }
 
@@ -496,7 +564,6 @@
       });
     }
 
-    // Lógica do Modal de Edição
     function abrirModalParceiro(nomeParceiro = null) {
       const modal = document.getElementById("modalParceiro");
       const titulo = document.getElementById("modalTitulo");
@@ -506,7 +573,7 @@
         if (p) {
           titulo.textContent = `✏️ Editar Saldo: ${p.parceiro}`;
           document.getElementById("modalParceiroNome").value = p.parceiro;
-          document.getElementById("modalParceiroNome").disabled = true; // Não altera o ID/Nome na edição
+          document.getElementById("modalParceiroNome").disabled = true;
           document.getElementById("modalSaldoUsd").value = p.saldo_pendente_usd || "0.0000";
           document.getElementById("modalSaldoZer").value = p.saldo_pendente_zer || "0.0000";
           document.getElementById("modalCliques").value = p.cliques_disponiveis || 0;
@@ -652,72 +719,68 @@
         alert("Erro: " + err.message);
       }
     }
-function calcularConversaoDireta() {
-  const valorInput = parseFloat(document.getElementById("convValorInput").value) || 0;
-  const moedaOrigem = document.getElementById("convMoedaSelect").value;
-  const boxResultado = document.getElementById("resultadoConversaoBox");
-  const conteudoresultado = document.getElementById("resultadoConversaoConteudo");
 
-  if (!cotacaoGlobal) {
-    alert("Cotações ainda não carregadas do banco. Insira a ADMIN_KEY e recarregue.");
-    return;
-  }
+    function calcularConversaoDireta() {
+      const valorInput = parseFloat(document.getElementById("convValorInput").value) || 0;
+      const moedaOrigem = document.getElementById("convMoedaSelect").value;
+      const boxResultado = document.getElementById("resultadoConversaoBox");
+      const conteudoresultado = document.getElementById("resultadoConversaoConteudo");
 
-  // Taxas por Ponto armazenadas no banco de dados
-  const ltcPorPonto = parseFloat(cotacaoGlobal.valor_ltc) || 0.00010309;
-  const usdPorPonto = parseFloat(cotacaoGlobal.valor_usd) || 0.00909091;
-  const zerPorPonto = parseFloat(cotacaoGlobal.valor_zer) || 2.5;
-  const brlPorPonto = parseFloat(cotacaoGlobal.valor_brl) || 0.05;
+      if (!cotacaoGlobal) {
+        alert("Cotações ainda não carregadas do banco. Insira a ADMIN_KEY e recarregue.");
+        return;
+      }
 
-  let totalPontosEquivalente = 0;
+      const ltcPorPonto = parseFloat(cotacaoGlobal.valor_ltc) || 0.00010309;
+      const usdPorPonto = parseFloat(cotacaoGlobal.valor_usd) || 0.00909091;
+      const zerPorPonto = parseFloat(cotacaoGlobal.valor_zer) || 2.5;
+      const brlPorPonto = parseFloat(cotacaoGlobal.valor_brl) || 0.05;
 
-  // 1. Converte qualquer moeda de entrada para o padrão em PONTOS
-  if (moedaOrigem === 'Pts') {
-    totalPontosEquivalente = valorInput;
-  } else if (moedaOrigem === 'USD') {
-    totalPontosEquivalente = usdPorPonto > 0 ? (valorInput / usdPorPonto) : 0;
-  } else if (moedaOrigem === 'LTC') {
-    totalPontosEquivalente = ltcPorPonto > 0 ? (valorInput / ltcPorPonto) : 0;
-  } else if (moedaOrigem === 'ZER') {
-    totalPontosEquivalente = zerPorPonto > 0 ? (valorInput / zerPorPonto) : 0;
-  } else if (moedaOrigem === 'BRL') {
-    totalPontosEquivalente = brlPorPonto > 0 ? (valorInput / brlPorPonto) : 0;
-  }
+      let totalPontosEquivalente = 0;
 
-  // 2. Calcula as equivalências de saída para todas as moedas
-  const resUsd = totalPontosEquivalente * usdPorPonto;
-  const resLtc = totalPontosEquivalente * ltcPorPonto;
-  const resZer = totalPontosEquivalente * zerPorPonto;
-  const resBrl = totalPontosEquivalente * brlPorPonto;
-  const resPts = totalPontosEquivalente;
+      if (moedaOrigem === 'Pts') {
+        totalPontosEquivalente = valorInput;
+      } else if (moedaOrigem === 'USD') {
+        totalPontosEquivalente = usdPorPonto > 0 ? (valorInput / usdPorPonto) : 0;
+      } else if (moedaOrigem === 'LTC') {
+        totalPontosEquivalente = ltcPorPonto > 0 ? (valorInput / ltcPorPonto) : 0;
+      } else if (moedaOrigem === 'ZER') {
+        totalPontosEquivalente = zerPorPonto > 0 ? (valorInput / zerPorPonto) : 0;
+      } else if (moedaOrigem === 'BRL') {
+        totalPontosEquivalente = brlPorPonto > 0 ? (valorInput / brlPorPonto) : 0;
+      }
 
-  // 3. Renderiza o resultado na tela
-  conteudoresultado.innerHTML = `
-    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-      <small style="color:#555; font-weight:bold;">💵 DÓLAR (USD)</small><br>
-      <strong style="color:#1e6e34; font-size:15px;">$${resUsd.toFixed(4)} USD</strong>
-    </div>
-    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-      <small style="color:#555; font-weight:bold;">⚡ LITECOIN (LTC)</small><br>
-      <strong style="color:#2196f3; font-size:15px;">${resLtc.toFixed(8)} LTC</strong>
-    </div>
-    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-      <small style="color:#555; font-weight:bold;">🪙 ZERCOIN (ZER)</small><br>
-      <strong style="color:#9c27b0; font-size:15px;">${resZer.toFixed(4)} ZER</strong>
-    </div>
-    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-      <small style="color:#555; font-weight:bold;">🎯 PONTOS (Pts)</small><br>
-      <strong style="color:#ff9800; font-size:15px;">${Math.round(resPts).toLocaleString()} Pts</strong>
-    </div>
-    <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-      <small style="color:#555; font-weight:bold;">🇧🇷 REAL (BRL)</small><br>
-      <strong style="color:#666; font-size:15px;">R$ ${resBrl.toFixed(2)} BRL</strong>
-    </div>
-  `;
+      const resUsd = totalPontosEquivalente * usdPorPonto;
+      const resLtc = totalPontosEquivalente * ltcPorPonto;
+      const resZer = totalPontosEquivalente * zerPorPonto;
+      const resBrl = totalPontosEquivalente * brlPorPonto;
+      const resPts = totalPontosEquivalente;
 
-  boxResultado.style.display = "block";
-}
-    
+      conteudoresultado.innerHTML = `
+        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+          <small style="color:#555; font-weight:bold;">💵 DÓLAR (USD)</small><br>
+          <strong style="color:#1e6e34; font-size:15px;">$${resUsd.toFixed(4)} USD</strong>
+        </div>
+        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+          <small style="color:#555; font-weight:bold;">⚡ LITECOIN (LTC)</small><br>
+          <strong style="color:#2196f3; font-size:15px;">${resLtc.toFixed(8)} LTC</strong>
+        </div>
+        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+          <small style="color:#555; font-weight:bold;">🪙 ZERCOIN (ZER)</small><br>
+          <strong style="color:#9c27b0; font-size:15px;">${resZer.toFixed(4)} ZER</strong>
+        </div>
+        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+          <small style="color:#555; font-weight:bold;">🎯 PONTOS (Pts)</small><br>
+          <strong style="color:#ff9800; font-size:15px;">${Math.round(resPts).toLocaleString()} Pts</strong>
+        </div>
+        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
+          <small style="color:#555; font-weight:bold;">🇧🇷 REAL (BRL)</small><br>
+          <strong style="color:#666; font-size:15px;">R$ ${resBrl.toFixed(2)} BRL</strong>
+        </div>
+      `;
+
+      boxResultado.style.display = "block";
+    }
   </script>
 </body>
 </html>
