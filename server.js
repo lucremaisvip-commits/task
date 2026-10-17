@@ -1699,6 +1699,78 @@ app.post('/api/admin/notify', async (req, res) => {
     }
 });
 
+// 🔹 Rota Admin: Envio de Notificação Personalizada (Individual ou Massa Bilíngue)
+app.post("/api/admin/enviar-notificacao-personalizada", verificarAdmin, async (req, res) => {
+  const { tipo, telegram_id, mensagem_pt, mensagem_en } = req.body;
+
+  if (!mensagem_pt && !mensagem_en) {
+    return res.status(400).json({ success: false, error: "Preencha ao menos uma mensagem (PT ou EN)." });
+  }
+
+  try {
+    // 1. ENVIO INDIVIDUAL
+    if (tipo === 'individual') {
+      if (!telegram_id) {
+        return res.status(400).json({ success: false, error: "Telegram ID não informado." });
+      }
+
+      // Consulta o idioma do usuário específico no banco
+      const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+      const userLang = userRes.rows[0]?.lang || 'pt';
+
+      // Define a mensagem com base no idioma do usuário (se faltar uma, usa a outra como fallback)
+      const textoFinal = userLang === 'en' ? (mensagem_en || mensagem_pt) : (mensagem_pt || mensagem_en);
+
+      await bot.telegram.sendMessage(telegram_id, textoFinal, { parse_mode: "Markdown" });
+      return res.json({ success: true, message: `Mensagem enviada com sucesso para o ID ${telegram_id}!` });
+    }
+
+    // 2. ENVIO EM MASSA PARA TODOS OS USUÁRIOS ATIVOS
+    if (tipo === 'massa') {
+      // Busca todos os usuários ativos do bot e seus respectivos idiomas
+      const { rows: usuarios } = await pool.query(
+        "SELECT telegram_id, lang FROM usuarios WHERE status_conta IS NULL OR status_conta = 'ativo'"
+      );
+
+      let enviados = 0;
+      let erros = 0;
+
+      // Dispara de forma controlada para evitar bloqueios de taxa da API do Telegram
+      for (const u of usuarios) {
+        try {
+          const userLang = u.lang || 'pt';
+          const textoFinal = userLang === 'en' ? (mensagem_en || mensagem_pt) : (mensagem_pt || mensagem_en);
+
+          if (!textoFinal) continue;
+
+          await bot.telegram.sendMessage(u.telegram_id, textoFinal, { parse_mode: "Markdown" });
+          enviados++;
+
+          // Pequeno atraso opcional para respeitar limites da Telegram Bot API em massa
+          await new Promise(resolve => setTimeout(resolve, 50));
+        } catch (err) {
+          erros++;
+          // Se o usuário bloqueou o bot, atualiza o status no banco
+          if (err.code === 403 || (err.message && err.message.includes('blocked by the user'))) {
+            await pool.query("UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", [u.telegram_id]).catch(() => {});
+          }
+        }
+      }
+
+      return res.json({ 
+        success: true, 
+        message: `Campanha em massa concluída! Enviadas com sucesso: ${enviados} | Falhas/Bloqueados: ${erros}` 
+      });
+    }
+
+    res.status(400).json({ success: false, error: "Tipo de envio inválido." });
+
+  } catch (err) {
+    console.error("Erro ao enviar notificação personalizada:", err);
+    res.status(500).json({ success: false, error: "Erro interno ao processar envios." });
+  }
+});
+
 
 // 🔹 7. trafico e mensurização
 app.post('/api/log-traffic', async (req, res) => {
