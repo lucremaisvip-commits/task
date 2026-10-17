@@ -50,7 +50,7 @@
         .card {
             background-color: var(--card);
             border-radius: 8px;
-            padding: 15px;
+            padding: 20px;
             margin-bottom: 20px;
             box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
@@ -66,7 +66,7 @@
 
         input[type="password"], input[type="text"], select, textarea {
             width: 100%;
-            padding: 8px 12px;
+            padding: 10px 12px;
             border-radius: 5px;
             border: 1px solid #ccc;
             font-size: 14px;
@@ -80,15 +80,27 @@
             background-color: var(--accent);
             color: white;
             border: none;
-            padding: 10px 16px;
+            padding: 12px 20px;
             border-radius: 5px;
             cursor: pointer;
             font-weight: bold;
+            font-size: 14px;
             transition: background 0.2s;
+            width: 100%;
         }
 
         button:hover {
             background-color: var(--accent-hover);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 { grid-template-columns: 1fr; }
         }
 
         table {
@@ -116,13 +128,16 @@
         .btn-action {
             padding: 6px 12px;
             font-size: 0.85em;
+            width: auto;
         }
 
         #log-status {
             margin-top: 15px;
-            padding: 10px;
+            padding: 12px;
             border-radius: 6px;
             display: none;
+            font-weight: bold;
+            text-align: center;
         }
     </style>
 </head>
@@ -142,7 +157,7 @@
   </nav>
 
 <div class="container">
-    <h1>📢 Central de Notificações & Suporte</h1>
+    <h1>📢 Central de Notificações & Campanhas Bilíngues</h1>
 
     <!-- AUTENTICAÇÃO CHAVE ADMIN -->
     <div class="card">
@@ -150,22 +165,39 @@
         <input type="password" id="adminKey" placeholder="Insira sua ADMIN_KEY para autorizar os envios">
     </div>
 
-    <!-- MENSAGEM DIRETA POR TELEGRAM ID -->
+    <!-- CENTRAL DE DISPARO (INDIVIDUAL OU EM MASSA BILÍNGUE) -->
     <div class="card">
-        <h3>💬 Enviar Mensagem Direta por ID</h3>
-        <label for="targetId">Telegram ID do Destinatário</label>
-        <input type="text" id="targetId" placeholder="Ex: 8608873220">
+        <h3>🚀 Enviar Notificação (Individual ou Massa)</h3>
+        
+        <label for="tipoEnvio">Tipo de Envio</label>
+        <select id="tipoEnvio" onchange="alternarCamposEnvio()">
+            <option value="individual">👤 Apenas para um Telegram ID específico</option>
+            <option value="massa">🌍 Para Todos os Usuários Ativos (Massa Bilíngue)</option>
+        </select>
 
-        <label for="directMessage">Conteúdo da Mensagem</label>
-        <textarea id="directMessage" rows="4" placeholder="Digite aqui a mensagem que o usuário receberá via bot..."></textarea>
+        <div id="blocoTargetId">
+            <label for="targetId">Telegram ID do Destinatário</label>
+            <input type="text" id="targetId" placeholder="Ex: 8462641789">
+        </div>
 
-        <button onclick="sendDirectMessage()">🚀 Enviar Notificação</button>
+        <div class="grid-2">
+            <div>
+                <label for="messagePt">🇧🇷 Mensagem em Português (PT)</label>
+                <textarea id="messagePt" rows="5" placeholder="Digite a mensagem formatada em Markdown para usuários PT..."></textarea>
+            </div>
+            <div>
+                <label for="messageEn">🇺🇸 Mensagem em Inglês (EN)</label>
+                <textarea id="messageEn" rows="5" placeholder="Digite a mensagem formatada em Markdown para usuários EN..."></textarea>
+            </div>
+        </div>
+
+        <button onclick="enviarNotificacaoGeral()">🚀 Disparar Notificação</button>
     </div>
 
     <!-- LISTA DE SAQUES "AGUARDANDO CHAT" -->
     <div class="card">
         <h3>⏳ Saques Pendentes (Aguardando Chat)</h3>
-        <button onclick="fetchPendingWithdrawals()">🔄 Atualizar Lista de Saques</button>
+        <button onclick="fetchPendingWithdrawals()" style="width: auto; margin-bottom: 15px;">🔄 Atualizar Lista de Saques</button>
         
         <table id="withdrawalsTable">
             <thead>
@@ -191,9 +223,9 @@
 </div>
 
 <script>
-    const API_URL = ""; // Mantém relativo ao domínio atual da aplicação no Render
+    const API_URL = ""; 
 
-    // Preserva a chave PRIVATE_KEY (?key=...) na navegação do menu e preenche automaticamente
+    // Preserva a chave key= na navegação do menu e preenche automaticamente
     const params = new URLSearchParams(window.location.search);
     const privateKey = params.get("key");
     if (privateKey) {
@@ -205,36 +237,65 @@
         });
     }
 
-    // Enviar mensagem direta para um Telegram ID específico
-    async function sendDirectMessage() {
-        const adminKey = document.getElementById('adminKey').value.trim();
-        const targetId = document.getElementById('targetId').value.trim();
-        const message = document.getElementById('directMessage').value.trim();
+    function alternarCamposEnvio() {
+        const tipo = document.getElementById('tipoEnvio').value;
+        const blocoId = document.getElementById('blocoTargetId');
+        blocoId.style.display = tipo === 'individual' ? 'block' : 'none';
+    }
 
-        if (!adminKey || !targetId || !message) {
-            showStatus('Preencha a ADMIN_KEY, o Telegram ID e a Mensagem!', 'warning');
+    // Função unificada para disparo (Individual ou Massa Bilíngue)
+    async function enviarNotificacaoGeral() {
+        const adminKey = document.getElementById('adminKey').value.trim();
+        const tipoEnvio = document.getElementById('tipoEnvio').value;
+        const targetId = document.getElementById('targetId').value.trim();
+        const messagePt = document.getElementById('messagePt').value.trim();
+        const messageEn = document.getElementById('messageEn').value.trim();
+
+        if (!adminKey) {
+            showStatus('⚠️ Insira a ADMIN_KEY para autorizar o envio.', 'warning');
+            return;
+        }
+
+        if (tipoEnvio === 'individual' && !targetId) {
+            showStatus('⚠️ Informe o Telegram ID do destinatário.', 'warning');
+            return;
+        }
+
+        if (!messagePt && !messageEn) {
+            showStatus('⚠️ Preencha ao menos uma das mensagens (PT ou EN).', 'warning');
+            return;
+        }
+
+        if (!confirm(tipoEnvio === 'massa' ? 'Deseja realmente disparar esta campanha em massa para todos os usuários ativos?' : `Deseja enviar a mensagem para o ID ${targetId}?`)) {
             return;
         }
 
         try {
-            const response = await fetch(`${API_URL}/api/admin/notify`, {
+            showStatus('⏳ Processando e enviando mensagens...', 'warning');
+
+            const response = `${API_URL}/api/admin/enviar-notificacao-personalizada`;
+            const res = await fetch(response, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'x-admin-key': adminKey
                 },
-                body: JSON.stringify({ adminKey, telegramId: targetId, message })
+                body: JSON.stringify({
+                    tipo: tipoEnvio,
+                    telegram_id: targetId,
+                    mensagem_pt: messagePt,
+                    mensagem_en: messageEn
+                })
             });
 
-            const data = await response.json();
-            if (response.ok && data.success) {
-                showStatus(`✅ Mensagem enviada com sucesso para ${targetId}!`, 'success');
-                document.getElementById('directMessage').value = '';
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showStatus(`✅ ${data.message || 'Notificação enviada com sucesso!'}`, 'success');
             } else {
-                showStatus(`❌ Erro: ${data.message || data.error || 'Falha ao enviar mensagem.'}`, 'warning');
+                showStatus(`❌ Erro: ${data.error || data.message || 'Falha ao enviar.'}`, 'warning');
             }
-        } catch (error) {
-            showStatus(`❌ Erro de conexão com o servidor.`, 'warning');
+        } catch (err) {
+            showStatus('❌ Erro de conexão com o servidor.', 'warning');
         }
     }
 
@@ -253,7 +314,7 @@
             const tbody = document.getElementById('withdrawalsBody');
             tbody.innerHTML = '';
 
-            const lista = data.withdrawals || data; // Compatibilidade com diferentes retornos da API
+            const lista = data.withdrawals || data;
             if (Array.isArray(lista) && lista.length > 0) {
                 lista.forEach(item => {
                     const tr = document.createElement('tr');
@@ -280,8 +341,11 @@
 
     // Preenche os campos para chamar o usuário do saque com um modelo pré-pronto
     function quickNotify(telegramId, saqueId) {
+        document.getElementById('tipoEnvio').value = 'individual';
+        alternarCamposEnvio();
         document.getElementById('targetId').value = telegramId;
-        document.getElementById('directMessage').value = `Olá! Identificamos a sua solicitação de saque #${saqueId}. Por favor, confirme suas informações para darmos andamento ao seu pagamento!`;
+        document.getElementById('messagePt').value = `Olá! Identificamos a sua solicitação de saque #${saqueId}. Por favor, confirme suas informações no chat para darmos andamento ao seu pagamento!`;
+        document.getElementById('messageEn').value = `Hello! We identified your withdrawal request #${saqueId}. Please confirm your details in the chat to process your payment!`;
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
