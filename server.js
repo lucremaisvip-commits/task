@@ -393,18 +393,21 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         [telegram_id]
       );
 
+      // Requisito: Completou 3 tarefas internas
       if (parseInt(tarefasRes.rows[0].count) >= 3) {
         await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
         
+        // 🚀 Atualizado para 0.60 pontos (Bônus Turbinado da Semana da Indicação)
         await client.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.40, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
+          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.60, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
 
         await adicionarXP(indicacao.id_indicador, 20, client);
 
+        // Registro no histórico unificado com o valor promocional de 0.60
         await client.query(
-          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.60, 'Bônus por indicação (Promocional)', $2, NOW())`,
           [indicacao.id_indicador, String(telegram_id)]
         );
       }
@@ -422,7 +425,6 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     client.release();
   }
 });
-
 app.post("/api/concluir-anuncio-extra", async (req, res) => {
   let { telegram_id } = req.body;
 
