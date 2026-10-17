@@ -381,41 +381,80 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         infoBooster = await verificarMissaoEntrada(client, telegram_id);
     }
 
+    // 🔍 Busca a indicação E o idioma/nome do indicado para formatar a notificação
     const indicacaoRes = await client.query(
-      "SELECT * FROM indicacoes WHERE id_indicado = $1 AND pontos_ativados = false",
+      `SELECT i.*, 
+              u_ind.nome as nome_indicador,
+              u_do.lang as lang_indicado
+       FROM indicacoes i 
+       LEFT JOIN usuarios u_ind ON i.id_indicador = u_ind.telegram_id 
+       LEFT JOIN usuarios u_do ON i.id_indicado = u_do.telegram_id
+       WHERE i.id_indicado = $1 AND i.pontos_ativados = false`,
       [telegram_id]
     );
 
+    let ganhouBonusIndicacao = false;
+    let nomeIndicadorDoAmigo = "";
+    let langIndicado = "pt";
+
     if (indicacaoRes.rows.length > 0) {
       const indicacao = indicacaoRes.rows[0];
+      nomeIndicadorDoAmigo = indicacao.nome_indicador || "um amigo";
+      langIndicado = indicacao.lang_indicado || "pt";
+      
       const tarefasRes = await client.query(
         "SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'tarefa'",
         [telegram_id]
       );
 
-      // Requisito: Completou 3 tarefas internas
+      // 🎯 Quando o indicado completa 3 tarefas internas
       if (parseInt(tarefasRes.rows[0].count) >= 3) {
         await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
         
-        // 🚀 Atualizado para 0.60 pontos (Bônus Turbinado da Semana da Indicação)
+        // 1. Premia o Indicador com 0.60 pts (Promocional)
         await client.query(
           `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.60, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
-
         await adicionarXP(indicacao.id_indicador, 20, client);
-
-        // Registro no histórico unificado com o valor promocional de 0.60
         await client.query(
           `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.60, 'Bônus por indicação (Promocional)', $2, NOW())`,
           [indicacao.id_indicador, String(telegram_id)]
         );
+
+        // 2. Premia o Indicado com 0.20 pts na hora
+        await client.query(
+          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.20 WHERE telegram_id = $1`,
+          [telegram_id]
+        );
+        await client.query(
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'bonus_indicado', 0.20, 'Bônus de Boas-Vindas (Indicação)', $2, NOW())`,
+          [telegram_id, String(indicacao.id_indicador)]
+        );
+
+        ganhouBonusIndicacao = true;
       }
     }
 
     await client.query("UPDATE tarefas_sessoes SET status = 'concluido', concluido_em = NOW() WHERE token = $1", [token]);
 
     await client.query("COMMIT");
+
+    // 💬 Dispara a notificação bilíngue no chat do Telegram do indicado
+    if (ganhouBonusIndicacao && typeof bot !== 'undefined' && bot.telegram) {
+      const isEn = langIndicado === 'en';
+
+      const mensagemNotificacao = isEn
+        ? `🎉 **Congratulations!** You completed 3 initial tasks and received a bonus of **0.20 points** for being referred by **${nomeIndicadorDoAmigo}**! 🚀`
+        : `🎉 **Parabéns!** Você realizou as 3 tarefas iniciais e recebeu um bônus de **0.20 pontos** por ter sido indicado por **${nomeIndicadorDoAmigo}**! 🚀`;
+      
+      try {
+        await bot.telegram.sendMessage(telegram_id, mensagemNotificacao, { parse_mode: "Markdown" });
+      } catch (notifyErr) {
+        console.error("⚠️ Erro ao enviar aviso de bônus de indicação:", notifyErr.message);
+      }
+    }
+
     res.json({ mensagem: "✅ Concluído! +15 XP", metaBatida, booster: infoBooster.liberado });
 
   } catch (err) {
@@ -425,6 +464,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     client.release();
   }
 });
+
 app.post("/api/concluir-anuncio-extra", async (req, res) => {
   let { telegram_id } = req.body;
 
