@@ -2400,36 +2400,52 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
     const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
 
-    // 2. Agrupa o histórico excluindo testes do admin
+    // 2. Agrupa o histórico excluindo testes do admin e saques
     const historicoRes = await client.query(`
       SELECT 
         origem,
         COUNT(*) as total_acoes,
         COALESCE(SUM(pontos), 0) as total_pontos_y
       FROM historico_ganhos
-      WHERE origem != 'teste_admin'
+      WHERE origem NOT IN ('teste_admin', 'saque', 'saques')
       GROUP BY origem
     `);
 
-    // Busca giros da roleta separadamente para garantir precisão
-    const roletaGirosRes = await client.query(`
+    // 3. Consulta específica e precisa para a Roleta unificada (Giros com saldo + Compra de Tickets + Prêmios pagos)
+    // Giros pagos com saldo (onde gratis = false ou custo direto)
+    const girosComSaldoRes = await client.query(`
+      SELECT COUNT(*) as qtd_giros_saldo
+      FROM roleta_giros
+      WHERE gratis = false
+    `);
+    const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
+    const receitaGirosPontos = qtdGirosComSaldo * 0.20; // 0.20 pontos por giro com saldo
+
+    // Soma das compras de tickets no histórico
+    const compraTicketsRes = await client.query(`
+      SELECT COALESCE(SUM(ABS(pontos)), 0) as total_compras_tickets
+      FROM historico_ganhos
+      WHERE origem = 'compra_tickets'
+    `);
+    const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
+
+    // Total pago em prêmios na roleta (tabela roleta_giros)
+    const roletaGirosPrêmiosRes = await client.query(`
       SELECT 
-        COUNT(*) as total_giros,
+        COUNT(*) as total_acoes_roleta,
         COALESCE(SUM(pontos_ganhos), 0) as total_pago_roleta
       FROM roleta_giros
     `);
-
-    const acoesRoleta = parseInt(roletaGirosRes.rows[0]?.total_giros || 0);
-    const pagoRoletaPontos = parseFloat(roletaGirosRes.rows[0]?.total_pago_roleta || 0);
+    const acoesRoletaTotal = parseInt(roletaGirosPrêmiosRes.rows[0]?.total_acoes_roleta || 0);
+    const pagoRoletaPontos = parseFloat(roletaGirosPrêmiosRes.rows[0]?.total_pago_roleta || 0);
 
     const relatorio = [];
 
-    // Mapeamento e cálculo por atividade
-    const origensMapeadas = new Set(historicoRes.rows.map(r => r.origem));
-    if (acoesRoleta > 0) origensMapeadas.add('roleta');
+    // Processa as origens comuns do histórico (ignorando 'compra_tickets' pois já foi unificada na roleta)
+    const origensMapeadas = historicoRes.rows.filter(r => r.origem !== 'compra_tickets');
 
-    for (const origem of origensMapeadas) {
-      const row = historicoRes.rows.find(r => r.origem === origem) || { total_acoes: 0, total_pontos_y: 0 };
+    for (const row of origensMapeadas) {
+      let origem = row.origem;
       let acoes = parseInt(row.total_acoes);
       let yPontos = parseFloat(row.total_pontos_y);
       let xPontos = 0;
@@ -2441,32 +2457,31 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
           xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
           break;
 
-        case 'roleta':
-          acoes = acoesRoleta;
-          yPontos = pagoRoletaPontos;
-          // Anúncio Monetag estimado por giro (~$0.001 USD) convertido em pontos
-          const receitaMonetagGiroUSD = 0.001;
-          xPontos = acoes * (receitaMonetagGiroUSD / cotacaoUSD);
-          break;
-
         case 'tarefa':
-          // Média de $0.001 USD por tarefa
+          // Média de $0.001 USD por tarefa convertido para pontos
           xPontos = acoes * (0.001 / cotacaoUSD);
           break;
 
         case 'anuncio_extra':
-          // CPM médio Monetag $3.91 -> $0.00391 USD por anúncio
+          // CPM médio Monetag $3.91 -> $0.00391 USD por anúncio convertido para pontos
           xPontos = acoes * (0.00391 / cotacaoUSD);
           break;
 
         case 'indicacao':
-          // 3 tarefas do indicado geram ~$0.003 USD
+          // Exclui estritamente indicações originadas pelo ID de admin 1677694125
+          const indicacaoRealRes = await client.query(`
+            SELECT COUNT(*) as total FROM historico_ganhos 
+            WHERE origem = 'indicacao' AND referencia_id != '1677694125'
+          `);
+          // Se houver filtro específico por ID no banco, ajustamos o Y e as Ações:
+          acoes = parseInt(indicacaoRealRes.rows[0]?.total || acoes);
+          yPontos = acoes * 0.40; // 0.40 pontos por indicação válida
           xPontos = acoes * (0.003 / cotacaoUSD);
           break;
 
         case 'booster_entrada':
         case 'bau_semanal':
-          // Bônus/Ajustes internos patrocinados pelo bot (Receita X = 0)
+          // Custos internos de engajamento (Receita X = 0)
           xPontos = 0;
           break;
 
@@ -2475,8 +2490,6 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
           break;
       }
 
-      const lucroPontos = xPontos - yPontos;
-
       // Função de formatação com conversão dupla (USD + LTC)
       const formatarValores = (pontos) => {
         const usd = pontos * cotacaoUSD;
@@ -2484,8 +2497,7 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
         return {
           pontos: pontos.toFixed(4),
           usd: usd.toFixed(4),
-          ltc: ltc.toFixed(8),
-          textoFormatado: `${ltc.toFixed(8)} LTC\n(Equivalente: $${usd.toFixed(4)} USD)`
+          ltc: ltc.toFixed(8)
         };
       };
 
@@ -2494,9 +2506,25 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
         acoes,
         receita_x: formatarValores(xPontos),
         pago_y: formatarValores(yPontos),
-        lucro_teorico: formatarValores(lucroPontos)
+        lucro_teorico: formatarValores(xPontos - yPontos)
       });
     }
+
+    // Adiciona a linha unificada da Roleta manualmente com as regras corretas
+    const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
+    const formatarValoresRoleta = (pontos) => {
+      const usd = pontos * cotacaoUSD;
+      const ltc = pontos * cotacaoLTC;
+      return { pontos: pontos.toFixed(4), usd: usd.toFixed(4), ltc: ltc.toFixed(8) };
+    };
+
+    relatorio.push({
+      origem: 'roleta',
+      acoes: acoesRoletaTotal,
+      receita_x: formatarValoresRoleta(receitaRoletaPontos),
+      pago_y: formatarValoresRoleta(pagoRoletaPontos),
+      lucro_teorico: formatarValoresRoleta(receitaRoletaPontos - pagoRoletaPontos)
+    });
 
     res.json({
       sucesso: true,
@@ -2511,7 +2539,6 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     client.release();
   }
 });
-
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
 // =========================================================================
