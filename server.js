@@ -2386,6 +2386,7 @@ app.post('/api/financeiro/campanhas', verificarAdminKey, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
 app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
   const client = await pool.connect();
   try {
@@ -2400,28 +2401,28 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
     const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
 
-    // 2. Agrupa o histórico excluindo testes do admin e saques
+    // 2. Agrupa o histórico excluindo testes do admin, saques E removendo a roleta/compra_tickets do loop comum para unificar depois
     const historicoRes = await client.query(`
       SELECT 
         origem,
         COUNT(*) as total_acoes,
         COALESCE(SUM(pontos), 0) as total_pontos_y
       FROM historico_ganhos
-      WHERE origem NOT IN ('teste_admin', 'saque', 'saques')
+      WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets')
       GROUP BY origem
     `);
 
-    // 3. Consulta específica e precisa para a Roleta unificada (Giros com saldo + Compra de Tickets + Prêmios pagos)
-    // Giros pagos com saldo (onde gratis = false ou custo direto)
+    // 3. Cálculos específicos e precisos para a Roleta unificada
+    // A) Giros pagos com saldo (onde gratis = false) * 0.20 pontos
     const girosComSaldoRes = await client.query(`
       SELECT COUNT(*) as qtd_giros_saldo
       FROM roleta_giros
       WHERE gratis = false
     `);
     const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
-    const receitaGirosPontos = qtdGirosComSaldo * 0.20; // 0.20 pontos por giro com saldo
+    const receitaGirosPontos = qtdGirosComSaldo * 0.20;
 
-    // Soma das compras de tickets no histórico
+    // B) Total gasto em compras de tickets no histórico
     const compraTicketsRes = await client.query(`
       SELECT COALESCE(SUM(ABS(pontos)), 0) as total_compras_tickets
       FROM historico_ganhos
@@ -2429,22 +2430,34 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     `);
     const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
 
-    // Total pago em prêmios na roleta (tabela roleta_giros)
-    const roletaGirosPrêmiosRes = await client.query(`
+    // C) Total de prêmios pagos aos usuários extraídos diretamente de roleta_giros (pontos_ganhos)
+    const roletaGirosPremiosRes = await client.query(`
       SELECT 
         COUNT(*) as total_acoes_roleta,
         COALESCE(SUM(pontos_ganhos), 0) as total_pago_roleta
       FROM roleta_giros
     `);
-    const acoesRoletaTotal = parseInt(roletaGirosPrêmiosRes.rows[0]?.total_acoes_roleta || 0);
-    const pagoRoletaPontos = parseFloat(roletaGirosPrêmiosRes.rows[0]?.total_pago_roleta || 0);
+    const acoesRoletaTotal = parseInt(roletaGirosPremiosRes.rows[0]?.total_acoes_roleta || 0);
+    const pagoRoletaPontos = parseFloat(roletaGirosPremiosRes.rows[0]?.total_pago_roleta || 0);
+
+    // Receita Gerada (X) = (Giros com saldo * 0.20) + (Total gasto em compras de tickets)
+    const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
 
     const relatorio = [];
 
-    // Processa as origens comuns do histórico (ignorando 'compra_tickets' pois já foi unificada na roleta)
-    const origensMapeadas = historicoRes.rows.filter(r => r.origem !== 'compra_tickets');
+    // Função de formatação com conversão dupla (USD + LTC)
+    const formatarValores = (pontos) => {
+      const usd = pontos * cotacaoUSD;
+      const ltc = pontos * cotacaoLTC;
+      return {
+        pontos: pontos.toFixed(4),
+        usd: usd.toFixed(4),
+        ltc: ltc.toFixed(8)
+      };
+    };
 
-    for (const row of origensMapeadas) {
+    // Processa as demais origens comuns do histórico
+    for (const row of historicoRes.rows) {
       let origem = row.origem;
       let acoes = parseInt(row.total_acoes);
       let yPontos = parseFloat(row.total_pontos_y);
@@ -2453,35 +2466,29 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
       switch (origem) {
         case 'zerads':
         case 'moneyrain':
-          // Modelo 40% de repasse: Receita X = Y / 0.40
           xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
           break;
 
         case 'tarefa':
-          // Média de $0.001 USD por tarefa convertido para pontos
           xPontos = acoes * (0.001 / cotacaoUSD);
           break;
 
         case 'anuncio_extra':
-          // CPM médio Monetag $3.91 -> $0.00391 USD por anúncio convertido para pontos
           xPontos = acoes * (0.00391 / cotacaoUSD);
           break;
 
         case 'indicacao':
-          // Exclui estritamente indicações originadas pelo ID de admin 1677694125
           const indicacaoRealRes = await client.query(`
             SELECT COUNT(*) as total FROM historico_ganhos 
             WHERE origem = 'indicacao' AND referencia_id != '1677694125'
           `);
-          // Se houver filtro específico por ID no banco, ajustamos o Y e as Ações:
           acoes = parseInt(indicacaoRealRes.rows[0]?.total || acoes);
-          yPontos = acoes * 0.40; // 0.40 pontos por indicação válida
+          yPontos = acoes * 0.40;
           xPontos = acoes * (0.003 / cotacaoUSD);
           break;
 
         case 'booster_entrada':
         case 'bau_semanal':
-          // Custos internos de engajamento (Receita X = 0)
           xPontos = 0;
           break;
 
@@ -2489,17 +2496,6 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
           xPontos = yPontos;
           break;
       }
-
-      // Função de formatação com conversão dupla (USD + LTC)
-      const formatarValores = (pontos) => {
-        const usd = pontos * cotacaoUSD;
-        const ltc = pontos * cotacaoLTC;
-        return {
-          pontos: pontos.toFixed(4),
-          usd: usd.toFixed(4),
-          ltc: ltc.toFixed(8)
-        };
-      };
 
       relatorio.push({
         origem,
@@ -2510,20 +2506,13 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
       });
     }
 
-    // Adiciona a linha unificada da Roleta manualmente com as regras corretas
-    const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
-    const formatarValoresRoleta = (pontos) => {
-      const usd = pontos * cotacaoUSD;
-      const ltc = pontos * cotacaoLTC;
-      return { pontos: pontos.toFixed(4), usd: usd.toFixed(4), ltc: ltc.toFixed(8) };
-    };
-
+    // Adiciona APENAS UMA linha unificada da Roleta ao relatório final
     relatorio.push({
       origem: 'roleta',
       acoes: acoesRoletaTotal,
-      receita_x: formatarValoresRoleta(receitaRoletaPontos),
-      pago_y: formatarValoresRoleta(pagoRoletaPontos),
-      lucro_teorico: formatarValoresRoleta(receitaRoletaPontos - pagoRoletaPontos)
+      receita_x: formatarValores(receitaRoletaPontos),
+      pago_y: formatarValores(pagoRoletaPontos),
+      lucro_teorico: formatarValores(receitaRoletaPontos - pagoRoletaPontos)
     });
 
     res.json({
@@ -2539,6 +2528,7 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     client.release();
   }
 });
+
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
 // =========================================================================
