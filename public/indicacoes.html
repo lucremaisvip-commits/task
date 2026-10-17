@@ -17,6 +17,11 @@
     /* CARDS ESTILO DASHBOARD */
     .card { background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; color: #f1f5f9; }
     
+    /* BANNER PROMOCIONAL */
+    .promo-banner { background: linear-gradient(135deg, #065f46, #047857); border: 2px solid #00ff88; border-radius: 12px; padding: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,255,136,0.2); }
+    .promo-banner h3 { color: #00ff88; margin-bottom: 8px; font-size: 18px; }
+    .promo-banner p { font-size: 13px; line-height: 1.4; color: #ecfdf5; margin: 0; }
+
     .info { margin: 15px 0; font-size: 14px; line-height: 1.5; color: #94a3b8; text-align: center; }
 
     .link-box { background: #0f172a; padding: 15px; border-radius: 8px; word-break: break-all; font-size: 14px; font-family: monospace; color: #00ff88; text-align: center; border: 1px solid #334155; margin-bottom: 15px; }
@@ -29,10 +34,15 @@
     #btnHelp { background: #334155; color: #fff; }
 
     h2, h3 { color: #f1f5f9; margin-top: 0; text-align: center; }
+    
     /* Estilo do Contador */
     .stats-card { text-align: center; margin-bottom: 20px; }
     .stats-label { color: #94a3b8; font-size: 14px; margin-bottom: 5px; }
     .stats-value { font-size: 28px; font-weight: bold; color: #00ff88; }
+
+    /* Lista de Regras da Promoção */
+    .rules-list { font-size: 13px; color: #cbd5e1; text-align: left; margin: 10px 0 0 15px; padding: 0; line-height: 1.6; }
+    .rules-list li { margin-bottom: 6px; }
 
     /* Estilo do Modal */
     .modal-overlay { 
@@ -58,14 +68,30 @@
   </nav>
 
   <div class="card">
-    <h2 id="mainInviteTitle">📢 Convide e concorra!</h2>
+    <!-- BANNER DA SEMANA ESPECIAL -->
+    <div class="promo-banner">
+      <h3 id="promoBannerTitle">🚀 SEMANA DA INDICAÇÃO (17 a 24/10)</h3>
+      <p id="promoBannerDesc">Bônus turbinados na hora + Fundo de prêmios e metas no fim da semana!</p>
+    </div>
+
+    <h2 id="mainInviteTitle">📢 Convide e Lucre!</h2>
     <p class="info" id="mainInviteDesc">Carregando...</p>
+
+    <!-- REGRAS DA PROMOÇÃO -->
+    <div style="background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+      <strong style="color: #00ff88; font-size: 13px;" id="rulesHeader">⚡ Regras da Campanha:</strong>
+      <ul class="rules-list" id="rulesListContent">
+        <li><strong>Bônus Imediato:</strong> Você ganha <strong>0,60 pts</strong> e seu amigo 0,20 pts após ele concluir 3 tarefas.</li>
+        <li><strong>Metas Extras (Fim da Semana):</strong> 3 amigos = 3 Tickets da Roleta 🎟️ | 7 amigos = 7 Tickets + VIP por 7 Dias 💎.</li>
+        <li><strong>Fundo de Prêmios:</strong> Cada indicação válida gera cotas para você faturar uma fatia do pool coletivo no dia 24/10! 💸</li>
+      </ul>
+    </div>
 
     <h3 id="subtitleYourLink">📎 Seu link de convite:</h3>
     <div class="link-box" id="linkConvite">Loading...</div>
     
     <!-- Contador de Indicações -->
-    <div class="card stats-card">
+    <div class="card stats-card" style="margin-bottom: 15px;">
       <div class="stats-label" id="txtTotalInvites">Total de Indicações Aprovadas:</div>
       <div class="stats-value" id="totalAprovadas">0</div>
     </div>
@@ -74,9 +100,9 @@
     <div id="modalIndicacao" class="modal-overlay" style="display: none;">
       <div class="modal-content">
         <span>🎉</span>
-        <h3>Nova Indicação!</h3>
-        <p>Você ganhou <strong>0,40 pontos + 20 XP</strong>!</p>
-        <button onclick="fecharModal()" style="background: #00ff88; color: #000;">OK</button>
+        <h3 id="modalTitle">Nova Indicação!</h3>
+        <p id="modalDesc">Você ganhou <strong>0,60 pontos + 20 XP</strong>!</p>
+        <button onclick="fecharModal()" style="background: #00ff88; color: #000;" id="modalBtn">OK</button>
       </div>
     </div>
 
@@ -91,44 +117,54 @@ let userLang = "en";
 
 const linguagens = {
   pt: {
-    pageTitle: "Indicações",
+    pageTitle: "Semana da Indicação",
     navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque",
-    inviteTitle: "📢 Convide e concorra!",
-    inviteDesc: "Indique o bot <strong>LucreMaisTask</strong> para seus amigos. Cada novo usuário que entrar pelo seu link te dá 0,40 pontos + 20 XP e te aproxima de prêmios extras no final do mês! 🎁",
+    promoTitle: "🚀 SEMANA DA INDICAÇÃO (17 a 24/10/2026)",
+    promoDesc: "Bônus instantâneo turbinado + Prêmios de metas e Fundo Coletivo entregues no dia 24/10!",
+    inviteTitle: "📢 Convide e Conquiste Prêmios!",
+    inviteDesc: "Ajude o <strong>LucreMaisTask</strong> a crescer nesta semana especial. Cada indicação válida acelera seus ganhos e garante participações exclusivas!",
+    rulesHeader: "⚡ Mecânica da Campanha:",
+    rule1: "<strong>Bônus Imediato:</strong> Você ganha <strong>0,60 pts</strong> + 20 XP (e seu amigo 0,20 pts) assim que ele conclui 3 tarefas.",
+    rule2: "<strong>Metas Extras (24/10):</strong> 3 amigos = 3 Tickets 🎟️ | 7 amigos = 7 Tickets + 7 Dias de VIP 💎.",
+    rule3: "<strong>Fundo Coletivo:</strong> Suas indicações geram cotas para dividir parte da arrecadação no final da semana!",
     yourLink: "📎 Seu link de convite:",
     totalInvites: "Total de Indicações Aprovadas:",
-    newInvite: "Nova Indicação!",
     modalTitle: "Nova Indicação!",
-    modalDesc: "Você ganhou <strong>0,40 pontos + 20 XP</strong>!",
+    modalDesc: "Você ganhou <strong>0,60 pontos + 20 XP</strong>!",
     modalBtn: "OK",
     btnCopy: "📋 Copiar Link",
     btnShare: "📤 Compartilhar via Telegram",
-    btnHelp: "❓ Dúvidas sobre Indicações",
+    btnHelp: "❓ Dúvidas sobre a Campanha",
     linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#indicacoes",
     generating: "Gerando...",
     errorId: "❌ ID não identificado.",
     copiedAlert: "✅ Link copiado!",
-    shareText: "Use o LucreMaisTask e ganhe recompensas!"
+    shareText: "🚀 Participe da Semana da Indicação do LucreMaisTask! Ganhe bônus na hora, Tickets de Roleta e Status VIP. Acesse pelo meu link:"
   },
   en: {
-    pageTitle: "Invites",
+    pageTitle: "Invite Week",
     navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw",
+    promoTitle: "🚀 SPECIAL INVITE WEEK (Oct 17-24, 2026)",
+    promoDesc: "Boosted instant bonuses + Goal prizes & Community Reward Pool distributed on Oct 24!",
     inviteTitle: "📢 Invite & Win Prizes!",
-    inviteDesc: "Refer the <strong>LucreMaisTask</strong> bot to your friends. Every new user who joins via your link helps you accumulate 0,40 points + 20 XP and brings you closer to amazing rewards! 🎁",
+    inviteDesc: "Help <strong>LucreMaisTask</strong> grow during this special week. Every valid referral supercharges your earnings and unlocks exclusive rewards!",
+    rulesHeader: "⚡ Campaign Mechanics:",
+    rule1: "<strong>Instant Bonus:</strong> You earn <strong>0.60 pts</strong> + 20 XP (and your friend 0.20 pts) once they complete 3 tasks.",
+    rule2: "<strong>Extra Goals (Oct 24):</strong> 3 friends = 3 Spin Tickets 🎟️ | 7 friends = 7 Tickets + 7 Days VIP 💎.",
+    rule3: "<strong>Reward Pool:</strong> Your referrals earn you quotas to claim a share of the community pool at the end of the week! 💸",
     yourLink: "📎 Your referral link:",
     totalInvites: "Total Approved Invites:",
-    newInvite: "New Invite!",
     modalTitle: "New Invite!",
-    modalDesc: "You earned <strong>0.40 points + 20 XP</strong>!",
+    modalDesc: "You earned <strong>0.60 points + 20 XP</strong>!",
     modalBtn: "OK",
     btnCopy: "📋 Copy Link",
     btnShare: "📤 Share via Telegram",
-    btnHelp: "❓ Referral Questions",
+    btnHelp: "❓ Campaign Questions",
     linkAjuda: "https://lucremaistask.netlify.app/help.html#indicacoes",
     generating: "Generating...",
     errorId: "❌ ID not identified.",
     copiedAlert: "✅ Link copied!",
-    shareText: "Use LucreMaisTask and earn rewards!"
+    shareText: "🚀 Join the LucreMaisTask Invite Week! Get instant bonuses, Spin Tickets, and VIP status. Join via my link:"
   }
 };
 
@@ -168,13 +204,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Aplicar traduções na interface
   document.getElementById("pageTitle").innerText = t.pageTitle;
+  document.getElementById("promoBannerTitle").innerText = t.promoTitle;
+  document.getElementById("promoBannerDesc").innerText = t.promoDesc;
   document.getElementById("mainInviteTitle").innerText = t.inviteTitle;
   document.getElementById("mainInviteDesc").innerHTML = t.inviteDesc;
+  document.getElementById("rulesHeader").innerHTML = t.rulesHeader;
+  
+  const rulesList = document.getElementById("rulesListContent");
+  rulesList.innerHTML = `<li>${t.rule1}</li><li>${t.rule2}</li><li>${t.rule3}</li>`;
+
   document.getElementById("subtitleYourLink").innerText = t.yourLink;
   document.getElementById("txtTotalInvites").innerText = t.totalInvites;
-  document.querySelector("#modalIndicacao h3").innerText = t.modalTitle;
-  document.querySelector("#modalIndicacao p").innerHTML = t.modalDesc;
-  document.querySelector("#modalIndicacao button").innerText = t.modalBtn;
+  
+  document.getElementById("modalTitle").innerText = t.modalTitle;
+  document.getElementById("modalDesc").innerHTML = t.modalDesc;
+  document.getElementById("modalBtn").innerText = t.modalBtn;
+
   document.getElementById("btnCopy").innerText = t.btnCopy;
   document.getElementById("btnShare").innerText = t.btnShare;
   document.getElementById("btnHelp").innerText = t.btnHelp;
@@ -212,9 +257,9 @@ async function carregarDados() {
       const dataLocalObj = ultimaDataLocal ? new Date(ultimaDataLocal) : new Date(0);
 
       if (dataServidorObj > dataLocalObj) {
-        document.querySelector("#modalIndicacao h3").innerText = t.newInvite;
-        document.querySelector("#modalIndicacao p").innerHTML = t.modalDesc;
-        document.querySelector("#modalIndicacao button").innerText = t.modalBtn;
+        document.getElementById("modalTitle").innerText = t.modalTitle;
+        document.getElementById("modalDesc").innerHTML = t.modalDesc;
+        document.getElementById("modalBtn").innerText = t.modalBtn;
 
         document.getElementById("modalIndicacao").style.display = "flex";
         localStorage.setItem("ultima_indicacao_data", dataServidor);
