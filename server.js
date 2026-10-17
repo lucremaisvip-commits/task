@@ -2386,55 +2386,127 @@ app.post('/api/financeiro/campanhas', verificarAdminKey, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-// 🔹 Endpoint Financeiro: Visão Geral de Geração de Renda e Lucro Teórico por Atividade
-app.get('/admin/financeiro-renda', async (req, res) => {
-  const adminKey = req.headers['x-admin-key'];
-  const envKey = process.env.ADMIN_KEY || "lucremais_9xK!p#2026";
-
-  if (!adminKey || adminKey !== envKey) {
-    return res.status(403).json({ error: "Acesso negado. Chave inválida." });
-  }
-
+app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
   const client = await pool.connect();
   try {
-    // Consulta agrupada por origem no histórico de ganhos
-    // Mostra o total de pontos pagos aos usuários (Y) e a quantidade de ações realizadas
-    const queryRenda = `
+    // 1. Busca a cotação mais recente
+    const cotacaoRes = await client.query(`
+      SELECT valor_usd, valor_ltc 
+      FROM cotacoes 
+      ORDER BY data_registro DESC, id DESC 
+      LIMIT 1
+    `);
+
+    const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
+    const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
+
+    // 2. Agrupa o histórico excluindo testes do admin
+    const historicoRes = await client.query(`
       SELECT 
         origem,
         COUNT(*) as total_acoes,
-        SUM(pontos) as total_pago_usuarios
+        COALESCE(SUM(pontos), 0) as total_pontos_y
       FROM historico_ganhos
-      WHERE origem != 'saque'
+      WHERE origem != 'teste_admin'
       GROUP BY origem
-      ORDER BY total_pago_usuarios DESC;
-    `;
+    `);
 
-    const resultado = await client.query(queryRenda);
+    // Busca giros da roleta separadamente para garantir precisão
+    const roletaGirosRes = await client.query(`
+      SELECT 
+        COUNT(*) as total_giros,
+        COALESCE(SUM(pontos_ganhos), 0) as total_pago_roleta
+      FROM roleta_giros
+    `);
 
-    // Mapeia e estrutura os dados para exibir na interface financeira
-    // Aqui simulamos a receita bruta (X) baseada no fator de repasse de 40% (ou seja, X = Y / 0.40)
-    const relatorioAtividades = resultado.rows.map(row => {
-      const totalPagoY = parseFloat(row.total_pago_usuarios || 0);
-      
-      // Como o repasse configurado nas rotas é de 40%, a receita bruta gerada (X) é totalPagoY / 0.40
-      const receitaGeradaX = totalPagoY / 0.40; 
-      const lucroTeorico = receitaGeradaX - totalPagoY; // 60% que fica para o sistema
+    const acoesRoleta = parseInt(roletaGirosRes.rows[0]?.total_giros || 0);
+    const pagoRoletaPontos = parseFloat(roletaGirosRes.rows[0]?.total_pago_roleta || 0);
 
-      return {
-        origem: row.origem.toUpperCase(),
-        totalAcoes: parseInt(row.total_acoes),
-        receitaGeradaX: receitaGeradaX.toFixed(4),
-        totalPagoY: totalPagoY.toFixed(4),
-        lucroTeorico: lucroTeorico.toFixed(4)
+    const relatorio = [];
+
+    // Mapeamento e cálculo por atividade
+    const origensMapeadas = new Set(historicoRes.rows.map(r => r.origem));
+    if (acoesRoleta > 0) origensMapeadas.add('roleta');
+
+    for (const origem of origensMapeadas) {
+      const row = historicoRes.rows.find(r => r.origem === origem) || { total_acoes: 0, total_pontos_y: 0 };
+      let acoes = parseInt(row.total_acoes);
+      let yPontos = parseFloat(row.total_pontos_y);
+      let xPontos = 0;
+
+      switch (origem) {
+        case 'zerads':
+        case 'moneyrain':
+          // Modelo 40% de repasse: Receita X = Y / 0.40
+          xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
+          break;
+
+        case 'roleta':
+          acoes = acoesRoleta;
+          yPontos = pagoRoletaPontos;
+          // Anúncio Monetag estimado por giro (~$0.001 USD) convertido em pontos
+          const receitaMonetagGiroUSD = 0.001;
+          xPontos = acoes * (receitaMonetagGiroUSD / cotacaoUSD);
+          break;
+
+        case 'tarefa':
+          // Média de $0.001 USD por tarefa
+          xPontos = acoes * (0.001 / cotacaoUSD);
+          break;
+
+        case 'anuncio_extra':
+          // CPM médio Monetag $3.91 -> $0.00391 USD por anúncio
+          xPontos = acoes * (0.00391 / cotacaoUSD);
+          break;
+
+        case 'indicacao':
+          // 3 tarefas do indicado geram ~$0.003 USD
+          xPontos = acoes * (0.003 / cotacaoUSD);
+          break;
+
+        case 'booster_entrada':
+        case 'bau_semanal':
+          // Bônus/Ajustes internos patrocinados pelo bot (Receita X = 0)
+          xPontos = 0;
+          break;
+
+        default:
+          xPontos = yPontos;
+          break;
+      }
+
+      const lucroPontos = xPontos - yPontos;
+
+      // Função de formatação com conversão dupla (USD + LTC)
+      const formatarValores = (pontos) => {
+        const usd = pontos * cotacaoUSD;
+        const ltc = pontos * cotacaoLTC;
+        return {
+          pontos: pontos.toFixed(4),
+          usd: usd.toFixed(4),
+          ltc: ltc.toFixed(8),
+          textoFormatado: `${ltc.toFixed(8)} LTC\n(Equivalente: $${usd.toFixed(4)} USD)`
+        };
       };
+
+      relatorio.push({
+        origem,
+        acoes,
+        receita_x: formatarValores(xPontos),
+        pago_y: formatarValores(yPontos),
+        lucro_teorico: formatarValores(lucroPontos)
+      });
+    }
+
+    res.json({
+      sucesso: true,
+      cotacao_atual: { valor_usd: cotacaoUSD, valor_ltc: cotacaoLTC },
+      dados: relatorio
     });
 
-    res.json({ atividades: relatorioAtividades });
-
   } catch (err) {
-    console.error("Erro ao calcular renda financeira:", err);
-    res.status(500).json({ error: "Erro interno no servidor." });
+    console.error("Erro ao gerar relatório financeiro:", err);
+    res.status(500).json({ erro: "Erro interno do servidor" });
   } finally {
     client.release();
   }
