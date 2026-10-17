@@ -35,12 +35,14 @@
       color: #2a8f43;
       margin-top: 25px;
     }
-    .auth-card, .action-card, .cotacao-card {
+    .auth-card, .action-card, .cotacao-card, .card {
       background: #fff;
       padding: 15px;
       border-radius: 8px;
       box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       margin-bottom: 20px;
+    }
+    .auth-card, .action-card, .cotacao-card {
       display: flex;
       flex-wrap: wrap;
       gap: 15px;
@@ -77,6 +79,16 @@
     }
     button.btn-primary:hover {
       background: #1e6e34;
+    }
+    button.btn-extract {
+      background: #9c27b0;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+    }
+    button.btn-extract:hover {
+      background: #7b1fa2;
     }
     button.btn-edit {
       background: #2196f3;
@@ -155,8 +167,11 @@
       background: #2a8f43;
       color: white;
     }
+    .text-success { color: #28a745 !important; }
+    .text-danger { color: #dc3545 !important; }
+    .fw-bold { font-weight: bold !important; }
 
-    /* Modal de Edição */
+    /* Modal de Edição / Extração */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -170,7 +185,7 @@
       background: #fff;
       padding: 20px;
       border-radius: 8px;
-      max-width: 500px;
+      max-width: 600px;
       width: 90%;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
@@ -179,16 +194,21 @@
 <body>
 
   <!-- Navegação Padrão -->
-  <nav>
-    <a href="tarefas-adm.html">Tarefas</a>
-    <a href="saques-adm.html">Saques</a>
-    <a href="usuarios-adm.html">Usuários</a>
-    <a href="indicacoes-adm.html">Indicações</a>
-    <a href="config-adm.html">Config</a>
-    <a href="anuncios-adm.html">Anúncios</a>
-    <a href="historico.html">Histórico</a>
-    <a href="financeiro.html" style="background:#1e6e34;">Financeiro</a>
-    <a href="notificacao.html">Notificação</a>
+  <nav style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="tarefas-adm.html">Tarefas</a>
+      <a href="saques-adm.html">Saques</a>
+      <a href="usuarios-adm.html">Usuários</a>
+      <a href="indicacoes-adm.html">Indicações</a>
+      <a href="config-adm.html">Config</a>
+      <a href="anuncios-adm.html">Anúncios</a>
+      <a href="historico.html">Histórico</a>
+      <a href="financeiro.html" style="background:#1e6e34;">Financeiro</a>
+      <a href="notificacao.html">Notificação</a>
+    </div>
+    <div>
+      <button class="btn-extract" onclick="abrirModalExtracaoDados()" style="padding: 10px 16px; border-radius: 5px;">📤 Extrair Dados JSON</button>
+    </div>
   </nav>
 
   <h2>🔑 Chave de Ação Administrativa (ADMIN_KEY)</h2>
@@ -230,28 +250,28 @@
     </div>
   </div>
 
-  <!-- Seção: Visão Geral de Geração de Renda por Atividade -->
-  <h2>💰 Visão Geral de Geração de Renda & Lucro Teórico</h2>
-  <div class="auth-card" style="display: block;">
-    <p style="font-size: 13px; color: #666; margin-bottom: 15px;">
-      Análise comparativa entre o volume gerado pelas fontes de anúncios/tarefas (Receita Bruta $X$) e o montante repassado aos usuários (Custo $Y$).
-    </p>
-    
-    <div style="overflow-x: auto;">
-      <table id="tabelaRenda" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
-        <thead>
-          <tr style="background: #2a8f43; color: white;">
-            <th style="padding: 10px;">Origem / Atividade</th>
-            <th style="padding: 10px;">Ações Realizadas</th>
-            <th style="padding: 10px;">Receita Gerada (X)</th>
-            <th style="padding: 10px;">Pago aos Usuários (Y)</th>
-            <th style="padding: 10px;">Lucro Teórico (X - Y)</th>
-          </tr>
-        </thead>
-        <tbody id="corpoTabelaRenda">
-          <tr><td colspan="5" style="text-align:center; padding:15px;">Carregando dados de renda...</td></tr>
-        </tbody>
-      </table>
+  <!-- Módulo de Geração de Renda & Lucro Teórico -->
+  <div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+      <h6 class="m-0 font-weight-bold text-primary" style="color: #2a8f43; margin: 0;">📊 Visão Geral de Geração de Renda & Lucro Teórico</h6>
+    </div>
+    <div class="card-body" style="padding-top: 15px;">
+      <div class="table-responsive">
+        <table class="table table-bordered align-middle" id="tabelaFinanceiroDetalhado" width="100%" cellspacing="0">
+          <thead class="thead-light">
+            <tr>
+              <th>Origem / Atividade</th>
+              <th class="text-center">Ações Realizadas</th>
+              <th>Receita Gerada (X)</th>
+              <th>Pago aos Usuários (Y)</th>
+              <th>Lucro Teórico (X - Y)</th>
+            </tr>
+          </thead>
+          <tbody id="corpoTabelaFinanceira">
+            <tr><td colspan="5" style="text-align:center;">Carregando dados financeiros...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -388,10 +408,26 @@
     </div>
   </div>
 
+  <!-- Modal de Extração de Dados JSON -->
+  <div class="modal-overlay" id="modalExtracao">
+    <div class="modal-content" style="max-width: 700px;">
+      <h3 style="color:#9c27b0; margin-top:0;">📤 Extração de Dados do Painel (JSON)</h3>
+      <p style="font-size: 13px; color: #555;">Copie o conteúdo abaixo ou clique no botão para baixar o arquivo JSON completo com o resumo do painel financeiro atual:</p>
+      
+      <textarea id="textareaExtracaoJson" style="width: 100%; height: 250px; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;" readonly></textarea>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
+        <button class="btn-primary" style="background:#2196f3;" onclick="copiarTextoExtracao()">📋 Copiar para Área de Transferência</button>
+        <button style="background:#6c757d; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer;" onclick="fecharModalExtracaoDados()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let charts = {};
     let cotacaoGlobal = null;
     let listaParceirosGlobal = [];
+    let ultimoPayloadGlobal = null; // Armazena dados extraídos para o JSON
 
     // Preserva a chave na URL
     const params = new URLSearchParams(window.location.search);
@@ -405,7 +441,6 @@
       });
       window.addEventListener("DOMContentLoaded", () => {
         carregarDadosFinanceiros();
-        carregarRendaFinanceira();
       });
     }
 
@@ -455,6 +490,8 @@
         const data = await res.json();
         if (!data.success) throw new Error(data.error || "Erro desconhecido");
 
+        ultimoPayloadGlobal = data; // Guarda state bruto para extração
+
         cotacaoGlobal = data.cotacao_atual;
         if (cotacaoGlobal) {
           document.getElementById("infoCotacaoTexto").innerHTML = `
@@ -480,49 +517,93 @@
         renderizarGraficoTransacoes(data.resumo_transacoes || []);
         renderizarGraficoParceiros(listaParceirosGlobal);
 
-        // Dispara também o carregamento da tabela de renda
-        carregarRendaFinanceira();
+        // Dispara o carregamento da tabela de Geração de Renda & Lucro Teórico
+        carregarGeracaoRenda();
 
       } catch (err) {
         alert(err.message);
       }
     }
 
-    async function carregarRendaFinanceira() {
+    async function carregarGeracaoRenda() {
       const adminKey = document.getElementById("campoAdminKey").value.trim();
       if (!adminKey) return;
 
       try {
-        const res = await fetch('/admin/financeiro-renda', {
+        const res = await fetch("/api/admin/financeiro/geracao-renda", {
           headers: { "x-admin-key": adminKey }
         });
+        const json = await res.json();
 
-        if (!res.ok) throw new Error("Falha ao carregar dados de renda financeira.");
-        const data = await res.json();
+        if (!json.sucesso) return;
 
-        const tbody = document.getElementById("corpoTabelaRenda");
-        tbody.innerHTML = "";
+        // Anexa ao payload global para exportação completa via JSON
+        if (ultimoPayloadGlobal) {
+          ultimoPayloadGlobal.geracao_renda = json.dados;
+        }
 
-        if (!data.atividades || data.atividades.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px;">Nenhum registro encontrado.</td></tr>`;
+        const corpo = document.getElementById("corpoTabelaFinanceira");
+        corpo.innerHTML = "";
+
+        if (!json.dados || json.dados.length === 0) {
+          corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px;">Nenhum registro encontrado.</td></tr>`;
           return;
         }
 
-        data.atividades.forEach(item => {
-          tbody.innerHTML += `
-            <tr style="border-bottom: 1px solid #ddd;">
-              <td style="padding: 10px; font-weight: bold; color: #2a8f43;">${item.origem}</td>
-              <td style="padding: 10px;">${item.totalAcoes}</td>
-              <td style="padding: 10px; color: #0284c7;">$${item.receitaGeradaX}</td>
-              <td style="padding: 10px; color: #d9534f;">-$${item.totalPagoY}</td>
-              <td style="padding: 10px; font-weight: bold; color: #1e6e34;">+$${item.lucroTeorico}</td>
-            </tr>
-          `;
-        });
+        json.dados.forEach(item => {
+          const eLucroPositivo = parseFloat(item.lucro_teorico.pontos) >= 0;
+          const classeLucro = eLucroPositivo ? "text-success fw-bold" : "text-danger fw-bold";
 
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="text-capitalize font-weight-bold">${item.origem.replace('_', ' ')}</td>
+            <td class="text-center">${item.acoes.toLocaleString('pt-BR')}</td>
+            <td>
+              <div><strong>${item.receita_x.ltc} LTC</strong></div>
+              <small class="text-muted">(Equivalente: $${item.receita_x.usd} USD)</small>
+            </td>
+            <td>
+              <div><strong>${item.pago_y.ltc} LTC</strong></div>
+              <small class="text-muted">(Equivalente: $${item.pago_y.usd} USD)</small>
+            </td>
+            <td class="${classeLucro}">
+              <div><strong>${item.lucro_teorico.ltc} LTC</strong></div>
+              <small>(Equivalente: $${item.lucro_teorico.usd} USD)</small>
+            </td>
+          `;
+          corpo.appendChild(tr);
+        });
       } catch (err) {
-        console.error("Erro ao carregar renda:", err.message);
+        console.error("Erro ao carregar tabela financeira:", err);
       }
+    }
+
+    function abrirModalExtracaoDados() {
+      const modal = document.getElementById("modalExtracao");
+      const textarea = document.getElementById("textareaExtracaoJson");
+
+      if (!ultimoPayloadGlobal) {
+        textarea.value = JSON.stringify({ erro: "Nenhum dado carregado ainda. Insira a ADMIN_KEY e clique em Carregar Painel primeiro." }, null, 2);
+      } else {
+        textarea.value = JSON.stringify(ultimoPayloadGlobal, null, 2);
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function fecharModalExtracaoDados() {
+      document.getElementById("modalExtracao").style.display = "none";
+    }
+
+    function copiarTextoExtracao() {
+      const textarea = document.getElementById("textareaExtracaoJson");
+      textarea.select();
+      textarea.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(textarea.value).then(() => {
+        alert("✅ Dados copiados para a área de transferência com sucesso!");
+      }).catch(err => {
+        alert("Erro ao copiar: " + err);
+      });
     }
 
     function renderizarTabelaParceiros(parceiros) {
