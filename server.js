@@ -3099,24 +3099,41 @@ atualizarCotacoesAutomaticamente();
 
 
 // =========================================================================
-// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS
+// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS (COM LIMITE E DATA DE BLOQUEIO)
 // =========================================================================
+
 async function dispararEngajamento(lang, tipo) {
   try {
     let query;
     if (tipo === 'inativo') {
+      // Usuários que cadastraram, não têm ganhos nas últimas 48h e NUNCA receberam a notificação de inativo
       query = `SELECT u.telegram_id 
                FROM usuarios u 
                WHERE u.lang = $1 
                AND (u.status_conta IS NULL OR u.status_conta = 'ativo')
-               AND NOT EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '48 hours')`;
+               AND COALESCE(u.notif_inativo_enviada, FALSE) = FALSE
+               AND NOT EXISTS (
+                 SELECT 1 FROM historico_ganhos h 
+                 WHERE h.telegram_id = u.telegram_id 
+                 AND h.data_registro > NOW() - INTERVAL '48 hours'
+               )`;
     } else {
+      // Usuários que já ganharam pontos nas últimas 48h, estão há 24h sem interagir e NUNCA receberam a notificação de iniciante
       query = `SELECT u.telegram_id 
                FROM usuarios u 
                WHERE u.lang = $1 
                AND (u.status_conta IS NULL OR u.status_conta = 'ativo')
-               AND EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '48 hours')
-               AND NOT EXISTS (SELECT 1 FROM historico_ganhos h WHERE h.telegram_id = u.telegram_id AND h.data_registro > NOW() - INTERVAL '24 hours')`;
+               AND COALESCE(u.notif_iniciante_enviada, FALSE) = FALSE
+               AND EXISTS (
+                 SELECT 1 FROM historico_ganhos h 
+                 WHERE h.telegram_id = u.telegram_id 
+                 AND h.data_registro > NOW() - INTERVAL '48 hours'
+               )
+               AND NOT EXISTS (
+                 SELECT 1 FROM historico_ganhos h 
+                 WHERE h.telegram_id = u.telegram_id 
+                 AND h.data_registro > NOW() - INTERVAL '24 hours'
+               )`;
     }
 
     const { rows } = await pool.query(query, [lang]);
@@ -3130,33 +3147,47 @@ async function dispararEngajamento(lang, tipo) {
 
       const btnText = isPt ? "📲 Fazer Tarefas Agora" : "📲 Complete Tasks Now";
 
-      await bot.telegram.sendMessage(u.telegram_id, mensagem, {
-        reply_markup: {
-          inline_keyboard: [[
-            { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=${lang}` } }
-          ]]
-        }
-      }).catch(async (e) => {
+      try {
+        await bot.telegram.sendMessage(u.telegram_id, mensagem, {
+          reply_markup: {
+            inline_keyboard: [[
+              { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=${lang}` } }
+            ]]
+          }
+        });
+
+        // Se a mensagem foi enviada com sucesso, marca a flag correspondente no banco (Máximo de 1 envio)
+        const colunaFlag = tipo === 'inativo' ? 'notif_inativo_enviada' : 'notif_iniciante_enviada';
+        await pool.query(
+          `UPDATE usuarios SET ${colunaFlag} = TRUE WHERE telegram_id = $1`,
+          [u.telegram_id]
+        );
+
+      } catch (e) {
         if (e.code === 403 || (e.message && e.message.includes('blocked by the user'))) {
           try {
             await pool.query(
-              "UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", 
+              `UPDATE usuarios 
+               SET status_conta = 'bloqueado', 
+                   data_bloqueio = COALESCE(data_bloqueio, NOW()) 
+               WHERE telegram_id = $1`, 
               [u.telegram_id]
             );
-            console.log(`🚫 Usuário ${u.telegram_id} bloqueou o bot. Status atualizado para 'bloqueado' no banco.`);
+            console.log(`🚫 Usuário ${u.telegram_id} bloqueou o bot. Status 'bloqueado' e data de bloqueio salvas.`);
           } catch (dbErr) {
             console.error(`Erro ao atualizar status do usuário ${u.telegram_id}:`, dbErr.message);
           }
         } else {
           console.error(`Erro ao enviar para ${u.telegram_id}:`, e.message);
         }
-      });
+      }
     }
   } catch (err) {
     console.error(`Erro no disparo ${tipo} (${lang}):`, err);
   }
 }
 
+// Disparos automatizados (Cron Jobs)
 cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('pt', 'inativo');
   await dispararEngajamento('pt', 'iniciante');
@@ -3167,6 +3198,7 @@ cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('en', 'iniciante');
 }, { timezone: "America/New_York" });
 
+// Cron Job de Fidelidade VIP (Com salvamento de data_bloqueio em caso de erro 403)
 cron.schedule("0 12 * * *", async () => {
   try {
     const query = `
@@ -3198,8 +3230,14 @@ cron.schedule("0 12 * * *", async () => {
 
       await bot.telegram.sendMessage(row.telegram_id, mensagem).catch(async (e) => {
         if (e.code === 403 || (e.message && e.message.includes('blocked by the user'))) {
-          await pool.query("UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", [row.telegram_id]);
-          console.log(`🚫 Usuário VIP ${row.telegram_id} bloqueou o bot. Atualizado no banco.`);
+          await pool.query(
+            `UPDATE usuarios 
+             SET status_conta = 'bloqueado', 
+                 data_bloqueio = COALESCE(data_bloqueio, NOW()) 
+             WHERE telegram_id = $1`, 
+            [row.telegram_id]
+          );
+          console.log(`🚫 Usuário VIP ${row.telegram_id} bloqueou o bot. Atualizado status e data no banco.`);
         }
       });
     }
@@ -3208,6 +3246,7 @@ cron.schedule("0 12 * * *", async () => {
   }
 });
 
+// Processamento Diário de Streaks, XP e Escudos (00:05)
 cron.schedule('5 0 * * *', async () => {
     console.log("🕒 Iniciando processamento diário de streaks e XP com proteção de escudos...");
     const client = await pool.connect();
@@ -3275,7 +3314,7 @@ cron.schedule('5 0 * * *', async () => {
     }
 });
 
-// Tratamento de Erros Global para o Bot (Captura bloqueios em tempo de execução)
+// Tratamento de Erros Global para o Bot (Captura bloqueios em tempo de execução com data)
 bot.catch(async (err, ctx) => {
   console.error(`Erro crítico no Telegraf para o update ${ctx.updateType}:`, err);
   if (err.code === 403 || (err.message && err.message.includes('blocked by the user'))) {
@@ -3283,10 +3322,13 @@ bot.catch(async (err, ctx) => {
     if (telegramId) {
       try {
         await pool.query(
-          "UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", 
+          `UPDATE usuarios 
+           SET status_conta = 'bloqueado', 
+               data_bloqueio = COALESCE(data_bloqueio, NOW()) 
+           WHERE telegram_id = $1`, 
           [telegramId]
         );
-        console.log(`🚫 Usuário ${telegramId} bloqueou o bot durante interação. Atualizado no banco.`);
+        console.log(`🚫 Usuário ${telegramId} bloqueou o bot durante interação. Atualizado status e data_bloqueio no banco.`);
       } catch (dbErr) {
         console.error("Erro ao atualizar status via bot.catch:", dbErr.message);
       }
@@ -3298,14 +3340,12 @@ bot.catch(async (err, ctx) => {
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 
-  // Se o bot já estiver rodando por algum motivo, tenta parar sem estourar erro
   try {
     await bot.stop();
   } catch (e) {
-    // Silencia o erro "Bot is not running" caso seja a primeira inicialização
+    // Silencia o erro caso seja a primeira inicialização
   }
 
-  // Inicia o bot descartando mensagens pendentes acumuladas
   bot.launch({ dropPendingUpdates: true })
     .then(() => {
       console.log("🤖 Telegram Bot iniciado com sucesso via Telegraf!");
