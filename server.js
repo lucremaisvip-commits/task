@@ -27,10 +27,11 @@ const bot = new Telegraf(process.env.BOT_TOKEN);
 // ✅ Confia no primeiro proxy (necessário no Render/Heroku/etc..)
 app.set("trust proxy", 1);
 
-// 🔒 2. CORS restrito (ajuste seu domínio)
+// 🔒 2. CORS restrito (Incluindo a Netlify do FaucetTask e métodos necessários)
 const allowedOrigins = [
   process.env.APP_DOMAIN, 
-  "https://highpay-ads.com"
+  "https://highpay-ads.com",
+  "https://faucettask.netlify.app"
 ].filter(Boolean);
 
 app.use(cors({
@@ -42,7 +43,9 @@ app.use(cors({
       callback(new Error("Not allowed by CORS"));
     }
   },
-  methods: ["GET", "POST"]
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-admin-key"]
 }));
 
 // 🔒 3. Limite de requisições (anti spam)
@@ -93,7 +96,7 @@ function checkRateLimit(user) {
   return true;
 }
 
-// 6. Segurança do que é publico ou privado 
+// 6. Segurança do چه é publico ou privado 
 function verificarAdminHTML(req, res, next) {
   const senha = req.query.key;
 
