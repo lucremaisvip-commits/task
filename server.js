@@ -1246,6 +1246,78 @@ app.post("/api/limpar-aviso-reset", async (req, res) => {
     }
 });
 
+app.post("/api/faucettask/login", async (req, res) => {
+    const { faucetpay_email } = req.body;
+    if (!faucetpay_email) return res.status(400).json({ success: false, error: "E-mail obrigatório" });
+
+    const client = await pool.connect();
+    try {
+        // Busca ou cria o usuário pelo e-mail da FaucetPay
+        let result = await client.query("SELECT * FROM usuarios_faucettask WHERE faucetpay_email = $1", [faucetpay_email]);
+        
+        if (result.rows.length === 0) {
+            result = await client.query(
+                "INSERT INTO usuarios_faucettask (faucetpay_email, pontos) VALUES ($1, 0) RETURNING *",
+                [faucetpay_email]
+            );
+        }
+        res.json({ success: true, data: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ success: false, error: "Erro no servidor" });
+    } finally {
+        client.release();
+    }
+});
+
+app.get("/faucettask-callback", async (req, res) => {
+  const { pwd, user, amount, clicks } = req.query; // Aqui 'user' será o e-mail da FaucetPay
+
+  const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
+  const realIP = rawIP.split(',')[0]?.trim();
+  const allowedIP = "162.0.208.108"; // IP oficial do ZerAds
+
+  if (pwd !== "NewPassword" || realIP !== allowedIP) {
+    return res.status(403).send("acesso negado");
+  }
+
+  const client = await pool.connect();
+  try {
+    const valorZER = parseFloat(amount || 0);
+    if (valorZER <= 0) return res.send("ok");
+
+    await client.query("BEGIN");
+
+    const cotacaoRes = await client.query(
+      "SELECT valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+    );
+    const valorZerPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_zer) : 2.5;
+
+    const pontosCalculados = (valorZER / valorZerPorPonto) * 0.40;
+    const pontosFinal = pontosCalculados.toFixed(8);
+
+    // Atualiza os pontos na tabela do Faucettask usando o e-mail
+    const updateResult = await client.query(
+      "UPDATE usuarios_faucettask SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC) WHERE faucetpay_email = $2",
+      [pontosFinal, user]
+    );
+
+    if (updateResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return res.send("usuario nao encontrado");
+    }
+
+    await client.query("COMMIT");
+    res.send("ok");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(500).send("erro");
+  } finally {
+    client.release();
+  }
+});
+
+
+
 // =========================================================================
 // 🔹 4. Rotas de Usuário & Mini App Health Check
 // =========================================================================
@@ -1770,7 +1842,109 @@ app.post("/api/admin/enviar-notificacao-personalizada", verificarAdmin, async (r
     res.status(500).json({ success: false, error: "Erro interno ao processar envios." });
   }
 });
+// =========================================================================
+// 🔹 ROTA DE SAQUE EXCLUSIVA - FAUCETTASK (Focado em FaucetPay por E-mail)
+// =========================================================================
 
+app.post("/api/faucettask/solicitar-saque", async (req, res) => {
+  const { faucetpay_email } = req.body;
+  
+  if (!faucetpay_email) {
+    return res.status(401).json({ success: false, error: "E-mail da FaucetPay ausente." });
+  }
+
+  const emailLimpo = faucetpay_email.trim().toLowerCase();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(emailLimpo)) {
+    return res.status(400).json({ success: false, error: "Formato de e-mail inválido." });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    // 1. Busca o usuário na tabela específica do FaucetTask
+    const userResult = await client.query(
+      "SELECT pontos FROM usuarios_faucettask WHERE faucetpay_email = $1 FOR UPDATE", 
+      [emailLimpo]
+    );
+
+    if (userResult.rows.length === 0) {
+      throw new Error("USUARIO_NAO_ENCONTRADO");
+    }
+    
+    const { pontos } = userResult.rows[0];
+
+    // 2. Define a regra de saque mínimo baseada na média de cliques do ZerAds (ex: 10 pontos)
+    const PONTOS_MINIMOS_SAQUE = 10.00; 
+    if (parseFloat(pontos) < PONTOS_MINIMOS_SAQUE) {
+      throw new Error("PONTOS_INSUFICIENTES");
+    }
+
+    // 3. Registra o pedido de saque na tabela paralela de saques do FaucetTask
+    const saqueInsert = await client.query(`
+      INSERT INTO saques_faucettask (faucetpay_email, valor_solicitado, status, data_solicitacao)
+      VALUES ($1, $2, 'pendente', NOW()) RETURNING id
+    `, [emailLimpo, pontos]);
+
+    const saqueId = saqueInsert.rows[0].id;
+
+    // 4. Cálculo do valor em satoshis de LTC para enviar direto via API da FaucetPay
+    const TAXA_PONTO_LTC = 0.000001; 
+    const amountEmSatoshis = Math.round((parseFloat(pontos) * TAXA_PONTO_LTC) * 100000000);
+
+    // 5. Dispara o pagamento automático na FaucetPay (igualzinho à sua rota original)
+    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
+      api_key: FAUCETPAY_API_KEY, 
+      amount: amountEmSatoshis,
+      to: emailLimpo,       
+      currency: "LTC"
+    }).toString(), {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    if (response.data.status === 200) {
+      const payoutId = response.data.payout_id;
+
+      // Atualiza o status para pago e desconta os pontos do usuário
+      await client.query(
+        "UPDATE saques_faucettask SET status = 'ok', comprovante = $1 WHERE id = $2",
+        [payoutId, saqueId]
+      );
+
+      await client.query(
+        "UPDATE usuarios_faucettask SET pontos = pontos - $1 WHERE faucetpay_email = $2",
+        [pontos, emailLimpo]
+      );
+
+      await client.query("COMMIT");
+
+      return res.json({ 
+        success: true, 
+        message: "Saque enviado com sucesso para sua FaucetPay!", 
+        valor: pontos,
+        tx: payoutId 
+      });
+
+    } else {
+      await client.query("ROLLBACK");
+      console.error("❌ Erro FaucetPay (FaucetTask):", response.data.message);
+      return res.status(400).json({ success: false, error: "Erro FaucetPay: " + response.data.message });
+    }
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error(`[ERRO SAQUE FAUCETTASK] E-mail: ${emailLimpo}, Erro: ${err.message}`);
+    
+    const msg = err.message === "USUARIO_NAO_ENCONTRADO" ? "Usuário não encontrado." :
+                err.message === "PONTOS_INSUFICIENTES" ? "Pontos insuficientes para o mínimo de saque." :
+                "Erro interno ao processar saque.";
+                
+    res.status(400).json({ success: false, error: msg });
+  } finally {
+    client.release();
+  }
+});
 
 // 🔹 7. trafico e mensurização
 app.post('/api/log-traffic', async (req, res) => {
