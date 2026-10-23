@@ -486,22 +486,35 @@ app.post("/api/concluir-anuncio-extra", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Trava de segurança (Cooldown): Evita que o usuário chame a rota consecutivamente em segundos.
-    // Exemplo: Bloqueia se já fez um anúncio extra nos últimos 30 segundos.
+    // 🔒 TRAVA 1: Cooldown de 60 segundos (Evita flood contínuo)
     const cooldownRes = await client.query(
       `SELECT 1 FROM historico_ganhos 
        WHERE telegram_id = $1 AND origem = 'anuncio_extra' 
-       AND data_registro > NOW() - INTERVAL '30 seconds'`,
+       AND data_registro > NOW() - INTERVAL '60 seconds'`,
       [telegram_id]
     );
 
     if (cooldownRes.rows.length > 0) {
-      throw new Error("Aguarde alguns segundos para ver outro anúncio.");
+      throw new Error("Aguarde 60 segundos entre cada anúncio extra.");
     }
 
-    const pontosAdicionais = 0.1; // Pontos do anúncio extra
+    // 🔒 TRAVA 2: Limite Diário de 10 Anúncios Extras por usuário
+    const limiteDiarioRes = await client.query(
+      `SELECT COUNT(*) AS total FROM historico_ganhos 
+       WHERE telegram_id = $1 AND origem = 'anuncio_extra' 
+       AND data_registro >= CURRENT_DATE`,
+      [telegram_id]
+    );
 
-    // Registra no histórico de ganhos com origem 'anuncio_extra'
+    const totalHoje = parseInt(limiteDiarioRes.rows[0].total, 10);
+    if (totalHoje >= 10) {
+      throw new Error("Você atingiu o limite máximo de 10 anúncios extras hoje! Volte amanhã.");
+    }
+
+    // 🔒 TRAVA 3: Recompensa ajustada para 0.02 Pontos (Sustentável)
+    const pontosAdicionais = 0.02; 
+
+    // Registra no histórico de ganhos
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'anuncio_extra', $2, $3, $4, NOW())`,
@@ -514,11 +527,14 @@ app.post("/api/concluir-anuncio-extra", async (req, res) => {
       [pontosAdicionais, telegram_id]
     );
 
-    // Adiciona 5 XP conforme solicitado
-    await adicionarXP(telegram_id, 5, client);
+    // Adiciona XP (ex: 2 XP proporcional ao novo valor)
+    await adicionarXP(telegram_id, 2, client);
 
     await client.query("COMMIT");
-    res.json({ sucesso: true, mensagem: "🎉 +0.1 pontos e +5 XP adicionados com sucesso!" });
+    res.json({ 
+      sucesso: true, 
+      mensagem: `🎉 +0.02 pontos adicionados! (${totalHoje + 1}/10 hoje)` 
+    });
 
   } catch (err) {
     await client.query("ROLLBACK");
