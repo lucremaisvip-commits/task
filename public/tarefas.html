@@ -212,10 +212,10 @@ const linguagens = {
     execTaskError: "Erro ao executar tarefa",
     vipBadge: "✨ VIP",
     extraTitle: "🔥 Anúncios Extras",
-    extraDesc: "Suas tarefas diárias acabaram? Assista a um anúncio em vídeo e ganhe micropontos agora!",
-    extraBtn: "📺 Assistir Anúncio Extra (+0.1 Pontos)",
+    extraDesc: "Suas tarefas diárias acabaram? Assista a um anúncio em vídeo e ganhe micropontos agora! (Limite: 10 por dia)",
+    extraBtn: "📺 Assistir Anúncio Extra (+0.02 Pontos)",
     sdkError: "O carregador de anúncios ainda está inicializando. Tente novamente em instantes.",
-    extraSuccess: "🎉 Anúncio concluído! +0.1 pontos adicionados.",
+    extraSuccess: "🎉 Anúncio concluído! +0.02 pontos adicionados.",
     extraFail: "Erro ao creditar pontos do anúncio."
   },
   en: {
@@ -236,14 +236,14 @@ const linguagens = {
     execTaskError: "Error executing task",
     vipBadge: "✨ VIP",
     extraTitle: "🔥 Extra Ads",
-    extraDesc: "Your daily tasks are complete? Watch a video ad and earn micropoints right now!",
-    extraBtn: "📺 Watch Extra Ad (+0.1 Points)",
+    extraDesc: "Your daily tasks are complete? Watch a video ad and earn micropoints right now! (Limit: 10 per day)",
+    extraBtn: "📺 Watch Extra Ad (+0.02 Points)",
     sdkError: "Ad loader is still initializing. Please try again in a moment.",
-    extraSuccess: "🎉 Ad completed! +0.1 points added.",
+    extraSuccess: "🎉 Ad completed! +0.02 points added.",
     extraFail: "Error crediting ad points."
   }
 };
-
+  
 document.addEventListener("DOMContentLoaded", () => {
   try {
     telegram_id = validarSessaoOuBloquear();
