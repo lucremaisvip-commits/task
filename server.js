@@ -3003,17 +3003,20 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
         `📧 **FaucetPay:** \`${saque.chave_pix}\`\n\n` +
         `*Escolha uma opção abaixo:*`;
 
-      // Teclado Inline com os 2 botões solicitados
-      const tecladoAdmin = {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` },
-              { text: "✅ Aprovar Saque", callback_data: `admin_aprovar_${saqueId}` }
-            ]
-          ]
-        }
-      };
+      // Teclado Inline com os 3 botões solicitados
+const tecladoAdmin = {
+  reply_markup: {
+    inline_keyboard: [
+      [
+        { text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` }
+      ],
+      [
+        { text: "✅ Aprovar", callback_data: `admin_aprovar_${saqueId}` },
+        { text: "❌ Recusar", callback_data: `admin_recusar_${saqueId}` }
+      ]
+    ]
+  }
+};
 
       try {
         await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
@@ -3088,8 +3091,7 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
 // 🔹 AÇÕES DO ADMINISTRADOR DITO PELO TELEGRAM (BOTÕES INTERATIVOS)
 // =========================================================================
 
-// 1. Botão: Checar Atividades Recentes do Usuário
-// 1. Botão: Checar Atividades Recentes do Usuário (Versão sem erro de Markdown)
+// 1. Botão: Checar Atividades Recentes do Usuário (Com Auditoria de Indicação)
 bot.action(/admin_checar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -3098,9 +3100,10 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
 
   const telegramId = ctx.match[1];
   try {
-    await ctx.answerCbQuery("Buscando histórico recente...");
+    await ctx.answerCbQuery("Buscando auditoria completa...");
 
-    const res = await pool.query(
+    // 1. Busca as últimas 10 atividades do indicador
+    const resIndicador = await pool.query(
       `SELECT origem, nome_tarefa, pontos, data_registro 
        FROM historico_ganhos 
        WHERE telegram_id = $1 
@@ -3108,26 +3111,75 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
       [telegramId]
     );
 
-    if (res.rows.length === 0) {
-      return ctx.reply(`⚠️ Nenhuma atividade recente encontrada para o usuário ${telegramId}.`);
+    // 2. Busca quem esse usuário indicou na tabela 'indicacoes'
+    const resIndicados = await pool.query(
+      `SELECT id_indicado, data_registro, pontos_ativados 
+       FROM indicacoes 
+       WHERE id_indicador = $1 
+       ORDER BY data_registro DESC`,
+      [telegramId]
+    );
+
+    let relatorio = `📊 **AUDITORIA DE ATIVIDADES & FRAUDE**\n`;
+    let relatorioIndicados = "";
+
+    // Se houver indicados, busca as atividades da indicação mais recente (ou de todas)
+    if (resIndicados.rows.length > 0) {
+      relatorioIndicados += `\n👥 **Usuários Indicados (${resIndicados.rows.length}):**\n`;
+      
+      for (const ind of resIndicados.rows) {
+        const dataIndFormatada = new Date(ind.data_registro).toLocaleString('pt-BR');
+        relatorioIndicados += `- ID Indicado: \`${ind.id_indicado}\` (Ativado: ${ind.pontos_ativados ? 'Sim' : 'Não'})\n  Data: ${dataIndFormatada}\n`;
+
+        // Busca as 10 últimas atividades do indicado para comparar o padrão
+        const resAtividadesIndicado = await pool.query(
+          `SELECT origem, nome_tarefa, pontos, data_registro 
+           FROM historico_ganhos 
+           WHERE telegram_id = $1 
+           ORDER BY data_registro DESC LIMIT 10`,
+          [ind.id_indicado]
+        );
+
+        if (resAtividadesIndicado.rows.length > 0) {
+          relatorioIndicados += `  👉 *Últimas ações do indicado ${ind.id_indicado}:*\n`;
+          resAtividadesIndicado.rows.forEach((ativInd) => {
+            const dataAtivInd = new Date(ativInd.data_registro).toLocaleString('pt-BR');
+            relatorioIndicados += `    • [${ativInd.origem.toUpperCase()}] ${ativInd.nome_tarefa || 'N/A'} (${dataAtivInd})\n`;
+          });
+        } else {
+          relatorioIndicados += `  👉 *O indicado não possui registros no histórico de ganhos.*\n`;
+        }
+        relatorioIndicados += `\n`;
+      }
+    } else {
+      relatorioIndicados = `\n👥 **Indicados:** Este usuário não possui indicações registradas.\n`;
     }
 
-    let relatorio = `📊 AUDITORIA DE ATIVIDADES - User: ${telegramId}\n\n`;
+    // Monta a parte do Indicador Principal
+    let relatorioPrincipal = `\n👤 **Indicador Principal:** \`${telegramId}\`\n`;
     let saldoRecenteTotal = 0;
 
-    res.rows.forEach((row, index) => {
-      const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
-      const nomeAcao = row.nome_tarefa || row.origem;
-      relatorio += `${index + 1}. [${row.origem.toUpperCase()}] ${nomeAcao}\n`;
-      relatorio += `   Pontos: ${row.pontos} | Data: ${dataFormatada}\n\n`;
-      saldoRecenteTotal += parseFloat(row.pontos);
-    });
+    if (resIndicador.rows.length === 0) {
+      relatorioPrincipal += `⚠️ Nenhuma atividade recente encontrada.\n`;
+    } else {
+      resIndicador.rows.forEach((row, index) => {
+        const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
+        const nomeAcao = row.nome_tarefa || row.origem;
+        relatorioPrincipal += `${index + 1}. [${row.origem.toUpperCase()}] ${nomeAcao}\n`;
+        relatorioPrincipal += `   Pts: ${row.pontos} | 🕒 ${dataFormatada}\n`;
+        saldoRecenteTotal += parseFloat(row.pontos);
+      });
+      relatorioPrincipal += `-----------------------------------\n`;
+      relatorioPrincipal += `🔹 Balanço (10 ações): ${saldoRecenteTotal.toFixed(2)} Pts\n`;
+    }
 
-    relatorio += `-----------------------------------\n`;
-    relatorio += `🔹 Balanço das últimas 10 ações: ${saldoRecenteTotal.toFixed(2)} Pts`;
+    const mensagemFinal = relatorio + relatorioPrincipal + relatorioIndicados;
 
-    // Enviando sem parse_mode para evitar qualquer conflito de caracteres especiais
-    await ctx.reply(relatorio);
+    if (mensagemFinal.length > 4000) {
+      await ctx.reply(mensagemFinal.substring(0, 3900) + "\n\n[Relatório cortado por limite de tamanho]");
+    } else {
+      await ctx.reply(mensagemFinal);
+    }
 
   } catch (err) {
     console.error("Erro ao checar atividades via chat:", err);
@@ -3161,7 +3213,6 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
     const TAXA_PONTO_LTC = 0.000001; 
     const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
 
-    // Chamada oficial à API do FaucetPay
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
       api_key: FAUCETPAY_API_KEY, 
       amount: amountEmSatoshis,
@@ -3186,7 +3237,6 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
         ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
         : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
 
-      // Notifica o usuário no chat dele
       try {
         await bot.telegram.sendMessage(saque.telegram_id, mensagemSucessoUser, {
           parse_mode: "Markdown",
@@ -3194,7 +3244,6 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
         });
       } catch (e) {}
 
-      // Atualiza a mensagem no chat do admin com o comprovante
       await ctx.editMessageText(`✅ **Saque #${saqueId} APROVADO E PAGO COM SUCESSO!**\n\nTX: \`${payoutId}\`\n🔗 [Ver no FaucetPay](${linkComprovante})`, {
         parse_mode: "Markdown",
         disable_web_page_preview: true
@@ -3208,6 +3257,58 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
   } catch (err) {
     console.error("Erro ao aprovar saque via chat:", err);
     await ctx.reply("❌ Erro interno ao processar o pagamento.");
+  }
+});
+
+// 3. NOVO BOTÃO: Recusar o Saque Diretamente pelo Chat
+bot.action(/admin_recusar_(\d+)/, async (ctx) => {
+  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+  if (ctx.from.id.toString() !== adminId) {
+    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
+  }
+
+  const saqueId = ctx.match[1];
+  try {
+    await ctx.answerCbQuery("Recusando saque...");
+
+    const saqueRes = await pool.query(
+      `SELECT s.*, u.lang FROM saques s JOIN usuarios u ON s.telegram_id = u.telegram_id WHERE s.id = $1 AND s.status = 'Waiting'`,
+      [saqueId]
+    );
+
+    if (saqueRes.rows.length === 0) {
+      return ctx.editMessageText("⚠️ Este saque já foi processado ou não está mais pendente.");
+    }
+
+    const saque = saqueRes.rows[0];
+    const isEn = saque.lang === 'en';
+
+    // Atualiza o status do saque para 'Recusado' ou 'Cancelado'
+    await pool.query(
+      "UPDATE saques SET status = 'Recusado', data_aprovacao = NOW() WHERE id = $1",
+      [saqueId]
+    );
+
+    // Opcional: Se quiser devolver os pontos para o saldo do usuário ao recusar, descomente a linha abaixo:
+    // await pool.query("UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2", [saque.pontos_solicitados, saque.telegram_id]);
+
+    const mensagemRecusaUser = isEn
+      ? `❌ **Withdrawal Declined**\n\nYour withdrawal request #${saqueId} has been reviewed and declined by administration.`
+      : `❌ **Saque Recusado**\n\nSeu pedido de saque #${saqueId} foi analisado e recusado pela administração.`;
+
+    // Notifica o usuário no chat dele
+    try {
+      await bot.telegram.sendMessage(saque.telegram_id, mensagemRecusaUser, { parse_mode: "Markdown" });
+    } catch (e) {}
+
+    // Atualiza a mensagem no chat do admin
+    await ctx.editMessageText(`❌ **Saque #${saqueId} RECUSADO com sucesso.**\nO usuário foi notificado.`, {
+      parse_mode: "Markdown"
+    });
+
+  } catch (err) {
+    console.error("Erro ao recusar saque via chat:", err);
+    await ctx.reply("❌ Erro interno ao processar a recusa.");
   }
 });
 
