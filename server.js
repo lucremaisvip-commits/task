@@ -3331,7 +3331,7 @@ async function obterPrecoLTC() {
     'Accept': 'application/json'
   };
 
-  // Tentativa 1: CoinGecko
+  // Tentativa 1: CoinGecko (Principal - testada e aprovada)
   try {
     console.log("🔄 [COTAÇÕES] Consultando Litecoin na CoinGecko...");
     const response = await axios.get(
@@ -3339,6 +3339,7 @@ async function obterPrecoLTC() {
       { headers, timeout: 8000 }
     );
     if (response.data && response.data.litecoin) {
+      console.log("✅ [COTAÇÕES] Preço obtido com sucesso via CoinGecko.");
       return {
         usd: parseFloat(response.data.litecoin.usd),
         brl: parseFloat(response.data.litecoin.brl)
@@ -3348,14 +3349,13 @@ async function obterPrecoLTC() {
     console.warn("⚠️ [COTAÇÕES] CoinGecko falhou ou bloqueou. Tentando API de contingência (Binance)...");
   }
 
-  // Tentativa 2: Binance (Fallback caso a CoinGecko caia)
+  // Tentativa 2: Binance (Fallback caso a CoinGecko sofra rate-limit temporário)
   try {
-    const resBinance = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { timeout: 8000 });
+    const resBinance = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { headers, timeout: 8000 });
     const precoUsd = parseFloat(resBinance.data.price);
     
-    // Como a Binance dá o preço em USD, estimamos o BRL baseado na proporção anterior ou padrão fixo se necessário
-    // (Caso queira precisão exata em BRL via Binance, podemos puxar o USDT/BRL, mas para LTC/USD já resolve 90% das quedas)
-    const precoBrlEst = precoUsd * 4.95; // Fator de segurança ou cotação média estimada caso caia tudo
+    // Estimativa segura para o BRL caso utilize o fallback da Binance
+    const precoBrlEst = precoUsd * 4.97; 
     console.log("✅ [COTAÇÕES] Preço obtido com sucesso via Binance Fallback.");
     return {
       usd: precoUsd,
