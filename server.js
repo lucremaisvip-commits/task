@@ -3325,46 +3325,93 @@ const VALOR_BASE = {
 
 const LIMIAR_VARIACAO_PERCENTUAL = 10.0; 
 
+// =========================================================================
+// 🔹 FUNÇÃO DE COTAÇÃO EM CASCATA COM NOTIFICAÇÃO DE FALHA NO TELEGRAM
+// =========================================================================
+
 async function obterPrecoLTC() {
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+  const headersCustom = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'application/json'
   };
 
-  // Tentativa 1: CoinGecko (Principal - testada e aprovada)
+  // -------------------------------------------------------------
+  // TENTATIVA 1: COINGECKO (Sem cabeçalho, depois com cabeçalho)
+  // -------------------------------------------------------------
   try {
-    console.log("🔄 [COTAÇÕES] Consultando Litecoin na CoinGecko...");
-    const response = await axios.get(
-      'https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl',
-      { headers, timeout: 8000 }
-    );
-    if (response.data && response.data.litecoin) {
-      console.log("✅ [COTAÇÕES] Preço obtido com sucesso via CoinGecko.");
-      return {
-        usd: parseFloat(response.data.litecoin.usd),
-        brl: parseFloat(response.data.litecoin.brl)
-      };
+    console.log("🔄 [COTAÇÕES] Tentando CoinGecko (sem cabeçalho)...");
+    const res = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl', { timeout: 6000 });
+    if (res.data && res.data.litecoin) {
+      console.log("✅ [COTAÇÕES] Sucesso na CoinGecko (sem cabeçalho).");
+      return { usd: parseFloat(res.data.litecoin.usd), brl: parseFloat(res.data.litecoin.brl) };
     }
-  } catch (err) {
-    console.warn("⚠️ [COTAÇÕES] CoinGecko falhou ou bloqueou. Tentando API de contingência (Binance)...");
+  } catch (err1) {
+    console.warn("⚠️ [COTAÇÕES] CoinGecko sem cabeçalho falhou. Tentando com cabeçalho...");
+    try {
+      const res2 = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl', { headers: headersCustom, timeout: 6000 });
+      if (res2.data && res2.data.litecoin) {
+        console.log("✅ [COTAÇÕES] Sucesso na CoinGecko (com cabeçalho).");
+        return { usd: parseFloat(res2.data.litecoin.usd), brl: parseFloat(res2.data.litecoin.brl) };
+      }
+    } catch (err2) {
+      console.warn("⚠️ [COTAÇÕES] CoinGecko com cabeçalho também falhou.");
+    }
   }
 
-  // Tentativa 2: Binance (Fallback caso a CoinGecko sofra rate-limit temporário)
+  // -------------------------------------------------------------
+  // TENTATIVA 2: BINANCE (Sem cabeçalho, depois com cabeçalho)
+  // -------------------------------------------------------------
   try {
-    const resBinance = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { headers, timeout: 8000 });
-    const precoUsd = parseFloat(resBinance.data.price);
-    
-    // Estimativa segura para o BRL caso utilize o fallback da Binance
-    const precoBrlEst = precoUsd * 4.97; 
-    console.log("✅ [COTAÇÕES] Preço obtido com sucesso via Binance Fallback.");
-    return {
-      usd: precoUsd,
-      brl: precoBrlEst
-    };
-  } catch (errBinance) {
-    console.error("❌ [COTAÇÕES] Todas as APIs de cotação falharam:", errBinance.message);
-    return null;
+    console.log("🔄 [COTAÇÕES] Tentando Binance (sem cabeçalho)...");
+    const resBin = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { timeout: 6000 });
+    const usd = parseFloat(resBin.data.price);
+    console.log("✅ [COTAÇÕES] Sucesso na Binance (sem cabeçalho).");
+    return { usd: usd, brl: usd * 4.97 };
+  } catch (errBin1) {
+    console.warn("⚠️ [COTAÇÕES] Binance sem cabeçalho falhou. Tentando com cabeçalho...");
+    try {
+      const resBin2 = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { headers: headersCustom, timeout: 6000 });
+      const usd = parseFloat(resBin2.data.price);
+      console.log("✅ [COTAÇÕES] Sucesso na Binance (com cabeçalho).");
+      return { usd: usd, brl: usd * 4.97 };
+    } catch (errBin2) {
+      console.warn("⚠️ [COTAÇÕES] Binance com cabeçalho também falhou (provável erro 451 no Render).");
+    }
   }
+
+  // -------------------------------------------------------------
+  // TENTATIVA 3: COINPAPRIKA (API de contingência livre de bloqueio)
+  // -------------------------------------------------------------
+  try {
+    console.log("🔄 [COTAÇÕES] Tentando CoinPaprika...");
+    const resPaprika = await axios.get('https://api.coinpaprika.com/v1/tickers/ltc-litecoin', { timeout: 6000 });
+    const usd = parseFloat(resPaprika.data.quotes.USD.price);
+    console.log("✅ [COTAÇÕES] Sucesso via CoinPaprika.");
+    return { usd: usd, brl: usd * 4.97 };
+  } catch (errPaprika) {
+    console.warn("⚠️ [COTAÇÕES] CoinPaprika falhou:", errPaprika.message);
+  }
+
+  // -------------------------------------------------------------
+  // ❌ ALERTA CRÍTICO: TODAS AS APIS FALHARAM -> AVISAR O ADMIN NO TELEGRAM
+  // -------------------------------------------------------------
+  console.error("🔥 [COTAÇÕES] ERRO CRÍTICO: Todas as fontes de cotação falharam!");
+  
+  if (adminId && typeof bot !== 'undefined') {
+    const mensagemAlerta = `🚨 **ALERTA CRÍTICO DE COTAÇÃO!**\n\n` +
+      `❌ *Todas as APIs de preço do Litecoin (CoinGecko, Binance e CoinPaprika) falharam ao tentar atualizar no Render.*\n\n` +
+      `⚠️ O sistema continuará operando com a última cotação salva no banco, mas verifique o servidor urgentemente!`;
+
+    try {
+      await bot.telegram.sendMessage(adminId, mensagemAlerta, { parse_mode: "Markdown" });
+      console.log("📩 Alerta de falha de cotação enviado para o Telegram do Admin.");
+    } catch (telErr) {
+      console.error("❌ Erro ao enviar alerta crítico para o Telegram:", telErr.message);
+    }
+  }
+
+  return null;
 }
 
 async function atualizarCotacoesAutomaticamente() {
