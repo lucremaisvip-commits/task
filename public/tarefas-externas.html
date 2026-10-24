@@ -7,7 +7,6 @@
   <meta name="description" content="Earn points by completing external tasks with CPAlead and ZerAds. VIP system, withdrawals, and more!">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-
 <style>
   body {
     font-family: 'Segoe UI', sans-serif;
@@ -111,23 +110,45 @@
   button:hover {
     opacity: 0.9;
   }
-.banner-box {
-    width: 300px; /* Define largura fixa para não desalinhar */
-    height: 250px;
+
+  /* 📢 BLOCO DE PATROCÍNIO PADRONIZADO */
+  .sponsorship-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: nowrap;
+  }
+
+  .ad-card {
+    width: 110px;
+    height: 110px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
     display: flex;
     justify-content: center;
     align-items: center;
     overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
   }
-  
-  /* Ajuste para telas muito pequenas */
-  @media (max-width: 620px) {
-    .banner-box {
-      width: 100%;
-      height: auto;
-    }
+
+  .ad-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
   }
-  
+
+  .ad-card iframe {
+    width: 300px;
+    height: 250px;
+    border: none;
+    transform: scale(0.36);
+    transform-origin: center;
+  }
 </style>
 </head>
 <body>
@@ -155,51 +176,37 @@
   <iframe class="iframe-container" id="moneyrain-frame" src="" style="width:100%; height:500px;"></iframe>
 </div>
 
-  <p style="text-align:center; font-size:14px; color:#555;" id="autoPayoutNote">
-   💰 Complete and Earn: Points and XP credited automatically within 5 minutes. The more you interact, the more you level up!
+  <p style="text-align:center; font-size:14px; color:#aaa;" id="autoPayoutNote">
+    💰 Complete and Earn: Points and XP credited automatically within 5 minutes. The more you interact, the more you level up!
   </p>
 
 <div class="card" style="text-align:center;">
   <h3 id="txtSponsorship">📢 Sponsorship</h3>
   
-  <!-- Container Flex com 3 colunas -->
-  <div style="display: flex; justify-content: center; align-items: flex-start; gap: 10px; margin-top: 15px;">
+  <!-- Container Flex com os 3 cards padronizados -->
+  <div class="sponsorship-container">
     
-    <!-- FaucetPay 1 (Esquerda) -->
-    <div class="banner-box" style="width: 160px; height: 600px;">
-      <a href="https://faucetpay.io/?r=998373" target="_blank">
-        <img src="https://cdn.faucetpay.io/banners/static/1_160x600.png" 
-             alt="FaucetPay" 
-             style="width: 160px; height: 600px; border-radius: 8px;">
+    <!-- Banner 1: iPTP -->
+    <div class="ad-card">
+      <a href="https://www.iptp.cc/index.php?ref=fa28eec917" target="_blank" rel="noopener">
+        <img src="https://www.iptp.cc/banner-100x100.png" alt="iPTP - Earn USDT">
       </a>
     </div>
 
-    <!-- Adsterra (Centro) -->
-    <div class="banner-box" style="width: 160px; height: 600px;">
-      <script type="text/javascript">
-        atOptions = {
-          'key' : '1b8501218898401056bc24a3244ffb1d',
-          'format' : 'iframe',
-          'height' : 600,
-          'width' : 160,
-          'params' : {}
-        };
-      </script>
-      <script type="text/javascript" src="//www.highperformanceformat.com/1b8501218898401056bc24a3244ffb1d/invoke.js"></script>
+    <!-- Banner 2: ZerAds -->
+    <div class="ad-card">
+      <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy" scrolling="no"></iframe>
     </div>
 
-    <!-- FaucetPay 2 (Direita) -->
-    <div class="banner-box" style="width: 160px; height: 600px;">
-      <a href="https://faucetpay.io/?r=998373" target="_blank">
-        <img src="https://cdn.faucetpay.io/banners/static/1_160x600.png" 
-             alt="FaucetPay" 
-             style="width: 160px; height: 600px; border-radius: 8px;">
+    <!-- Banner 3: FaucetPay -->
+    <div class="ad-card">
+      <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+        <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay">
       </a>
     </div>
 
   </div>
 </div>
-  
 
 <script>
   let telegramId = "";
@@ -211,9 +218,6 @@
       wallTitle: "🧩 Choose your External Task",
       autoPayout: "💰 Complete and Earn: Points and XP credited automatically within 5 minutes. The more you interact, the more you level up!",
       sponsorship: "📢 Sponsorship",
-      adsTitle: "📣 Want to advertise here?",
-      adsDesc: "Promote your product, course, or service directly inside our bot!",
-      btnAdvertise: "📢 Advertise Now",
       navHome: "Home",
       navTasks: "Tasks",
       navInvites: "Invites",
@@ -228,9 +232,6 @@
       wallTitle: "🧩 Escolha sua Tarefa Externa",
       autoPayout: "💰 Complete e Ganhe: Pontos e XP creditados automaticamente em até 5 minutos. Quanto mais você interage, mais você evolui!",
       sponsorship: "📢 Patrocínio",
-      adsTitle: "📣 Quer anunciar aqui?",
-      adsDesc: "Promova seu produto, curso ou serviço dentro do nosso bot!",
-      btnAdvertise: "📢 Anunciar Agora",
       navHome: "Início",
       navTasks: "Tarefas",
       navInvites: "Indicações",
@@ -242,7 +243,6 @@
     }
   };
 
-  // Função de segurança para evitar erros de "null"
   function safeSetText(id, text) {
     const el = document.getElementById(id);
     if (el) el.innerText = text;
@@ -254,16 +254,11 @@
     document.documentElement.lang = userLang;
     const t = linguagens[userLang] || linguagens['en'];
 
-    // Tradução segura
     safeSetText("pageTitle", t.pageTitle);
     safeSetText("mainWallTitle", t.wallTitle);
     safeSetText("autoPayoutNote", t.autoPayout);
     safeSetText("txtSponsorship", t.sponsorship);
-    safeSetText("adsBlockTitle", t.adsTitle);
-    safeSetText("adsBlockDesc", t.adsDesc);
-    safeSetText("btnAdvertiseNow", t.btnAdvertise);
 
-    // Navegação segura
     document.querySelectorAll(".bottom-nav a .txt-nav").forEach(span => {
         const parentId = span.parentElement.id;
         if(parentId === "navHome") span.innerText = t.navHome;
@@ -287,17 +282,8 @@
       const cpaleadFrame = document.getElementById("cpalead-frame");
       const moneyrainFrame = document.getElementById("moneyrain-frame");
       if(cpaleadFrame) cpaleadFrame.src = `https://www.akamaicdn.org/list/XrdSA?subid=telegram_${telegramId}`;
-
-
-
-
-
-      
-      // MUDANÇA: Adicionado "&site=teste-bot" para direcionar ao nosso site de testes configurado no painel MoneyRain
-      
       if(moneyrainFrame) moneyrainFrame.src = `https://offerwall.moneyrain.top/embed.php?pub=228&site=teste-bot&uid=${telegramId}`;
     }
-
   });
 
   function mostrarWall(wall) {
@@ -313,15 +299,6 @@
   function abrirZerAds() {
     const t = linguagens[userLang];
     if (!telegramId) { alert(t.errorIdent); return; }
-
-
-
-
-    
-    // ref=11571 é bot de teste e 11354 bot produção 
-
-
-    
     window.open(`https://zerads.com/ptc.php?ref=11571&user=${telegramId}`, "_blank");
     alert(t.alertFeedback);
   }
