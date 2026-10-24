@@ -544,10 +544,11 @@ app.post("/api/concluir-anuncio-extra", async (req, res) => {
   }
 });
 
-// 🔹 3.3 Roleta (Refatorada com Sistema de Tickets Seguros)
+// =========================================================================
+// 🔹 3.3 Roleta (Refatorada com Sistema de Tickets e Margem Global de Seguranca)
+// =========================================================================
 
-
-// 🎰 GIRAR ROLETA - ATUALIZADA
+// 🎰 GIRAR ROLETA - MODELO COM MARGEM DE SEGURANÇA GLOBAL
 app.post("/api/roleta/girar", async (req, res) => {
   const { telegram_id } = req.body;
 
@@ -555,31 +556,12 @@ app.post("/api/roleta/girar", async (req, res) => {
     return res.status(400).json({ erro: "telegram_id inválido" });
   }
 
-  const premios = [
-    { tipo: "pontos", valor: 0.10, chance: 30 },
-    { tipo: "pontos", valor: 0.25, chance: 25 },
-    { tipo: "pontos", valor: 0.50, chance: 15 },
-    { tipo: "pontos", valor: 0.75, chance: 10 },
-    { tipo: "pontos", valor: 1.00, chance: 5 },
-    { tipo: "pontos", valor: 1.50, chance: 2 },
-    { tipo: "nada", valor: 0, chance: 13 }
-  ];
-
-  function sortearPremio() {
-    const rand = Math.random() * 100;
-    let acumulado = 0;
-    for (const p of premios) {
-      acumulado += p.chance;
-      if (rand <= acumulado) return p;
-    }
-    return premios[0];
-  }
-
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
+    // 1. Busca usuário e trava a linha contra acessos concorrentes
     const userRes = await client.query(
       "SELECT pontos, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE",
       [telegram_id]
@@ -594,6 +576,7 @@ app.post("/api/roleta/girar", async (req, res) => {
     const nivelAtual = user.nivel || 1;
     const limiteGiros = TABELA_NIVEIS[nivelAtual].giros;
 
+    // 2. Valida limite diário de giros do nível
     const girosHoje = await client.query(
       `SELECT COUNT(*) FROM roleta_giros WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE`,
       [telegram_id]
@@ -604,6 +587,7 @@ app.post("/api/roleta/girar", async (req, res) => {
       return res.status(400).json({ erro: `Limite diário de ${limiteGiros} giros atingido` });
     }
 
+    // 3. Verifica se o usuário tem tickets disponíveis
     const ticketCheck = await client.query(
       `SELECT id FROM roleta_tickets WHERE telegram_id = $1 AND usado = false ORDER BY id ASC LIMIT 1 FOR UPDATE`,
       [telegram_id]
@@ -619,6 +603,7 @@ app.post("/api/roleta/girar", async (req, res) => {
 
     const CUSTO_GIRO = 0.20;
 
+    // 4. Processa o custo do giro (consome ticket ou desconta pontos)
     if (gratis) {
       await client.query(
         "UPDATE roleta_tickets SET usado = true, data_registro = NOW() WHERE id = $1",
@@ -635,23 +620,74 @@ app.post("/api/roleta/girar", async (req, res) => {
       );
     }
 
-    const premio = sortearPremio();
+    // =========================================================================
+    // 🛡️ CONTROLE DE MARGEM DE SEGURANÇA GLOBAL (NOVA LÓGICA)
+    // =========================================================================
+    // Calcula o total de pontos pagos nos últimos 30 giros globais de todos os usuários
+    const caixaRes = await client.query(
+      `SELECT COALESCE(SUM(pontos_ganhos), 0) as total_pago_recente 
+       FROM (SELECT pontos_ganhos FROM roleta_giros ORDER BY id DESC LIMIT 30) t`
+    );
     
+    const totalPagoRecente = parseFloat(caixaRes.rows[0].total_pago_recente);
+
+    // Tabela base de prêmios e porcentagens
+    let premiosDisponiveis = [
+      { tipo: "pontos", valor: 0.05, chance: 30 },
+      { tipo: "pontos", valor: 0.10, chance: 25 },
+      { tipo: "pontos", valor: 0.25, chance: 15 },
+      { tipo: "pontos", valor: 0.50, chance: 8 },
+      { tipo: "pontos", valor: 1.00, chance: 3 },
+      { tipo: "pontos", valor: 1.50, chance: 1 },
+      { tipo: "nada", valor: 0, chance: 18 }
+    ];
+
+    // TRAVA AUTOMÁTICA: Se os últimos 30 giros pagaram mais de 5.0 pontos no total,
+    // bloqueia prêmios maiores ou iguais a 0.50 e injeta chance no "Tente Novamente"
+    const TETO_MAXIMO_PAGO = 5.0; 
+    if (totalPagoRecente > TETO_MAXIMO_PAGO) {
+      premiosDisponiveis = premiosDisponiveis.filter(p => p.valor < 0.50);
+      
+      const nadaObj = premiosDisponiveis.find(p => p.tipo === "nada");
+      if (nadaObj) {
+        nadaObj.chance += 40; // Garante que a casa recupere a margem rapidamente
+      }
+    }
+
+    // Algoritmo de Sorteio Ponderado Padrão
+    function sortearPremioSeguro(lista) {
+      const somaChances = lista.reduce((acc, p) => acc + p.chance, 0);
+      const rand = Math.random() * somaChances;
+      let acumulado = 0;
+      for (const p of lista) {
+        acumulado += p.chance;
+        if (rand <= acumulado) return p;
+      }
+      return lista[0];
+    }
+
+    const premio = sortearPremioSeguro(premiosDisponiveis);
+    // =========================================================================
+
+    // 5. Credita o prêmio ganho na conta do usuário
     await client.query(
       "UPDATE usuarios SET pontos = (pontos::NUMERIC + $1::NUMERIC) WHERE telegram_id = $2", 
       [premio.valor.toFixed(2), telegram_id]
     );
 
+    // 6. Registra experiência (XP)
     const resultadoXp = await adicionarXP(telegram_id, 30, client);
 
     const nomePremio = premio.tipo === "pontos" ? `${premio.valor} Pontos` : "Tente Novamente";
 
+    // 7. Registra giro na tabela de auditoria da roleta
     const giroRes = await client.query(
       `INSERT INTO roleta_giros (telegram_id, premio, pontos_ganhos, gratis, data_registro) 
        VALUES ($1, $2, $3, $4, NOW()) RETURNING id`,
       [telegram_id, nomePremio, premio.valor, gratis]
     );
 
+    // 8. Registra entrada no histórico de ganhos
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
        VALUES ($1, 'roleta', $2, $3, $4, NOW())`,
@@ -678,9 +714,7 @@ app.post("/api/roleta/girar", async (req, res) => {
   } finally {
     client.release();
   }
-}); 
-
-    
+});
 
 // 📊 GIROS E TICKETS DISPONÍVEIS HOJE
 app.get("/api/roleta/hoje", async (req, res) => {
@@ -715,9 +749,7 @@ app.get("/api/roleta/historico", async (req, res) => {
   }
 });
 
-
-
-// 🎟️ COMPRAR PACOTE DE TICKETS - CORRIGIDA
+// 🎟️ COMPRAR PACOTE DE TICKETS
 app.post("/api/roleta/comprar-tickets", async (req, res) => {
   const { telegram_id } = req.body;
   
@@ -730,7 +762,7 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
   try {
     await client.query("BEGIN");
     
-    // 1. Busca usuário e VIP (FOR UPDATE para travar a linha e evitar double-spend)
+    // 1. Busca usuário e VIP com trava de linha
     const userRes = await client.query(
       "SELECT pontos, vip FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
       [telegram_id]
@@ -741,11 +773,10 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
       return res.status(404).json({ erro: "Usuário não encontrado." });
     }
 
-    // Garante que pontos seja um número tratado
     const pontos = parseFloat(userRes.rows[0].pontos || 0);
     const vip = userRes.rows[0].vip;
 
-    // 2. Regra de Preço: 0.80 para não VIP, 0.70 para VIP
+    // Preço: 0.80 para normal, 0.70 para VIP
     const preco = vip ? 0.70 : 0.80;
 
     if (pontos < preco) {
@@ -753,13 +784,13 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
       return res.status(400).json({ erro: "Pontos insuficientes para o pacote." });
     }
 
-    // 3. Desconta pontos com cast explícito
+    // 2. Desconta os pontos
     await client.query(
       "UPDATE usuarios SET pontos = (pontos::NUMERIC - CAST($1 AS NUMERIC)) WHERE telegram_id = $2", 
       [preco.toFixed(2), telegram_id]
     );
 
-    // 4. Insere 5 tickets
+    // 3. Credita 5 tickets
     await client.query(`
       INSERT INTO roleta_tickets (telegram_id, usado, data_registro) 
       VALUES 
@@ -770,7 +801,7 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
       ($1, false, CURRENT_DATE)
     `, [telegram_id]);
 
-    // 5. Registra no histórico de ganhos/gastos (pontos como negativo, cast para NUMERIC)
+    // 4. Registra no histórico de movimentações
     await client.query(`
       INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
       VALUES ($1, 'compra_tickets', CAST($2 AS NUMERIC) * -1, 'Pacote de 5 Tickets', NOW())
@@ -787,7 +818,6 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
     client.release();
   }
 });
-
 
 
 
