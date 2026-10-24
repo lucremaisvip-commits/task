@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instant Crypto Rewards & FaucetPay Bot - LucreMais</title>
+  
+  <!-- 🎨 STYLE OPTIMIZED FOR CLEAN TRAFFIC EXCHANGES -->
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #090d0a;
+      color: #f1f5f9;
+      text-align: center;
+    }
+    header {
+      background: #0f1f14;
+      padding: 18px;
+      font-size: 1.4em;
+      font-weight: bold;
+      color: #00ff88;
+      border-bottom: 1px solid #1e3a24;
+      letter-spacing: 1px;
+    }
+    .hero {
+      padding: 35px 15px;
+    }
+    .hero h1 {
+      font-size: 1.8rem;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+    .hero p.subtitle {
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-bottom: 25px;
+    }
+    .cta {
+      margin-top: 25px;
+    }
+    .cta button {
+      background: linear-gradient(135deg, #00ff88, #00cc66);
+      color: #000;
+      font-weight: 800;
+      border: none;
+      padding: 18px 35px;
+      font-size: 1.25rem;
+      border-radius: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
+      animation: pulse 1.5s infinite;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7); }
+      70% { transform: scale(1.03); box-shadow: 0 0 0 12px rgba(0, 255, 136, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+    }
+    .stats {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 15px;
+      margin: 30px auto;
+      max-width: 800px;
+      padding: 0 10px;
+    }
+    .stat {
+      background: #111813;
+      border: 1px solid #1e3a24;
+      padding: 15px 20px;
+      border-radius: 10px;
+      min-width: 130px;
+      flex: 1;
+    }
+    .stat span {
+      display: block;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #00ff88;
+      margin-top: 5px;
+    }
+    .section {
+      padding: 40px 20px;
+      max-width: 900px;
+      margin: auto;
+    }
+    .section h2 {
+      font-size: 1.5rem;
+      margin-bottom: 25px;
+      color: #f1f5f9;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: #111813;
+      border: 1px solid #1e3a24;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: left;
+    }
+    .card h3 {
+      color: #00ff88;
+      font-size: 1.1rem;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+    .card p {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+    .urgency {
+      color: #facc15;
+      font-weight: bold;
+      margin-top: 15px;
+      font-size: 0.95rem;
+    }
+    .cta-final {
+      background: linear-gradient(180deg, #090d0a, #0f1f14);
+      border-top: 1px solid #1e3a24;
+      padding: 50px 20px;
+      margin-top: 30px;
+    }
+    .cta-final button {
+      background: #00ff88;
+      color: #000;
+      padding: 16px 35px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,255,136,0.3);
+    }
+    footer {
+      padding: 20px;
+      background: #060907;
+      color: #64748b;
+      font-size: 0.85rem;
+      border-top: 1px solid #111813;
+    }
+    /* Modal Styling */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      backdrop-filter: blur(4px);
+    }
+    .modal-box {
+      background: #111813;
+      border: 2px solid #00ff88;
+      border-radius: 14px;
+      padding: 25px;
+      max-width: 380px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+    }
+    .modal-box h3 {
+      color: #00ff88;
+      margin-top: 0;
+    }
+    .modal-box p {
+      color: #cbd5e1;
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+    .modal-box button {
+      background: #00ff88;
+      color: #000;
+      border: none;
+      padding: 12px 20px;
+      font-weight: bold;
+      border-radius: 8px;
+      width: 100%;
+      margin-top: 15px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- ⚠️ POPUP DE CONVERSÃO AMIGÁVEL -->
+  <div id="pop-erro-zerads" class="modal-overlay">
+    <div class="modal-box">
+      <span onclick="fecharIsca()" style="float:right;cursor:pointer;color:#94a3b8;font-size:1.2rem;">×</span>
+      <h3 style="color:#00ff88;">⚡ CLAIM YOUR BONUS</h3>
+      <p>Click below to verify your session, unlock instant tasks, and start earning straight to your <b>FaucetPay</b>!</p>
+      <button onclick="fecharIsca()">🚀 Continue to Bot</button>
+    </div>
+  </div>
+
+  <!-- HEADER -->
+  <header>💰 LUCREMAIS BOT</header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <h1>Earn Crypto & Cash Daily via Telegram</h1>
+    <p class="subtitle">Complete short tasks, view sponsor links, spin the wheel & get paid instantly!</p>
+        
+    <div class="cta">
+      <button onclick="abrirBot()">🚀 LAUNCH TELEGRAM BOT</button>
+    </div>
+    <p class="urgency">🔥 Over 1,450+ active earners joined today!</p>
+  </section>
+
+  <!-- STATS -->
+  <section class="stats">
+    <div class="stat">Active Users<span>24/7 Online</span></div>
+    <div class="stat">Payout Method<span>FaucetPay & Pix</span></div>
+    <div class="stat">Task Payouts<span>Instant Credit</span></div>
+  </section>
+
+  <!-- BENEFITS -->
+  <section class="section">
+    <h2>🌟 Why Choose LucreMais Bot?</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>💸 Multiple Tasks</h3>
+        <p>Shortlinks, external offerwalls, check-ins, and direct sponsor views.</p>
+      </div>
+      <div class="card">
+        <h3>⚡ Instant Payouts</h3>
+        <p>Request your withdrawal securely and receive it fast without hassle.</p>
+      </div>
+      <div class="card">
+        <h3>🛡️ Anti-Cheat System</h3>
+        <p>Fair gameplay and secure web sessions protected via Telegram WebApp data.</p>
+      </div>
+      <div class="card">
+        <h3>👥 Referral Program</h3>
+        <p>Invite friends and earn passive percentages from their completed tasks.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="cta-final">
+    <h2>Ready to start stacking your rewards?</h2>
+    <div style="margin-top: 20px;">
+      <button onclick="abrirBot()">📲 OPEN BOT NOW</button>
+    </div>
+  </section>
+
+  <footer>© 2026 LucreMais Task Bot. All rights reserved.</footer>
+
+  <!-- SCRIPTS -->
+  <script>
+    function fecharIsca() {
+      document.getElementById("pop-erro-zerads").style.display = "none";
+      setTimeout(function() { try { document.body.click(); } catch(e) {} }, 100);
+    }
+
+    async function abrirBot() {
+      await registrarLog(true);
+      window.open("https://t.me/lucremais_test_bot?start=1677694125", "_blank");
+    }
+
+    async function registrarLog(converteu) {
+      const params = new URLSearchParams(window.location.search);
+      const logData = {
+        utm_source: params.get('utm_source') || 'direct',
+        utm_medium: params.get('utm_medium') || 'none',
+        utm_campaign: params.get('utm_campaign') || 'none',
+        is_converted: converteu
+      };
+
+      try {
+        await fetch('/api/log-traffic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logData)
+        });
+      } catch (e) {
+        console.log("Erro ao salvar log no servidor:", e);
+      }
+    }
+
+    window.onload = () => registrarLog(false);
+  </script>
+</body>
+</html>
