@@ -186,7 +186,7 @@
 
     <div class="filter-group" style="align-self: flex-end; gap: 8px;">
       <button class="btn-action" onclick="carregarDadosMetricas()">🔍 Filtrar Dados</button>
-      <button class="btn-export" onclick="extrairDadosJSON()">📥 Extrair Dados (JSON)</button>
+      <button class="btn-export" onclick="copiarDadosJSON()">📋 Copiar JSON</button>
     </div>
   </div>
 
@@ -237,7 +237,7 @@
 
   <script>
   let charts = {};
-  let ultimosDadosBrutos = null; // Armazena o payload para extração
+  let ultimosDadosBrutos = null; // Armazena o payload para cópia
 
   const params = new URLSearchParams(window.location.search);
   const privateKey = params.get("key");
@@ -291,7 +291,7 @@
 
       if (!res.ok) throw new Error("ADMIN_KEY inválida ou falha ao carregar dados.");
       const data = await res.json();
-      ultimosDadosBrutos = data; // Salva para o botão de extração
+      ultimosDadosBrutos = data; // Salva para o botão de cópia
 
       atualizarSelectCampanhas(data.listaCampanhas || [], campanhasSelecionadas);
 
@@ -324,17 +324,16 @@
     });
   }
 
-  function extrairDadosJSON() {
+  function copiarDadosJSON() {
     if (!ultimosDadosBrutos) {
       return alert("Nenhum dado carregado ainda. Faça a filtragem primeiro.");
     }
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(ultimosDadosBrutos, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `lucremais_historico_${new Date().toISOString().split('T')[0]}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+    const jsonString = JSON.stringify(ultimosDadosBrutos, null, 2);
+    navigator.clipboard.writeText(jsonString).then(() => {
+      alert("✅ JSON copiado para a área de transferência com sucesso!");
+    }).catch(err => {
+      alert("❌ Erro ao copiar JSON: " + err);
+    });
   }
 
   function renderizarGraficoUsuarios(novos, ativos) {
