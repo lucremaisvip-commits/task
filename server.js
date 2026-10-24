@@ -3317,32 +3317,71 @@ bot.action(/admin_recusar_(\d+)/, async (ctx) => {
 // =========================================================================
 
 const VALOR_BASE = {
-  valor_ltc: 0.00010309,
-  valor_usd: 0.00909091,
-  valor_zer: 2.50000000,
-  valor_brl: 0.05000000
+  valor_ltc: 0.00017760,     // Atualizado para a nova proporção (0.05 / 281.53)
+  valor_usd: 0.01005600,     // Proporcional ao dólar atual
+  valor_zer: 0.35515000,     // Alinhado com a nova paridade do ZERAds (1 LTC = 2.000 ZER)
+  valor_brl: 0.05000000      // Âncora fixa por ponto em Reais
 };
 
 const LIMIAR_VARIACAO_PERCENTUAL = 10.0; 
 
+async function obterPrecoLTC() {
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json'
+  };
+
+  // Tentativa 1: CoinGecko
+  try {
+    console.log("🔄 [COTAÇÕES] Consultando Litecoin na CoinGecko...");
+    const response = await axios.get(
+      'https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl',
+      { headers, timeout: 8000 }
+    );
+    if (response.data && response.data.litecoin) {
+      return {
+        usd: parseFloat(response.data.litecoin.usd),
+        brl: parseFloat(response.data.litecoin.brl)
+      };
+    }
+  } catch (err) {
+    console.warn("⚠️ [COTAÇÕES] CoinGecko falhou ou bloqueou. Tentando API de contingência (Binance)...");
+  }
+
+  // Tentativa 2: Binance (Fallback caso a CoinGecko caia)
+  try {
+    const resBinance = await axios.get('https://api.binance.com/api/v3/ticker/price?symbol=LTCUSDT', { timeout: 8000 });
+    const precoUsd = parseFloat(resBinance.data.price);
+    
+    // Como a Binance dá o preço em USD, estimamos o BRL baseado na proporção anterior ou padrão fixo se necessário
+    // (Caso queira precisão exata em BRL via Binance, podemos puxar o USDT/BRL, mas para LTC/USD já resolve 90% das quedas)
+    const precoBrlEst = precoUsd * 4.95; // Fator de segurança ou cotação média estimada caso caia tudo
+    console.log("✅ [COTAÇÕES] Preço obtido com sucesso via Binance Fallback.");
+    return {
+      usd: precoUsd,
+      brl: precoBrlEst
+    };
+  } catch (errBinance) {
+    console.error("❌ [COTAÇÕES] Todas as APIs de cotação falharam:", errBinance.message);
+    return null;
+  }
+}
+
 async function atualizarCotacoesAutomaticamente() {
   try {
-    console.log("🔄 [COTAÇÕES] Consultando valor atual do Litecoin (LTC) na API...");
-
-    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=litecoin&vs_currencies=usd,brl');
-    const data = response.data;
+    const dadosPreco = await obterPrecoLTC();
     
-    if (!data.litecoin) {
-      console.error("❌ [COTAÇÕES] Erro: Dados do Litecoin não retornados pela API.");
+    if (!dadosPreco) {
+      console.error("❌ [COTAÇÕES] Erro crítico: Não foi possível obter o preço do Litecoin de nenhuma API.");
       return;
     }
 
-    const precoLtcUsdAtual = data.litecoin.usd;
-    const precoLtcBrlAtual = data.litecoin.brl;
+    const precoLtcUsdAtual = dadosPreco.usd;
+    const precoLtcBrlAtual = dadosPreco.brl;
 
     const valorBrlPorPonto = VALOR_BASE.valor_brl;
-    const valorUsdPorPonto = valorBrlPorPonto / (precoLtcBrlAtual / precoLtcUsdAtual); 
     const valorLtcPorPonto = valorBrlPorPonto / precoLtcBrlAtual;
+    const valorUsdPorPonto = valorBrlPorPonto / (precoLtcBrlAtual / precoLtcUsdAtual);
     const valorZerPorPonto = VALOR_BASE.valor_zer; 
 
     const valLtcStr = valorLtcPorPonto.toFixed(18);
@@ -3355,6 +3394,9 @@ async function atualizarCotacoesAutomaticamente() {
     );
 
     let registrarNoBanco = true;
+
+    // Datas ajustadas para o fuso horário de Brasília
+    const dataHoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 
     if (ultimaCotacaoRes.rows.length > 0) {
       const ultima = ultimaCotacaoRes.rows[0];
@@ -3369,12 +3411,17 @@ async function atualizarCotacoesAutomaticamente() {
         console.warn(`🚨 [ALERTA DE PREJUÍZO] O Litecoin mudou ${variacaoPercentual.toFixed(2)}% em relação ao último registro!`);
       }
 
-      const dataHoje = new Date().toISOString().split('T')[0];
-      const dataUltimoRegistro = new Date(ultima.data_registro).toISOString().split('T')[0];
+      const dataUltimoRegistro = new Date(ultima.data_registro).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 
       if (dataUltimoRegistro === dataHoje) {
-        console.log("ℹ️ [COTAÇÕES] Já existe cotação registrada para hoje. Pulando inserção diária.");
-        registrarNoBanco = false; 
+        console.log("ℹ️ [COTAÇÕES] Já existe cotação registrada para hoje. Atualizando registro de hoje para manter precisão...");
+        await pool.query(
+          `UPDATE cotacoes 
+           SET valor_ltc = $1, valor_usd = $2, valor_zer = $3, valor_brl = $4 
+           WHERE id = $5`,
+          [valLtcStr, valUsdStr, valZerStr, valBrlStr, ultima.id]
+        );
+        return;
       }
     } else {
       console.log("📌 [COTAÇÕES] Tabela vazia. Inserindo valor base inicial...");
@@ -3400,15 +3447,13 @@ async function atualizarCotacoesAutomaticamente() {
   }
 }
 
-// ⏱️ Agendado para rodar todos os dias às 15:00 UTC (que equivale exatamente às 12:00 no Horário de Brasília)
+// ⏱️ Agendado para rodar todos os dias às 15:00 UTC (12:00 de Brasília)
 cron.schedule('0 15 * * *', () => {
   atualizarCotacoesAutomaticamente();
 });
 
-// Executa uma vez ao iniciar o servidor para checar se já existe cotação do dia
+// Executa uma vez ao iniciar o servidor para checar a cotação
 atualizarCotacoesAutomaticamente();
-
-
 
 // =========================================================================
 // 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS (COM LIMITE E DATA DE BLOQUEIO)
