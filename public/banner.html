@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting to LucreMais Bot...</title>
+  
+  <!-- Estilo minimalista escuro caso demole 1 segundo para redirecionar -->
+  <style>
+    body {
+      background: #090d0a;
+      color: #f1f5f9;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .loader {
+      font-size: 1.2rem;
+      color: #00ff88;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="loader">
+    <p>⚡ Connecting to LucreMais Bot...</p>
+  </div>
+
+  <script>
+    async function trackAndRedirect() {
+      // 1. Pega os parâmetros UTM da URL (ex: ?utm_source=easyhits4u&utm_campaign=banner01)
+      const params = new URLSearchParams(window.location.search);
+      
+      const utmSource = params.get('utm_source') || 'direct';
+      const utmMedium = params.get('utm_medium') || 'banner';
+      const utmCampaign = params.get('utm_campaign') || 'none';
+
+      const logData = {
+        utm_source: utmSource,
+        utm_medium: utmMedium,
+        utm_campaign: utmCampaign,
+        is_converted: true // Como o clique no banner já é a intenção de ir para o bot, já conta como conversão/clique direto
+      };
+
+      // 2. Tenta registrar o clique/conversão no seu backend/banco
+      try {
+        await fetch('/api/log-traffic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logData)
+        });
+      } catch (e) {
+        console.log("Erro ao registrar log de tráfego:", e);
+      }
+
+      // 3. Link oficial do seu Bot do Telegram (Altere se necessário)
+      const telegramBotUrl = "https://t.me/LucreMaisTaskBot?start=ref_tracker";
+
+      // 4. Redireciona instantaneamente para o bot (com um mini delay de 300ms para garantir que o fetch foi disparado)
+      setTimeout(() => {
+        window.location.href = telegramBotUrl;
+      }, 300);
+    }
+
+    // Executa assim que a página carregar
+    window.onload = trackAndRedirect;
+  </script>
+
+</body>
+</html>
