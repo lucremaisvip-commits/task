@@ -201,6 +201,17 @@
   .bottom-nav a span { 
     font-size: 18px; 
   }
+
+  .faucet-input {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #fff;
+    margin-top: 10px;
+    box-sizing: border-box;
+  }
 </style>
   
 </head>
@@ -244,6 +255,19 @@
   </div>
 </div>
 
+<div class="checklist-card" id="painelTarefaEntrada">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+    <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 Tarefa de Entrada</h2>
+  </div>
+  <div id="conteudoTarefaEntrada">
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete a tarefa de entrada para liberar o seu primeiro saque!</p>
+    <div class="task-row">
+      <div class="task-header"><span>MoneyRain (Obrigatório)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
+    </div>
+  </div>
+</div>
+
 <div class="checklist-card">
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
     <h2 id="txtDailyTasks" style="margin-bottom: 0;">⚔️ Tarefas diárias</h2>
@@ -255,16 +279,10 @@
 
   <div class="task-list" style="margin-bottom: 20px;">
     <div class="task-row">
-      <div class="task-header"><span>MoneyRain (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-      <div class="progress-bar"><div class="progress-fill" id="progMoney" style="width: 0%;"></div></div>
+      <div class="task-header"><span>MoneyRain</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
     </div>
     <div class="task-row">
-      <div class="task-header"><span>ZeroAds (0/3)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
-      <div class="progress-bar"><div class="progress-fill" id="progZero" style="width: 0%;"></div></div>
-    </div>
-    <div class="task-row">
-      <div class="task-header"><span>Tarefa Direta (0/1)</span><button class="btn-go" onclick="location.href='tarefas.html'">Ir</button></div>
-      <div class="progress-bar"><div class="progress-fill" id="progDireta" style="width: 0%;"></div></div>
+      <div class="task-header"><span>ZeroAds</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
     </div>
   </div>
   <div class="streak-section">
@@ -408,7 +426,6 @@ const linguagens = {
         txtBtnAjuda: "❓ Ajuda",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
-        txtTarefaDireta: "Tarefa Direta",
         txtStreakLabel: "Progresso da Semana (Streak):",
         txtStatusStreak: "Mantenha o ritmo!",
         txtBaudeIncentivo: "🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!",
@@ -439,7 +456,6 @@ const linguagens = {
         txtBtnAjuda: "❓ Help",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
-        txtTarefaDireta: "Direct Task",
         txtStreakLabel: "Weekly Progress (Streak):",
         txtStatusStreak: "Keep it up!",
         txtBaudeIncentivo: "🎁 Complete 7 days in a row to unlock the Legendary Chest with surprise rewards!",
@@ -511,9 +527,8 @@ function aplicarTraducoes() {
     set("btnLangToggle", userLang === "pt" ? "🌐 PT" : "🌐 EN");
 
     const spans = document.querySelectorAll(".task-header span");
-    if (spans[0]) spans[0].innerText = spans[0].innerText.replace(/^[^\(]+/, t.txtMoneyRain);
-    if (spans[1]) spans[1].innerText = spans[1].innerText.replace(/^[^\(]+/, t.txtZeroAds);
-    if (spans[2]) spans[2].innerText = spans[2].innerText.replace(/^[^\(]+/, t.txtTarefaDireta);
+    if (spans[1]) spans[1].innerText = t.txtMoneyRain;
+    if (spans[2]) spans[2].innerText = t.txtZeroAds;
     
     const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
     t.nav.forEach((text, i) => { 
@@ -571,10 +586,25 @@ async function carregarDados() {
         const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
         if (response.ok) {
             const data = await response.json();
-            atualizarProgresso('progMoney', data.progresso.moneyrain, 3);
-            atualizarProgresso('progZero', data.progresso.zerads, 3);
-            atualizarProgresso('progDireta', data.progresso.tarefas, 1);
             
+            // Tratamento da Tarefa/Saque de Entrada
+            const containerEntrada = document.getElementById('conteudoTarefaEntrada');
+            if (data.pode_sacar_entrada || data.primeiro_saque_concluido) {
+                // Esconde se já concluiu tudo ou muda para campo de FaucetPay
+                if (data.primeiro_saque_concluido) {
+                    document.getElementById('painelTarefaEntrada').style.display = 'none';
+                } else {
+                    document.getElementById('txtEntryTaskTitle').innerText = "💰 Solicitar Saque Inicial";
+                    containerEntrada.innerHTML = `
+                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">Parabéns! Tarefa concluída. Digite seu e-mail do FaucetPay para sacar:</p>
+                        <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
+                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">🚀 Sacar Agora</button>
+                    `;
+                }
+            } else {
+                atualizarProgresso('progMoneyEntry', data.progresso.moneyrain, 1);
+            }
+
             const streak = data.streak.streak_atual || 0;
             document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
             document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
@@ -630,6 +660,32 @@ async function carregarDados() {
     } catch (err) { console.error("Erro status:", err); }
 }
 
+async function solicitarSaqueEntrada() {
+    const email = document.getElementById('emailFaucetPay').value;
+    if (!email || !email.includes('@')) {
+        alert("Por favor, insira um e-mail válido do FaucetPay.");
+        return;
+    }
+
+    try {
+        const res = await requisicaoSegura('/api/solicitar-saque', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id, faucetpay_email: email })
+        });
+        const data = await res.json();
+        if (data.success) {
+            exibirAvisoServidor({ titulo: "Saque Realizado!", mensagem: "Seu saque de teste foi processado com sucesso para o FaucetPay!", icone: "💰" });
+            document.getElementById('painelTarefaEntrada').style.display = 'none';
+        } else {
+            alert("Erro ao solicitar saque: " + (data.error || "Tente novamente."));
+        }
+    } catch (err) {
+        console.error("Erro no saque:", err);
+        alert("Erro de conexão com o servidor.");
+    }
+}
+
 async function abrirBau() {
     const res = await requisicaoSegura('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
     const data = await res.json();
@@ -643,7 +699,6 @@ async function abrirBau() {
 
 // 5. Inicialização Única
 document.addEventListener("DOMContentLoaded", () => {
-    // Validação inicial ao carregar a página
     validarSessaoOuBloquear();
 
     const params = new URLSearchParams(window.location.search);
