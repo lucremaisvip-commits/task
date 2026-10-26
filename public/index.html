@@ -259,10 +259,14 @@
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
     <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 Tarefa de Entrada</h2>
   </div>
+<div class="checklist-card" id="painelTarefaEntrada">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
+    <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 <span id="txtEntryTitleText">Tarefa de Entrada</span></h2>
+  </div>
   <div id="conteudoTarefaEntrada">
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete a tarefa de entrada para liberar o seu primeiro saque!</p>
+    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Acumule 0,30 pontos livres para liberar o seu primeiro saque!</p>
     <div class="task-row">
-      <div class="task-header"><span>MoneyRain (Obrigatório)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="task-header"><span id="txtProgressLabel">Progresso para Saque (0.30 pts)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
       <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
     </div>
   </div>
@@ -417,6 +421,11 @@ const linguagens = {
         txtHeroStatus: "STATUS DO HERÓI",
         txtXpLabel: "EXP",
         txtDegradacaoAviso: "💡 Dica: Complete pelo menos uma tarefa por dia para manter sua sequência ativa e evitar a perda de XP.",
+        txtEntryTitleText: "Tarefa de Entrada",
+        txtEntryDescText: "Acumule 0,30 pontos livres para liberar o seu primeiro saque!",
+        txtProgressLabel: "Progresso para Saque (0.30 pts)",
+        txtFaucetPrompt: "Parabéns! Meta atingida. Digite seu e-mail do FaucetPay para sacar:",
+        btnWithdrawNow: "🚀 Sacar Agora",
         modalTitulo: "Sucesso!",
         btnFecharModal: "Fechar",
         txtModalNiveisTitulo: "🏆 Sistema de Níveis & Vantagens",
@@ -447,6 +456,11 @@ const linguagens = {
         txtHeroStatus: "HERO STATUS",
         txtXpLabel: "EXP",
         txtDegradacaoAviso: "💡 Tip: Complete at least one task a day to keep your streak active and prevent XP loss.",
+        txtEntryTitleText: "Entry Task",
+        txtEntryDescText: "Accumulate 0.30 free points to unlock your first withdrawal!",
+        txtProgressLabel: "Withdrawal Progress (0.30 pts)",
+        txtFaucetPrompt: "Congrats! Goal reached. Enter your FaucetPay email to withdraw:",
+        btnWithdrawNow: "🚀 Withdraw Now",
         modalTitulo: "Success!",
         btnFecharModal: "Close",
         txtModalNiveisTitulo: "🏆 Level System & Perks",
@@ -587,22 +601,34 @@ async function carregarDados() {
         if (response.ok) {
             const data = await response.json();
             
-            // Tratamento da Tarefa/Saque de Entrada
+            // Tratamento da Tarefa/Saque de Entrada baseado em 0.30 pontos livres
             const containerEntrada = document.getElementById('conteudoTarefaEntrada');
-            if (data.pode_sacar_entrada || data.primeiro_saque_concluido) {
+            const pontosLivres = data.progresso?.pontos_livres || data.progresso?.moneyrain || 0; 
+            const metaPontos = 0.30;
+
+            if (data.pode_sacar_entrada || data.primeiro_saque_concluido || pontosLivres >= metaPontos) {
                 // Esconde se já concluiu tudo ou muda para campo de FaucetPay
                 if (data.primeiro_saque_concluido) {
                     document.getElementById('painelTarefaEntrada').style.display = 'none';
                 } else {
-                    document.getElementById('txtEntryTaskTitle').innerText = "💰 Solicitar Saque Inicial";
+                    document.getElementById('txtEntryTaskTitle').innerText = userLang === 'pt' ? "💰 Solicitar Saque Inicial" : "💰 Request Initial Withdrawal";
                     containerEntrada.innerHTML = `
-                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">Parabéns! Tarefa concluída. Digite seu e-mail do FaucetPay para sacar:</p>
+                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${userLang === 'pt' ? "Parabéns! Meta atingida. Digite seu e-mail do FaucetPay para sacar:" : "Congrats! Goal reached. Enter your FaucetPay email to withdraw:"}</p>
                         <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
-                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">🚀 Sacar Agora</button>
+                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${userLang === 'pt' ? "🚀 Sacar Agora" : "🚀 Withdraw Now"}</button>
                     `;
                 }
             } else {
-                atualizarProgresso('progMoneyEntry', data.progresso.moneyrain, 1);
+                // Atualiza a barra preenchendo proporcionalmente até 0.30 pontos
+                const porcentagem = Math.min((pontosLivres / metaPontos) * 100, 100);
+                const el = document.getElementById('progMoneyEntry');
+                if (el) el.style.width = porcentagem + '%';
+                
+                const span = el.parentElement.parentElement.querySelector('.task-header span');
+                if (span) {
+                    const labelTexto = userLang === 'pt' ? "Progresso para Saque" : "Withdrawal Progress";
+                    span.innerText = `${labelTexto} (${Number(pontosLivres).toFixed(2)}/${metaPontos})`;
+                }
             }
 
             const streak = data.streak.streak_atual || 0;
@@ -659,7 +685,7 @@ async function carregarDados() {
         }
     } catch (err) { console.error("Erro status:", err); }
 }
-
+  
 async function solicitarSaqueEntrada() {
     const email = document.getElementById('emailFaucetPay').value;
     if (!email || !email.includes('@')) {
