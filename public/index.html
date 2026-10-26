@@ -261,7 +261,7 @@
     <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 <span id="txtEntryTitleText">Tarefa de Entrada</span></h2>
   </div>
   <div id="conteudoTarefaEntrada">
-    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete 1 tarefa no MoneyRain para liberar o seu primeiro saque!</p>
+    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete 1 tarefa no MoneyRain para liberar o seu primeiro !</p>
     <div class="task-row">
       <div class="task-header"><span id="txtProgressLabel">Progresso da Tarefa de Entrada (MoneyRain)</span><button class="btn-go" id="btnGoEntry" onclick="location.href='tarefas-externas.html'">Ir</button></div>
       <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
@@ -286,20 +286,35 @@
       <div class="task-header"><span id="txtZeroAdsSpan">ZeroAds</span><button class="btn-go btn-go-task" onclick="location.href='tarefas-externas.html'">Ir</button></div>
     </div>
   </div>
+
+  <!-- Barra 1: Meta Diária de Pontos -->
+  <div class="streak-section" style="margin-bottom: 15px;">
+    <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;">Progresso da Meta Diária (0,30 pts):</p>
+    <div class="progress-bar" style="background: #0f172a; height: 12px; border-radius: 6px; margin-bottom: 6px;">
+      <div class="progress-fill" id="progStreak" style="width: 0%; background: #3b82f6;"></div>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b;">
+      <span id="txtStreakDias">0.00 / 0.30 pts</span>
+      <span id="txtStatusStreak">Meta do dia</span>
+    </div>
+  </div>
+
+  <!-- Barra 2: Sequência de Dias para o Baú (7 dias) -->
   <div class="streak-section">
-    <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Meta Diária (0,30 pts):</p>
-    <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
-      <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;" id="txtBaúLabel">Sequência para o Baú Lendário (Streak):</p>
+    <div class="progress-bar" style="background: #0f172a; height: 14px; border-radius: 7px; margin-bottom: 6px;">
+      <div class="progress-fill" id="progBauDias" style="width: 0%; background: #f59e0b;"></div>
     </div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px;">
-      <span id="txtStreakDias">0.00 / 0.30 pts</span>
-      <span id="txtStatusStreak">Mantenha o ritmo!</span>
+      <span id="txtBauDiasContador">0 / 7 dias</span>
+      <span id="txtBauFaltam">Faltam 7 dias</span>
     </div>
     <p id="txtBaudeIncentivo" style="font-size: 11px; color: #fbbf24; text-align: center; margin-top: 4px; font-weight: 500;">🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!</p>
   </div>
+
   <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
 </div>
-
+  
 <div class="checklist-card" style="border: 2px solid #2a8f43; background: #1e293b;">
   <h2 id="txtLuckyTitle" style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte</h2>
   <p id="txtLuckyDesc" style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!</p>
@@ -637,7 +652,24 @@ async function carregarDados() {
                 txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
             }
 
-            const streakDiasCount = data.streak?.streak_atual || 0;
+            // 3. Tratamento do Streak Semanal / Progresso para o Baú (7 dias)
+            const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
+            const porcentagemBau = Math.min((streakDiasCount / 7) * 100, 100);
+            
+            const progBauDias = document.getElementById('progBauDias');
+            if (progBauDias) progBauDias.style.width = porcentagemBau + '%';
+
+            const txtBauDiasContador = document.getElementById('txtBauDiasContador');
+            if (txtBauDiasContador) {
+                txtBauDiasContador.innerText = `${streakDiasCount} / 7 dias`;
+            }
+
+            const diasFaltantes = Math.max(7 - streakDiasCount, 0);
+            const txtBauFaltam = document.getElementById('txtBauFaltam');
+            if (txtBauFaltam) {
+                txtBauFaltam.innerText = userLang === 'pt' ? `Faltam ${diasFaltantes} dias` : `${diasFaltantes} days left`;
+            }
+
             const txtStatusStreak = document.getElementById('txtStatusStreak');
             if (txtStatusStreak) {
                 txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
@@ -695,8 +727,10 @@ async function carregarDados() {
 }
   
 async function solicitarSaqueEntrada() {
-    const email = document.getElementById('emailFaucetPay').value;
-    if (!email || !email.includes('@')) {
+    const emailInput = document.getElementById('emailFaucetPay');
+    const email = emailInput ? emailInput.value.trim() : '';
+    
+    if (!email || !email.includes('@') || !email.includes('.')) {
         alert(userLang === 'pt' ? "Por favor, insira um e-mail válido do FaucetPay." : "Please enter a valid FaucetPay email.");
         return;
     }
@@ -708,7 +742,7 @@ async function solicitarSaqueEntrada() {
             body: JSON.stringify({ telegram_id, faucetpay_email: email })
         });
         const data = await res.json();
-        if (data.success) {
+        if (res.ok && data.success) {
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Saque Realizado!" : "Withdrawal Successful!", 
                 mensagem: userLang === 'pt' ? "Seu saque de teste foi processado com sucesso para o FaucetPay!" : "Your test withdrawal was successfully processed to FaucetPay!", 
@@ -716,14 +750,13 @@ async function solicitarSaqueEntrada() {
             });
             document.getElementById('painelTarefaEntrada').style.display = 'none';
         } else {
-            alert((userLang === 'pt' ? "Erro ao solicitar saque: " : "Error requesting withdrawal: ") + (data.error || (userLang === 'pt' ? "Tente novamente." : "Try again.")));
+            alert((userLang === 'pt' ? "Erro ao solicitar saque: " : "Error requesting withdrawal: ") + (data.error || data.message || (userLang === 'pt' ? "Tente novamente." : "Try again.")));
         }
     } catch (err) {
         console.error("Erro no saque:", err);
-        alert(userLang === 'pt' ? "Erro de conexão com o servidor." : "Server connection error.");
+        alert(userLang === 'pt' ? "Erro de conexão com o servidor ou formato inválido." : "Server connection error or invalid format.");
     }
 }
-
 async function abrirBau() {
     const res = await requisicaoSegura('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
     const data = await res.json();
