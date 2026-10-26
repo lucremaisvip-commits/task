@@ -261,7 +261,7 @@
     <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 <span id="txtEntryTitleText">Tarefa de Entrada</span></h2>
   </div>
   <div id="conteudoTarefaEntrada">
-    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete 1 tarefa no MoneyRain para liberar o seu primeiro !</p>
+    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete 1 tarefa no MoneyRain para liberar o seu primeiro saque!</p>
     <div class="task-row">
       <div class="task-header"><span id="txtProgressLabel">Progresso da Tarefa de Entrada (MoneyRain)</span><button class="btn-go" id="btnGoEntry" onclick="location.href='tarefas-externas.html'">Ir</button></div>
       <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
@@ -353,7 +353,7 @@ if (!localStorage.getItem('first_access')) {
 const urlParams = new URLSearchParams(window.location.search);
 const tg = window.Telegram?.WebApp;
 const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
-if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
+if (telegram_id !== "123456") localStorage.Item("telegram_id", telegram_id);
 
 // ==========================================
 // FUNÇÕES DE SEGURANÇA
@@ -548,6 +548,7 @@ function aplicarTraducoes() {
     set("txtZeroAdsSpan", t.txtZeroAds);
     set("txtStreakLabel", t.txtStreakLabel);
     set("txtStatusStreak", t.txtStatusStreak);
+    set("txtBauLabel", t.txtBauLabel);
     set("txtBaudeIncentivo", t.txtBaudeIncentivo);
     set("btnAbrirBau", t.btnAbrirBau);
     set("txtLuckyTitle", t.txtLuckyTitle);
