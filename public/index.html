@@ -353,7 +353,7 @@ if (!localStorage.getItem('first_access')) {
 const urlParams = new URLSearchParams(window.location.search);
 const tg = window.Telegram?.WebApp;
 const telegram_id = urlParams.get("id") || tg?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id") || "123456";
-if (telegram_id !== "123456") localStorage.Item("telegram_id", telegram_id);
+if (telegram_id !== "123456") localStorage.setItem("telegram_id", telegram_id);
 
 // ==========================================
 // FUNÇÕES DE SEGURANÇA
@@ -609,6 +609,12 @@ function fecharModal() {
 // --- 4. Comunicação com Servidor (Usando requisicaoSegura) ---
 async function carregarDados() {
     try {
+        // Se já foi solicitado o saque de entrada anteriormente, esconde o painel imediatamente
+        if (localStorage.getItem(`saque_inicial_solicitado_${telegram_id}`) === "true") {
+            const painelEntrada = document.getElementById('painelTarefaEntrada');
+            if (painelEntrada) painelEntrada.style.display = 'none';
+        }
+
         const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
         if (response.ok) {
             const data = await response.json();
@@ -618,27 +624,29 @@ async function carregarDados() {
             const missaoConcluida = data.missao_entrada?.concluida || false;
             const saqueLiberado = data.missao_entrada?.saque_liberado || false;
 
-            if (saqueLiberado || missaoConcluida) {
-                // Se já concluiu a tarefa de entrada, transforma o card no input de saque do FaucetPay
-                if (data.primeiro_saque_concluido) {
-                    document.getElementById('painelTarefaEntrada').style.display = 'none';
+            if (localStorage.getItem(`saque_inicial_solicitado_${telegram_id}`) !== "true") {
+                if (saqueLiberado || missaoConcluida) {
+                    // Se já concluiu a tarefa de entrada, transforma o card no input de saque do FaucetPay
+                    if (data.primeiro_saque_concluido) {
+                        document.getElementById('painelTarefaEntrada').style.display = 'none';
+                    } else {
+                        document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
+                        containerEntrada.innerHTML = `
+                            <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
+                            <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
+                            <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
+                        `;
+                    }
                 } else {
-                    document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
-                    containerEntrada.innerHTML = `
-                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
-                        <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
-                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
-                    `;
-                }
-            } else {
-                // Se ainda não concluiu, mostra progresso 0/1
-                const el = document.getElementById('progMoneyEntry');
-                if (el) el.style.width = '0%';
-                
-                const span = el.parentElement.parentElement.querySelector('.task-header span');
-                if (span) {
-                    const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
-                    span.innerText = `${labelTexto} (0/1)`;
+                    // Se ainda não concluiu, mostra progresso 0/1
+                    const el = document.getElementById('progMoneyEntry');
+                    if (el) el.style.width = '0%';
+                    
+                    const span = el.parentElement.parentElement.querySelector('.task-header span');
+                    if (span) {
+                        const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
+                        span.innerText = `${labelTexto} (0/1)`;
+                    }
                 }
             }
 
@@ -746,6 +754,9 @@ async function solicitarSaqueEntrada() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
+            // Salva a flag no localStorage para ocultar permanentemente a tarefa de entrada na index
+            localStorage.setItem(`saque_inicial_solicitado_${telegram_id}`, "true");
+
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Saque Realizado!" : "Withdrawal Successful!", 
                 mensagem: userLang === 'pt' ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque." : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal.", 
@@ -760,7 +771,8 @@ async function solicitarSaqueEntrada() {
         alert(userLang === 'pt' ? "Erro de conexão com o servidor ou formato inválido." : "Server connection error or invalid format.");
     }
 }
-  async function abrirBau() {
+
+async function abrirBau() {
     const res = await requisicaoSegura('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
     const data = await res.json();
     if (data.success) {
