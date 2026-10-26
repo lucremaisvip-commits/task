@@ -301,7 +301,7 @@
 
   <!-- Barra 2: Sequência de Dias para o Baú (7 dias) -->
   <div class="streak-section">
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;" id="txtBaúLabel">Sequência para o Baú Lendário (Streak):</p>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;" id="txtBauLabel">Sequência para o Baú Lendário (Streak):</p>
     <div class="progress-bar" style="background: #0f172a; height: 14px; border-radius: 7px; margin-bottom: 6px;">
       <div class="progress-fill" id="progBauDias" style="width: 0%; background: #f59e0b;"></div>
     </div>
@@ -450,6 +450,7 @@ const linguagens = {
         txtZeroAds: "ZeroAds",
         txtStreakLabel: "Progresso da Meta Diária (0,30 pts):",
         txtStatusStreak: "Mantenha o ritmo!",
+        txtBauLabel: "Sequência para o Baú Lendário (Streak):",
         txtBaudeIncentivo: "🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!",
         btnAbrirBau: "Abrir Baú",
         txtLuckyTitle: "🎡 Roleta da Sorte",
@@ -486,6 +487,7 @@ const linguagens = {
         txtZeroAds: "ZeroAds",
         txtStreakLabel: "Daily Goal Progress (0.30 pts):",
         txtStatusStreak: "Keep it up!",
+        txtBauLabel: "Legendary Chest Streak:",
         txtBaudeIncentivo: "🎁 Complete 7 days in a row to unlock the Legendary Chest with surprise rewards!",
         btnAbrirBau: "Open Chest",
         txtLuckyTitle: "🎡 Lucky Wheel",
@@ -739,13 +741,13 @@ async function solicitarSaqueEntrada() {
         const res = await requisicaoSegura('/api/solicitar-saque', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ telegram_id, faucetpay_email: email })
+            body: JSON.stringify({ telegram_id: telegram_id, chave_pix: email })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Saque Realizado!" : "Withdrawal Successful!", 
-                mensagem: userLang === 'pt' ? "Seu saque de teste foi processado com sucesso para o FaucetPay!" : "Your test withdrawal was successfully processed to FaucetPay!", 
+                mensagem: userLang === 'pt' ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque." : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal.", 
                 icone: "💰" 
             });
             document.getElementById('painelTarefaEntrada').style.display = 'none';
@@ -757,7 +759,7 @@ async function solicitarSaqueEntrada() {
         alert(userLang === 'pt' ? "Erro de conexão com o servidor ou formato inválido." : "Server connection error or invalid format.");
     }
 }
-async function abrirBau() {
+  async function abrirBau() {
     const res = await requisicaoSegura('/api/abrir-bau', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
     const data = await res.json();
     if (data.success) {
