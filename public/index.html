@@ -255,10 +255,7 @@
   </div>
 </div>
 
-<div class="checklist-card" id="painelTarefaEntrada">
-  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
-    <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 Tarefa de Entrada</h2>
-  </div>
+<!-- Tarefa de Entrada Corrigida e Unica -->
 <div class="checklist-card" id="painelTarefaEntrada">
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
     <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 <span id="txtEntryTitleText">Tarefa de Entrada</span></h2>
@@ -266,7 +263,7 @@
   <div id="conteudoTarefaEntrada">
     <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Acumule 0,30 pontos livres para liberar o seu primeiro saque!</p>
     <div class="task-row">
-      <div class="task-header"><span id="txtProgressLabel">Progresso para Saque (0.30 pts)</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="task-header"><span id="txtProgressLabel">Progresso para Saque (0.30 pts)</span><button class="btn-go" id="btnGoEntry" onclick="location.href='tarefas-externas.html'">Ir</button></div>
       <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
     </div>
   </div>
@@ -283,10 +280,10 @@
 
   <div class="task-list" style="margin-bottom: 20px;">
     <div class="task-row">
-      <div class="task-header"><span>MoneyRain</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="task-header"><span id="txtMoneyRainSpan">MoneyRain</span><button class="btn-go btn-go-task" onclick="location.href='tarefas-externas.html'">Ir</button></div>
     </div>
     <div class="task-row">
-      <div class="task-header"><span>ZeroAds</span><button class="btn-go" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="task-header"><span id="txtZeroAdsSpan">ZeroAds</span><button class="btn-go btn-go-task" onclick="location.href='tarefas-externas.html'">Ir</button></div>
     </div>
   </div>
   <div class="streak-section">
@@ -424,6 +421,7 @@ const linguagens = {
         txtEntryTitleText: "Tarefa de Entrada",
         txtEntryDescText: "Acumule 0,30 pontos livres para liberar o seu primeiro saque!",
         txtProgressLabel: "Progresso para Saque (0.30 pts)",
+        txtBtnGo: "Ir",
         txtFaucetPrompt: "Parabéns! Meta atingida. Digite seu e-mail do FaucetPay para sacar:",
         btnWithdrawNow: "🚀 Sacar Agora",
         modalTitulo: "Sucesso!",
@@ -459,6 +457,7 @@ const linguagens = {
         txtEntryTitleText: "Entry Task",
         txtEntryDescText: "Accumulate 0.30 free points to unlock your first withdrawal!",
         txtProgressLabel: "Withdrawal Progress (0.30 pts)",
+        txtBtnGo: "Go",
         txtFaucetPrompt: "Congrats! Goal reached. Enter your FaucetPay email to withdraw:",
         btnWithdrawNow: "🚀 Withdraw Now",
         modalTitulo: "Success!",
@@ -517,6 +516,10 @@ function aplicarTraducoes() {
     set("txtHeroStatus", t.txtHeroStatus);
     set("txtXpLabel", t.txtXpLabel);
     set("txtDegradacaoAviso", t.txtDegradacaoAviso);
+    set("txtEntryTitleText", t.txtEntryTitleText);
+    set("txtEntryDescText", t.txtEntryDescText);
+    set("txtProgressLabel", t.txtProgressLabel);
+    set("btnGoEntry", t.txtBtnGo);
     set("modalTitulo", t.modalTitulo);
     set("btnFecharModal", t.btnFecharModal);
     set("txtModalNiveisTitulo", t.txtModalNiveisTitulo);
@@ -524,6 +527,8 @@ function aplicarTraducoes() {
     set("txtDailyTasks", t.txtDailyTasks);
     set("txtBtnTutorial", t.txtBtnTutorial);
     set("txtBtnAjuda", t.txtBtnAjuda);
+    set("txtMoneyRainSpan", t.txtMoneyRain);
+    set("txtZeroAdsSpan", t.txtZeroAds);
     set("txtStreakLabel", t.txtStreakLabel);
     set("txtStatusStreak", t.txtStatusStreak);
     set("txtBaudeIncentivo", t.txtBaudeIncentivo);
@@ -540,9 +545,10 @@ function aplicarTraducoes() {
     set("vip5", t.vip5);
     set("btnLangToggle", userLang === "pt" ? "🌐 PT" : "🌐 EN");
 
-    const spans = document.querySelectorAll(".task-header span");
-    if (spans[1]) spans[1].innerText = t.txtMoneyRain;
-    if (spans[2]) spans[2].innerText = t.txtZeroAds;
+    // Atualiza todos os botões "Ir / Go" das tarefas
+    document.querySelectorAll(".btn-go-task").forEach(btn => {
+        btn.innerText = t.txtBtnGo;
+    });
     
     const navSpans = document.querySelectorAll(".bottom-nav .txt-nav");
     t.nav.forEach((text, i) => { 
@@ -611,11 +617,11 @@ async function carregarDados() {
                 if (data.primeiro_saque_concluido) {
                     document.getElementById('painelTarefaEntrada').style.display = 'none';
                 } else {
-                    document.getElementById('txtEntryTaskTitle').innerText = userLang === 'pt' ? "💰 Solicitar Saque Inicial" : "💰 Request Initial Withdrawal";
+                    document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
                     containerEntrada.innerHTML = `
-                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${userLang === 'pt' ? "Parabéns! Meta atingida. Digite seu e-mail do FaucetPay para sacar:" : "Congrats! Goal reached. Enter your FaucetPay email to withdraw:"}</p>
+                        <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
                         <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
-                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${userLang === 'pt' ? "🚀 Sacar Agora" : "🚀 Withdraw Now"}</button>
+                        <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
                     `;
                 }
             } else {
@@ -633,7 +639,7 @@ async function carregarDados() {
 
             const streak = data.streak.streak_atual || 0;
             document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
-            document.getElementById('txtStreakDias').innerText = `${streak} / 7 dias`;
+            document.getElementById('txtStreakDias').innerText = `${streak} / ${userLang === 'pt' ? '7 dias' : '7 days'}`;
             
             const hoje = new Date().toDateString();
             if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
@@ -689,7 +695,7 @@ async function carregarDados() {
 async function solicitarSaqueEntrada() {
     const email = document.getElementById('emailFaucetPay').value;
     if (!email || !email.includes('@')) {
-        alert("Por favor, insira um e-mail válido do FaucetPay.");
+        alert(userLang === 'pt' ? "Por favor, insira um e-mail válido do FaucetPay." : "Please enter a valid FaucetPay email.");
         return;
     }
 
@@ -701,14 +707,18 @@ async function solicitarSaqueEntrada() {
         });
         const data = await res.json();
         if (data.success) {
-            exibirAvisoServidor({ titulo: "Saque Realizado!", mensagem: "Seu saque de teste foi processado com sucesso para o FaucetPay!", icone: "💰" });
+            exibirAvisoServidor({ 
+                titulo: userLang === 'pt' ? "Saque Realizado!" : "Withdrawal Successful!", 
+                mensagem: userLang === 'pt' ? "Seu saque de teste foi processado com sucesso para o FaucetPay!" : "Your test withdrawal was successfully processed to FaucetPay!", 
+                icone: "💰" 
+            });
             document.getElementById('painelTarefaEntrada').style.display = 'none';
         } else {
-            alert("Erro ao solicitar saque: " + (data.error || "Tente novamente."));
+            alert((userLang === 'pt' ? "Erro ao solicitar saque: " : "Error requesting withdrawal: ") + (data.error || (userLang === 'pt' ? "Tente novamente." : "Try again.")));
         }
     } catch (err) {
         console.error("Erro no saque:", err);
-        alert("Erro de conexão com o servidor.");
+        alert(userLang === 'pt' ? "Erro de conexão com o servidor." : "Server connection error.");
     }
 }
 
@@ -745,6 +755,7 @@ window.alternarIdioma = function() {
     localStorage.setItem("userLang", userLang);
     aplicarTraducoes();
     atualizarUrlsMenu();
+    carregarDados();
 };
 </script>
 <script type="text/javascript">
