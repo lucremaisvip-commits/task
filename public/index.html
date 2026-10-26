@@ -255,15 +255,15 @@
   </div>
 </div>
 
-<!-- Tarefa de Entrada Corrigida e Unica -->
+<!-- Tarefa de Entrada (Fazer 1 MoneyRain) -->
 <div class="checklist-card" id="painelTarefaEntrada">
   <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;">
     <h2 id="txtEntryTaskTitle" style="margin-bottom: 0;">🎯 <span id="txtEntryTitleText">Tarefa de Entrada</span></h2>
   </div>
   <div id="conteudoTarefaEntrada">
-    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Acumule 0,30 pontos livres para liberar o seu primeiro saque!</p>
+    <p id="txtEntryDescText" style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Complete 1 tarefa no MoneyRain para liberar o seu primeiro saque!</p>
     <div class="task-row">
-      <div class="task-header"><span id="txtProgressLabel">Progresso para Saque (0.30 pts)</span><button class="btn-go" id="btnGoEntry" onclick="location.href='tarefas-externas.html'">Ir</button></div>
+      <div class="task-header"><span id="txtProgressLabel">Progresso da Tarefa de Entrada (MoneyRain)</span><button class="btn-go" id="btnGoEntry" onclick="location.href='tarefas-externas.html'">Ir</button></div>
       <div class="progress-bar"><div class="progress-fill" id="progMoneyEntry" style="width: 0%;"></div></div>
     </div>
   </div>
@@ -287,12 +287,12 @@
     </div>
   </div>
   <div class="streak-section">
-    <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Semana (Streak):</p>
+    <p id="txtStreakLabel" style="font-size: 13px; color: #94a3b8; margin-bottom: 8px;">Progresso da Meta Diária (0,30 pts):</p>
     <div class="progress-bar" style="background: #0f172a; height: 16px; border-radius: 8px; margin-bottom: 8px;">
       <div class="progress-fill" id="progStreak" style="width: 0%; background: #f59e0b;"></div>
     </div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px;">
-      <span id="txtStreakDias">0 / 7 dias</span>
+      <span id="txtStreakDias">0.00 / 0.30 pts</span>
       <span id="txtStatusStreak">Mantenha o ritmo!</span>
     </div>
     <p id="txtBaudeIncentivo" style="font-size: 11px; color: #fbbf24; text-align: center; margin-top: 4px; font-weight: 500;">🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!</p>
@@ -419,10 +419,10 @@ const linguagens = {
         txtXpLabel: "EXP",
         txtDegradacaoAviso: "💡 Dica: Complete pelo menos uma tarefa por dia para manter sua sequência ativa e evitar a perda de XP.",
         txtEntryTitleText: "Tarefa de Entrada",
-        txtEntryDescText: "Acumule 0,30 pontos livres para liberar o seu primeiro saque!",
-        txtProgressLabel: "Progresso para Saque (0.30 pts)",
+        txtEntryDescText: "Complete 1 tarefa no MoneyRain para liberar o seu primeiro saque!",
+        txtProgressLabel: "Progresso da Tarefa de Entrada (MoneyRain)",
         txtBtnGo: "Ir",
-        txtFaucetPrompt: "Parabéns! Meta atingida. Digite seu e-mail do FaucetPay para sacar:",
+        txtFaucetPrompt: "Parabéns! Tarefa concluída. Digite seu e-mail do FaucetPay para sacar:",
         btnWithdrawNow: "🚀 Sacar Agora",
         modalTitulo: "Sucesso!",
         btnFecharModal: "Fechar",
@@ -433,7 +433,7 @@ const linguagens = {
         txtBtnAjuda: "❓ Ajuda",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
-        txtStreakLabel: "Progresso da Semana (Streak):",
+        txtStreakLabel: "Progresso da Meta Diária (0,30 pts):",
         txtStatusStreak: "Mantenha o ritmo!",
         txtBaudeIncentivo: "🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!",
         btnAbrirBau: "Abrir Baú",
@@ -455,10 +455,10 @@ const linguagens = {
         txtXpLabel: "EXP",
         txtDegradacaoAviso: "💡 Tip: Complete at least one task a day to keep your streak active and prevent XP loss.",
         txtEntryTitleText: "Entry Task",
-        txtEntryDescText: "Accumulate 0.30 free points to unlock your first withdrawal!",
-        txtProgressLabel: "Withdrawal Progress (0.30 pts)",
+        txtEntryDescText: "Complete 1 MoneyRain task to unlock your first withdrawal!",
+        txtProgressLabel: "Entry Task Progress (MoneyRain)",
         txtBtnGo: "Go",
-        txtFaucetPrompt: "Congrats! Goal reached. Enter your FaucetPay email to withdraw:",
+        txtFaucetPrompt: "Congrats! Task completed. Enter your FaucetPay email to withdraw:",
         btnWithdrawNow: "🚀 Withdraw Now",
         modalTitulo: "Success!",
         btnFecharModal: "Close",
@@ -469,7 +469,7 @@ const linguagens = {
         txtBtnAjuda: "❓ Help",
         txtMoneyRain: "MoneyRain",
         txtZeroAds: "ZeroAds",
-        txtStreakLabel: "Weekly Progress (Streak):",
+        txtStreakLabel: "Daily Goal Progress (0.30 pts):",
         txtStatusStreak: "Keep it up!",
         txtBaudeIncentivo: "🎁 Complete 7 days in a row to unlock the Legendary Chest with surprise rewards!",
         btnAbrirBau: "Open Chest",
@@ -545,7 +545,6 @@ function aplicarTraducoes() {
     set("vip5", t.vip5);
     set("btnLangToggle", userLang === "pt" ? "🌐 PT" : "🌐 EN");
 
-    // Atualiza todos os botões "Ir / Go" das tarefas
     document.querySelectorAll(".btn-go-task").forEach(btn => {
         btn.innerText = t.txtBtnGo;
     });
@@ -566,17 +565,6 @@ function atualizarUrlsMenu() {
             }
         }
     });
-}
-
-function atualizarProgresso(id, valor, max) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.width = Math.min((valor / max) * 100, 100) + '%';
-    const span = el.parentElement.parentElement.querySelector('.task-header span');
-    if (span) {
-        const nomeBase = span.innerText.replace(/\(\d\/\d\)/, '');
-        span.innerText = `${nomeBase} (${valor}/${max})`;
-    }
 }
 
 // --- 3. Funções de Notificação ---
@@ -607,13 +595,12 @@ async function carregarDados() {
         if (response.ok) {
             const data = await response.json();
             
-            // Tratamento da Tarefa/Saque de Entrada baseado em 0.30 pontos livres
+            // 1. Tratamento da Tarefa de Entrada (Baseado em 1 MoneyRain concluído)
             const containerEntrada = document.getElementById('conteudoTarefaEntrada');
-            const pontosLivres = data.progresso?.pontos_livres || data.progresso?.moneyrain || 0; 
-            const metaPontos = 0.30;
+            const totalMoneyRain = data.progresso?.moneyrain || 0; 
+            const metaMoneyRain = 1;
 
-            if (data.pode_sacar_entrada || data.primeiro_saque_concluido || pontosLivres >= metaPontos) {
-                // Esconde se já concluiu tudo ou muda para campo de FaucetPay
+            if (data.pode_sacar_entrada || data.primeiro_saque_concluido || totalMoneyRain >= metaMoneyRain) {
                 if (data.primeiro_saque_concluido) {
                     document.getElementById('painelTarefaEntrada').style.display = 'none';
                 } else {
@@ -625,25 +612,39 @@ async function carregarDados() {
                     `;
                 }
             } else {
-                // Atualiza a barra preenchendo proporcionalmente até 0.30 pontos
-                const porcentagem = Math.min((pontosLivres / metaPontos) * 100, 100);
+                const porcentagem = Math.min((totalMoneyRain / metaMoneyRain) * 100, 100);
                 const el = document.getElementById('progMoneyEntry');
                 if (el) el.style.width = porcentagem + '%';
                 
                 const span = el.parentElement.parentElement.querySelector('.task-header span');
                 if (span) {
-                    const labelTexto = userLang === 'pt' ? "Progresso para Saque" : "Withdrawal Progress";
-                    span.innerText = `${labelTexto} (${Number(pontosLivres).toFixed(2)}/${metaPontos})`;
+                    const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
+                    span.innerText = `${labelTexto} (${totalMoneyRain}/${metaMoneyRain})`;
                 }
             }
 
-            const streak = data.streak.streak_atual || 0;
-            document.getElementById('progStreak').style.width = Math.min((streak / 7) * 100, 100) + '%';
-            document.getElementById('txtStreakDias').innerText = `${streak} / ${userLang === 'pt' ? '7 dias' : '7 days'}`;
+            // 2. Tratamento da Meta Diária (Baseado em acumular 0.30 pontos hoje)
+            const pontosHoje = data.progresso?.pontos_hoje || 0;
+            const metaPontosDiarios = 0.30;
+            const porcentagemPontos = Math.min((pontosHoje / metaPontosDiarios) * 100, 100);
+            
+            const progBarStreak = document.getElementById('progStreak');
+            if (progBarStreak) progBarStreak.style.width = porcentagemPontos + '%';
+            
+            const txtStreakDias = document.getElementById('txtStreakDias');
+            if (txtStreakDias) {
+                txtStreakDias.innerText = `${Number(pontosHoje).toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
+            }
+
+            const streakDiasCount = data.streak.streak_atual || 0;
+            const txtStatusStreak = document.getElementById('txtStatusStreak');
+            if (txtStatusStreak) {
+                txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
+            }
             
             const hoje = new Date().toDateString();
             if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
-                exibirAvisoServidor({ titulo: linguagens[userLang].modalTitulo, mensagem: userLang === 'pt' ? "Todas as tarefas diárias concluídas com sucesso!" : "All daily tasks completed successfully!", icone: "✅" });
+                exibirAvisoServidor({ titulo: linguagens[userLang].modalTitulo, mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída!" : "Daily goal of 0.30 points completed!", icone: "✅" });
                 localStorage.setItem('aviso_checklist', hoje);
             }
 
