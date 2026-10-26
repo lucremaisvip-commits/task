@@ -595,12 +595,13 @@ async function carregarDados() {
         if (response.ok) {
             const data = await response.json();
             
-            // 1. Tratamento da Tarefa de Entrada (Baseado em 1 MoneyRain concluído)
+            // 1. Tratamento da Tarefa de Entrada (Baseado em missao_entrada)
             const containerEntrada = document.getElementById('conteudoTarefaEntrada');
-            const totalMoneyRain = data.progresso?.moneyrain || 0; 
-            const metaMoneyRain = 1;
+            const missaoConcluida = data.missao_entrada?.concluida || false;
+            const saqueLiberado = data.missao_entrada?.saque_liberado || false;
 
-            if (data.pode_sacar_entrada || data.primeiro_saque_concluido || totalMoneyRain >= metaMoneyRain) {
+            if (saqueLiberado || missaoConcluida) {
+                // Se já concluiu a tarefa de entrada, transforma o card no input de saque do FaucetPay
                 if (data.primeiro_saque_concluido) {
                     document.getElementById('painelTarefaEntrada').style.display = 'none';
                 } else {
@@ -612,52 +613,52 @@ async function carregarDados() {
                     `;
                 }
             } else {
-                const porcentagem = Math.min((totalMoneyRain / metaMoneyRain) * 100, 100);
+                // Se ainda não concluiu, mostra progresso 0/1
                 const el = document.getElementById('progMoneyEntry');
-                if (el) el.style.width = porcentagem + '%';
+                if (el) el.style.width = '0%';
                 
                 const span = el.parentElement.parentElement.querySelector('.task-header span');
                 if (span) {
                     const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
-                    span.innerText = `${labelTexto} (${totalMoneyRain}/${metaMoneyRain})`;
+                    span.innerText = `${labelTexto} (0/1)`;
                 }
             }
 
-            // 2. Tratamento da Meta Diária (Baseado em acumular 0.30 pontos hoje)
-            const pontosHoje = data.progresso?.pontos_hoje || 0;
-            const metaPontosDiarios = 0.30;
-            const porcentagemPontos = Math.min((pontosHoje / metaPontosDiarios) * 100, 100);
+            // 2. Tratamento da Meta Diária (Baseado em progresso_pontos)
+            const pontosHoje = parseFloat(data.progresso_pontos?.atual) || 0;
+            const metaPontosDiarios = parseFloat(data.progresso_pontos?.meta) || 0.30;
+            const porcentagemPontos = parseFloat(data.progresso_pontos?.porcentagem) || 0;
             
             const progBarStreak = document.getElementById('progStreak');
             if (progBarStreak) progBarStreak.style.width = porcentagemPontos + '%';
             
             const txtStreakDias = document.getElementById('txtStreakDias');
             if (txtStreakDias) {
-                txtStreakDias.innerText = `${Number(pontosHoje).toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
+                txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
             }
 
-            const streakDiasCount = data.streak.streak_atual || 0;
+            const streakDiasCount = data.streak?.streak_atual || 0;
             const txtStatusStreak = document.getElementById('txtStatusStreak');
             if (txtStatusStreak) {
                 txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
             }
             
             const hoje = new Date().toDateString();
-            if (data.checklist_concluido && localStorage.getItem('aviso_checklist') !== hoje) {
+            if (data.progresso_pontos?.concluido && localStorage.getItem('aviso_checklist') !== hoje) {
                 exibirAvisoServidor({ titulo: linguagens[userLang].modalTitulo, mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída!" : "Daily goal of 0.30 points completed!", icone: "✅" });
                 localStorage.setItem('aviso_checklist', hoje);
             }
 
             const btnBau = document.getElementById('btnAbrirBau');
             if (btnBau) {
-                btnBau.style.display = data.streak.bau_disponivel ? 'block' : 'none';
-                if (data.streak.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
+                btnBau.style.display = data.streak?.bau_disponivel ? 'block' : 'none';
+                if (data.streak?.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
                     exibirAvisoServidor({ titulo: userLang === 'pt' ? "Baú Disponível" : "Chest Available", mensagem: userLang === 'pt' ? "Você tem um baú de recompensa esperando!" : "You have a reward chest waiting!", icone: "🎁" });
                     localStorage.setItem('aviso_bau', hoje);
                 }
             }
 
-            if (data.streak.streak_quebrado) {
+            if (data.streak?.streak_quebrado) {
                 exibirAvisoServidor({ titulo: userLang === 'pt' ? "Ops! Streak Perdido" : "Ops! Streak Lost", mensagem: userLang === 'pt' ? "Sua sequência foi reiniciada." : "Your sequence was reset.", icone: "⚠️" });
                 requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
             }
