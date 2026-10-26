@@ -1099,34 +1099,20 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
     res.status(400).send('Invalid event');
 });
 
-/**
- * Verifica se o usuário cumpriu a meta do dia:
- * 1. Pelo menos 3 tarefas de origem 'zerads'
- * 2. Pelo menos 3 tarefas de origem 'moneyrain'
- * 3. Pelo menos 1 tarefa de origem 'tarefa' (interna)
- * 4. Pelo menos 1.01401 pontos no total
- */
 async function verificarMetaDiaria(client, telegram_id) {
     const res = await client.query(`
-        SELECT 
-            COUNT(*) FILTER (WHERE origem = 'zerads') as total_zerads,
-            COUNT(*) FILTER (WHERE origem = 'moneyrain') as total_moneyrain,
-            COUNT(*) FILTER (WHERE origem = 'tarefa') as total_tarefas,
-            SUM(pontos) as total_pontos
+        SELECT SUM(pontos) as total_pontos
         FROM historico_ganhos 
         WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE
     `, [telegram_id]);
 
     const stats = res.rows[0];
-    const zerads = parseInt(stats.total_zerads) || 0;
-    const moneyrain = parseInt(stats.total_moneyrain) || 0;
-    const tarefas = parseInt(stats.total_tarefas) || 0;
-    const pontos = parseFloat(stats.total_pontos) || 0;
+    const pontosHoje = parseFloat(stats.total_pontos) || 0;
 
-    const metaCumprida = zerads >= 3 && moneyrain >= 3 && tarefas >= 1 && pontos >= 1.01401;
+    // Nova meta diária flexível: atingir 0.30 pontos no total do dia
+    const metaCumprida = pontosHoje >= 0.30;
 
     if (metaCumprida) {
-        // Usamos FOR UPDATE para bloquear a linha e evitar concorrência
         const check = await client.query(`
             SELECT meta_cumprida_hoje FROM usuarios_streaks WHERE telegram_id = $1 FOR UPDATE
         `, [telegram_id]);
@@ -1142,62 +1128,48 @@ async function verificarMetaDiaria(client, telegram_id) {
     return metaCumprida;
 }
 
-
 async function verificarMissaoEntrada(client, telegram_id) {
     try {
-        // 1. Verifica se o usuário cumpre os requisitos e trava a linha para update (FOR UPDATE)
+        // 1. Verifica se o usuário tem pelo menos 1 tarefa no MoneyRain e ainda não usou a missão de boas-vindas
         const query = `
-            SELECT u.pontos
+            SELECT u.booster_usado,
+                   (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain') as total_moneyrain
             FROM usuarios u
-            JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
             WHERE u.telegram_id = $1 
-            AND u.booster_usado = FALSE
-            AND us.meta_cumprida_hoje = TRUE
             FOR UPDATE
         `;
 
         const res = await client.query(query, [telegram_id]);
 
         if (res.rows.length > 0) {
-            const saldoAtual = parseFloat(res.rows[0].pontos) || 0;
-            const metaSaque = 2.02802;
-            const pontosParaCompletar = metaSaque > saldoAtual ? (metaSaque - saldoAtual) : 0;
+            const usuario = res.rows[0];
+            const totalMoneyRain = parseInt(usuario.total_moneyrain) || 0;
+            const jaUsou = usuario.booster_usado;
 
-            // 2. Se faltam pontos, aplica o ajuste (booster)
-            if (pontosParaCompletar > 0) {
-                await client.query(`
-                    UPDATE usuarios 
-                    SET pontos = pontos + $1, 
-                        booster_usado = TRUE 
-                    WHERE telegram_id = $2
-                `, [pontosParaCompletar, telegram_id]);
-
-                await client.query(`
-                    INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro)
-                    VALUES ($1, 'booster_entrada', $2, 'Missão de Entrada (Ajuste)', NOW())
-                `, [telegram_id, pontosParaCompletar]);
-            } else {
-                // 3. Caso ele já tenha atingido o mínimo sozinho, apenas marca o booster como usado
+            // Se ele fez pelo menos 1 MoneyRain e ainda não marcou como concluído
+            if (totalMoneyRain >= 1 && !jaUsou) {
+                // Apenas marca como concluído para liberar o saque imediato e não rodar de novo
                 await client.query(`
                     UPDATE usuarios 
                     SET booster_usado = TRUE 
                     WHERE telegram_id = $1
                 `, [telegram_id]);
-            }
 
-            return { 
-                liberado: true, 
-                mensagem: "🎉 Parabéns! Missão de entrada concluída com sucesso." 
-            };
+                return { 
+                    liberado: true, 
+                    mensagem: "🎉 Missão de entrada concluída! Você já pode realizar seu saque imediato." 
+                };
+            }
         }
         
         return { liberado: false };
 
     } catch (error) {
         console.error("Erro na Missão de Entrada:", error);
-        throw error; // Propaga o erro para que a rota pai saiba que precisa fazer o ROLLBACK
+        throw error;
     }
 }
+
 
 app.post("/api/abrir-bau", async (req, res) => {
     const { telegram_id } = req.body;
@@ -1500,17 +1472,35 @@ app.get("/", (req, res) => {
 
 app.get("/api/status-checklist", async (req, res) => {
     const { telegram_id } = req.query;
+    
+    if (!telegram_id) {
+        return res.status(400).json({ error: "telegram_id é obrigatório" });
+    }
+
     const client = await pool.connect();
     try {
+        // 1. Busca dados do usuário, streaks e soma dos pontos ganhos hoje
         const result = await client.query(`
             SELECT 
                 u.data_registro::date as data_criacao,
+                u.booster_usado,
+                u.pontos as saldo_total,
                 us.streak_atual, 
                 us.bau_disponivel,
                 us.streak_quebrado,
-                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'zerads' AND data_registro::date = CURRENT_DATE) as zerads,
-                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain' AND data_registro::date = CURRENT_DATE) as moneyrain,
-                (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'tarefa' AND data_registro::date = CURRENT_DATE) as tarefas
+                us.meta_cumprida_hoje,
+                COALESCE((
+                    SELECT SUM(pontos) 
+                    FROM historico_ganhos 
+                    WHERE telegram_id = u.telegram_id 
+                    AND data_registro::date = CURRENT_DATE
+                ), 0) as pontos_hoje,
+                COALESCE((
+                    SELECT COUNT(*) 
+                    FROM historico_ganhos 
+                    WHERE telegram_id = u.telegram_id 
+                    AND origem = 'moneyrain'
+                ), 0) as total_moneyrain
             FROM usuarios u
             LEFT JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
             WHERE u.telegram_id = $1
@@ -1522,26 +1512,40 @@ app.get("/api/status-checklist", async (req, res) => {
             return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
-        // Calcula se o checklist do dia foi concluído com base nas metas atingidas
-        const zeradsCount = parseInt(data.zerads) || 0;
-        const moneyrainCount = parseInt(data.moneyrain) || 0;
-        const tarefasCount = parseInt(data.tarefas) || 0;
-        const checklistConcluido = (zeradsCount >= 3 && moneyrainCount >= 3 && tarefasCount >= 1);
+        const pontosHoje = parseFloat(data.pontos_hoje) || 0;
+        const metaDiariaAlvo = 0.30;
+        
+        // A meta diária é batida se acumulou >= 0.30 pts hoje
+        const metaBatidaHoje = pontosHoje >= metaDiariaAlvo || data.meta_cumprida_hoje === true;
+
+        // Missão de entrada: Fez pelo menos 1 MoneyRain
+        const totalMoneyRain = parseInt(data.total_moneyrain) || 0;
+        const missaoEntradaConcluida = totalMoneyRain >= 1;
 
         res.json({
-            progresso: { 
-                zerads: zeradsCount, 
-                moneyrain: moneyrainCount, 
-                tarefas: tarefasCount 
+            success: true,
+            progresso_pontos: {
+                atual: pontosHoje.toFixed(2),
+                meta: metaDiariaAlvo.toFixed(2),
+                porcentagem: Math.min((pontosHoje / metaDiariaAlvo) * 100, 100).toFixed(1),
+                concluido: metaBatidaHoje
+            },
+            missao_entrada: {
+                concluida: missaoEntradaConcluida,
+                saque_liberado: missaoEntradaConcluida, // Fez 1 MoneyRain = Pode sacar imediato
+                booster_registrado: data.booster_usado
             },
             streak: { 
                 streak_atual: data.streak_atual || 0, 
                 bau_disponivel: data.bau_disponivel || false,
                 streak_quebrado: data.streak_quebrado || false
             },
-            checklist_concluido: checklistConcluido,
             data_criacao: data.data_criacao
         });
+
+    } catch (err) {
+        console.error("Erro na rota /api/status-checklist:", err);
+        res.status(500).json({ error: "Erro interno no servidor" });
     } finally {
         client.release();
     }
@@ -1813,8 +1817,12 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // 1. Busca dados do usuário, status e verifica se já fez pelo menos 1 MoneyRain e se já sacou antes
     const userResult = await client.query(
-      "SELECT pontos, vip, lang, status_conta, nivel FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
+      `SELECT u.pontos, u.vip, u.lang, u.status_conta, u.nivel, u.booster_usado,
+              (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain') as total_moneyrain,
+              (SELECT COUNT(*) FROM saques WHERE telegram_id = u.telegram_id AND LOWER(status) != 'cancelado') as total_saques_anteriores
+       FROM usuarios u WHERE u.telegram_id = $1 FOR UPDATE`, 
       [telegram_id]
     );
 
@@ -1822,7 +1830,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     const user = userResult.rows[0];
     if (user.status_conta === 'banido') throw new Error("USUARIO_BANIDO");
     
-    const { pontos, vip, lang, nivel } = user;
+    const { pontos, vip, lang, nivel, total_moneyrain, total_saques_anteriores } = user;
     const isEn = lang === 'en';
 
     const limiteSaques = (typeof TABELA_NIVEIS !== 'undefined' && TABELA_NIVEIS[nivel]?.limite_saque) ? TABELA_NIVEIS[nivel].limite_saque : 1;
@@ -1833,8 +1841,23 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
 
     if (parseInt(saquesHoje.rows[0].count) >= limiteSaques) throw new Error("LIMITE_ATINGIDO");
 
+    // 💡 REGRA DA MISSÃO DE ENTRADA: 
+    // Se for o primeiro saque da vida do usuário (total_saques_anteriores === 0) 
+    // E ele já tiver feito pelo menos 1 tarefa no MoneyRain (total_moneyrain >= 1), 
+    // liberamos o saque de qualquer valor (teste imediato).
+    const éPrimeiroSaqueMoneyRain = (parseInt(total_saques_anteriores) === 0 && parseInt(total_moneyrain) >= 1);
+
     const pontosMinimos = vip ? 1.01401 : 2.02802;
-    if (pontos < pontosMinimos) throw new Error("PONTOS_INSUFICIENTES");
+
+    // Se não for o primeiro saque de teste elegível, aplica a regra padrão de pontos mínimos
+    if (!éPrimeiroSaqueMoneyRain && pontos < pontosMinimos) {
+      throw new Error("PONTOS_INSUFICIENTES");
+    }
+
+    // Garante que o usuário tem saldo maior que zero para sacar
+    if (pontos <= 0) {
+      throw new Error("PONTOS_INSUFICIENTES");
+    }
 
     const VALOR_DO_PONTO_EM_BRL = 0.05;
     let valorCalculado = pontos * VALOR_DO_PONTO_EM_BRL;
