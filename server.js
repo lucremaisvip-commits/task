@@ -2980,6 +2980,7 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
     await ctx.reply(dicionario[lang || 'en'].erro);
   }
 });
+
 // =========================================================================
 // 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO + MOTOR HÍBRIDO DE SEGURANÇA
 // =========================================================================
@@ -3100,12 +3101,14 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
           const payoutId = response.data.payout_id;
           await pool.query("UPDATE saques SET comprovante = $1 WHERE id = $2", [payoutId, saqueId]);
 
-          const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
-          const mensagemAuto = isEn
-            ? `🎉 **Withdrawal Paid Automatically!**\n\nYour payout of **${pontosSolicitados.toFixed(2)} Pts** was verified and sent to FaucetPay.\n\n🔗 [View Receipt](${linkComprovante})`
-            : `🎉 **Saque Pago Automaticamente!**\n\nSeu pedido de **${pontosSolicitados.toFixed(2)} Pts** passou nas validações de segurança e foi pago via FaucetPay.\n\n🔗 [Ver Comprovante](${linkComprovante})`;
-
-          await bot.telegram.sendMessage(telegram_id, mensagemAuto, { parse_mode: "Markdown", disable_web_page_preview: true });
+          const pontosFormatados = pontosSolicitados.toFixed(2);
+          
+          // Mensagem ajustada com o ID da transação em texto plano (sem link 404)
+          const mensagemSucesso = isEn
+            ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🆔 **TX ID:** \`${payoutId}\``
+            : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🆔 **ID da Transação:** \`${payoutId}\``;
+          
+          await bot.telegram.sendMessage(telegram_id, mensagemSucesso, { parse_mode: "Markdown", disable_web_page_preview: true });
         }
       } catch (payErr) {
         console.error("Erro no pagamento automático FaucetPay:", payErr.message);
@@ -3204,8 +3207,6 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
     client.release();
   }
 });
-
-
 // =========================================================================
 // 🔹 AÇÕES DO ADMINISTRADOR DITO PELO TELEGRAM (BOTÕES INTERATIVOS)
 // =========================================================================
