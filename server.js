@@ -2981,7 +2981,7 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
   }
 });
 // =========================================================================
-// 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO (NO CHAT)
+// 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO + MOTOR HÍBRIDO DE SEGURANÇA
 // =========================================================================
 
 bot.action(/conf_saque_(\d+)/, async (ctx) => {
@@ -2989,13 +2989,14 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
   const telegram_id = ctx.from.id.toString();
 
   try {
-    await ctx.answerCbQuery("Processando...");
+    await ctx.answerCbQuery("Processando validações de segurança...");
   } catch (e) {}
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
+    // 1. Busca dados do usuário
     const userRes = await client.query(
       "SELECT pontos, lang FROM usuarios WHERE telegram_id = $1 FOR UPDATE", 
       [telegram_id]
@@ -3006,6 +3007,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     const isEn = user.lang === 'en';
     const saldoAtual = parseFloat(user.pontos);
 
+    // 2. Busca o pedido de saque
     const saqueRes = await client.query(
       "SELECT * FROM saques WHERE id = $1 AND telegram_id = $2 AND status = 'Aguardando Chat' FOR UPDATE",
       [saqueId, telegram_id]
@@ -3025,30 +3027,103 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
       return ctx.editMessageText(isEn ? "⚠️ Insufficient balance to complete this withdrawal." : "⚠️ Saldo insuficiente para concluir este saque.");
     }
 
-    // Debita os pontos do usuário
-    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
+    // =========================================================================
+    // 🛡️ AVALIAÇÃO DE SEGURANÇA (NOVO PADRÃO: TOLERÂNCIA A LOTES + HISTÓRICO)
+    // =========================================================================
+    const analiseSeguranca = await client.query(`
+      WITH tarefas_usuario AS (
+          SELECT 
+              origem,
+              pontos,
+              data_registro,
+              LAG(data_registro) OVER (ORDER BY data_registro ASC) AS data_anterior
+          FROM historico_ganhos
+          WHERE telegram_id = $1
+      ),
+      metricas AS (
+          SELECT 
+              COALESCE(SUM(pontos), 0) AS total_pontos_historico,
+              -- Conta apenas eventos com intervalos menores que 1 segundo em tarefas manuais/PTC (evita falso-positivo de lote)
+              COUNT(CASE 
+                  WHEN (EXTRACT(EPOCH FROM (data_registro - data_anterior)) < 1.0) 
+                       AND origem IN ('zerads', 'moneyrain', 'tarefa') 
+                  THEN 1 
+              END) AS acoes_extrema_velocidade
+          FROM tarefas_usuario
+      )
+      SELECT 
+          total_pontos_historico,
+          acoes_extrema_velocidade
+      FROM metricas
+    `, [telegram_id]);
 
-    // Registra no histórico de ganhos como débito de saque
-    await client.query(`
-      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-      VALUES ($1, 'saque', $2, 'Saque Solicitado', $3, NOW())
-    `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
+    const risco = analiseSeguranca.rows[0];
+    const totalHistorico = parseFloat(risco.total_pontos_historico || 0);
+    const acoesExtremas = parseInt(risco.acoes_extrema_velocidade || 0);
 
-    // Altera para 'Waiting' para o painel / admin
+    // Regras atualizadas para aprovar automático:
+    // 1. Tolerância de até 5 ações extremas (< 1s) para absorver eventuais lotes de postback sem travar o usuário honesto.
+    // 2. O histórico de pontos acumulados tem que cobrir o valor solicitado (integridade correta).
+    // 3. O valor do saque não pode ultrapassar o teto automático (3.00 pontos).
+    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= 3.00;
+
+    if (passouNoFiltro) {
+      // ✅ TUDO CERTO (Caminho Verde): Debita, aprova e paga direto via FaucetPay
+      await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
+      
+      await client.query(`
+        INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+        VALUES ($1, 'saque', $2, 'Saque Automático Aprovado', $3, NOW())
+      `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
+
+      await client.query("UPDATE saques SET status = 'ok', data_aprovacao = NOW() WHERE id = $1", [saqueId]);
+      await client.query("COMMIT");
+
+      // Puxa cotação atual do banco para converter Pontos -> LTC na hora de pagar
+      const cotacaoRes = await pool.query(
+        "SELECT valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+      );
+      const ltcPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00017390;
+      const amountEmSatoshis = Math.round((pontosSolicitados * ltcPorPonto) * 100000000);
+
+      try {
+        const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
+          api_key: FAUCETPAY_API_KEY, 
+          amount: amountEmSatoshis,
+          to: saque.chave_pix,       
+          currency: "LTC"
+        }).toString(), {
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
+
+        if (response.data.status === 200) {
+          const payoutId = response.data.payout_id;
+          await pool.query("UPDATE saques SET comprovante = $1 WHERE id = $2", [payoutId, saqueId]);
+
+          const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
+          const mensagemAuto = isEn
+            ? `🎉 **Withdrawal Paid Automatically!**\n\nYour payout of **${pontosSolicitados.toFixed(2)} Pts** was verified and sent to FaucetPay.\n\n🔗 [View Receipt](${linkComprovante})`
+            : `🎉 **Saque Pago Automaticamente!**\n\nSeu pedido de **${pontosSolicitados.toFixed(2)} Pts** passou nas validações de segurança e foi pago via FaucetPay.\n\n🔗 [Ver Comprovante](${linkComprovante})`;
+
+          await bot.telegram.sendMessage(telegram_id, mensagemAuto, { parse_mode: "Markdown", disable_web_page_preview: true });
+        }
+      } catch (payErr) {
+        console.error("Erro no pagamento automático FaucetPay:", payErr.message);
+      }
+
+      return ctx.editMessageText(isEn ? "✅ Withdrawal approved and paid successfully!" : "✅ Saque aprovado e pago automaticamente com sucesso!");
+    }
+
+    // ❌ ALGO SUSPEITO (Caminho Vermelho): Manda notificação para você avaliar
     await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
-
-    // Cancela pedidos antigos 'Aguardando Chat'
-    await client.query(
-      "UPDATE saques SET status = 'Cancelado' WHERE telegram_id = $1 AND status = 'Aguardando Chat' AND id != $2",
-      [telegram_id, saqueId]
-    );
-
     await client.query("COMMIT");
 
-    // 🚨 NOTIFICAÇÃO DO ADMIN EQUIPADA COM OS 2 BOTÕES INTERATIVOS
     const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
     if (adminId && typeof bot !== 'undefined') {
-      const mensagemAdmin = `🚨 **NOVA SOLICITAÇÃO DE SAQUE!**\n\n` +
+      const motivoAlerta = acoesExtremas > 5 ? `⚠️ *Alerta:* Alta frequência de cliques extremos detectada (${acoesExtremas} ações < 1s).` : `⚠️ *Alerta:* Revisão de teto ou histórico.`;
+      
+      const mensagemAdmin = `🚨 **SAQUE ENVIADO PARA REVISÃO MANUAL!**\n\n` +
+        `${motivoAlerta}\n` +
         `🆔 **ID do Saque:** #${saqueId}\n` +
         `👤 **Usuário ID:** \`${telegram_id}\`\n` +
         `💰 **Pontos Solicitados:** ${pontosSolicitados} Pts\n` +
@@ -3056,35 +3131,26 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
         `📧 **FaucetPay:** \`${saque.chave_pix}\`\n\n` +
         `*Escolha uma opção abaixo:*`;
 
-      // Teclado Inline com os 3 botões solicitados
-const tecladoAdmin = {
-  reply_markup: {
-    inline_keyboard: [
-      [
-        { text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` }
-      ],
-      [
-        { text: "✅ Aprovar", callback_data: `admin_aprovar_${saqueId}` },
-        { text: "❌ Recusar", callback_data: `admin_recusar_${saqueId}` }
-      ]
-    ]
-  }
-};
+      const tecladoAdmin = {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` }],
+            [
+              { text: "✅ Aprovar", callback_data: `admin_aprovar_${saqueId}` },
+              { text: "❌ Recusar", callback_data: `admin_recusar_${saqueId}` }
+            ]
+          ]
+        }
+      };
 
       try {
-        await bot.telegram.sendMessage(adminId, mensagemAdmin, { 
-          parse_mode: "Markdown", 
-          disable_web_page_preview: true,
-          ...tecladoAdmin
-        });
-      } catch (adminErr) {
-        console.error("⚠️ Erro ao enviar notificação de saque para o admin:", adminErr.message);
-      }
+        await bot.telegram.sendMessage(adminId, mensagemAdmin, { parse_mode: "Markdown", ...tecladoAdmin });
+      } catch (e) {}
     }
 
     await ctx.editMessageText(isEn 
-      ? `✅ **Withdrawal Confirmed Successfully!**\n\nYour request has been queued for payment.`
-      : `✅ **Saque Confirmado com Sucesso!**\n\nSeu pedido foi enfileirado para pagamento no painel!`
+      ? `✅ **Withdrawal Confirmed!**\n\nYour request is under security review and will be processed soon.`
+      : `✅ **Saque Confirmado!**\n\nSeu pedido passou pela confirmação e está em análise de segurança pela administração.`
     );
 
   } catch (err) {
