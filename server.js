@@ -3081,8 +3081,8 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     // Regras atualizadas para aprovar automático:
     // 1. Tolerância de até 5 ações extremas (< 1s) para absorver eventuais lotes de postback sem travar o usuário honesto.
     // 2. O histórico de pontos acumulados tem que cobrir o valor solicitado (integridade correta).
-    // 3. O valor do saque não pode ultrapassar o teto automático (3.00 pontos).
-    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= 3.00;
+    // 3. O valor do saque não pode ultrapassar o teto automático (0.30 pontos).
+    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= 0.30;
 
     if (passouNoFiltro) {
       // ✅ TUDO CERTO (Caminho Verde): Debita, aprova e paga direto via FaucetPay
