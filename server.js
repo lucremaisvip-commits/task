@@ -1046,25 +1046,18 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                 return res.status(200).send('Already credited');
             }
 
-            // 2. Busca a cotação USD mais recente do banco (gerenciada pelo Cron)
-            const cotacaoRes = await client.query(
-                "SELECT valor_usd FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
-            );
-
-            const valorUsdPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
-
-            // 3. Cálculo Dinâmico Baseado na Cotação Atual e Fator de Repasse (40%)
-            const pontosCalculados = (rewardAmount / valorUsdPorPonto) * percentualRepasse;
+            // 2. Cálculo Direto e Seguro (Respeitando os 40% de repasse sobre a recompensa configurada)
+            const pontosCalculados = rewardAmount * percentualRepasse;
             const pontosFinal = pontosCalculados.toFixed(8); // Compatível com colunas NUMERIC
 
-            // 4. Inserção no histórico de ganhos
+            // 3. Inserção no histórico de ganhos
             await client.query(
                 `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
                  VALUES ($1, 'moneyrain', CAST($2 AS NUMERIC), $3, $4, NOW())`,
                 [userId, pontosFinal, nomeTarefa, viewId.toString()]
             );
 
-            // 5. Atualização de Saldo do usuário
+            // 4. Atualização de Saldo do usuário
             await client.query(
                 `UPDATE usuarios 
                  SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC)
@@ -1072,10 +1065,10 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
                 [pontosFinal, userId]
             );
 
-            // 6. Integração de Nível e XP
+            // 5. Integração de Nível e XP
             const resultadoXp = await adicionarXP(userId, 5, client);
 
-            // 7. Disparo de Metas e Boosters
+            // 6. Disparo de Metas e Boosters
             const metaBatida = await verificarMetaDiaria(client, userId);
             
             let infoBooster = { liberado: false };
@@ -1084,7 +1077,7 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
             }
 
             await client.query('COMMIT');
-            console.log(`✅ MoneyRain Sucesso! Usuário ${userId} recebeu ${pontosFinal} pts (Base USD: ${valorUsdPorPonto}) | Meta: ${metaBatida}`);
+            console.log(`✅ MoneyRain Sucesso! Usuário ${userId} recebeu ${pontosFinal} pts | Meta: ${metaBatida}`);
             return res.status(200).send('OK');
 
         } catch (dbErr) {
