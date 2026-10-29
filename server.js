@@ -1178,43 +1178,60 @@ app.post("/api/abrir-bau", async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        // 1. Verifica se o baú está disponível
+        // 1. Check de consistência: Verifica se tem pelo menos 7 dias distintos com histórico de ganhos
+        const diasCheck = await client.query(`
+            SELECT COUNT(DISTINCT DATE(data_registro)) as dias_ativos
+            FROM historico_ganhos
+            WHERE telegram_id = $1
+        `, [telegram_id]);
+
+        const diasAtivos = parseInt(diasCheck.rows[0]?.dias_ativos || 0);
+
+        if (diasAtivos < 7) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ 
+                success: false, 
+                error: `Você possui apenas ${diasAtivos} dia(s) ativo(s). São necessários 7 dias cumpridos para abrir o baú.` 
+            });
+        }
+
+        // 2. Verifica se o baú está disponível E se o streak_atual é >= 7
         const checkRes = await client.query(`
-            SELECT us.bau_disponivel, u.nivel 
+            SELECT us.bau_disponivel, us.streak_atual, u.nivel 
             FROM usuarios_streaks us
             JOIN usuarios u ON us.telegram_id = u.telegram_id
             WHERE us.telegram_id = $1 FOR UPDATE
         `, [telegram_id]);
 
-        if (checkRes.rows.length === 0 || !checkRes.rows[0].bau_disponivel) {
+        if (checkRes.rows.length === 0 || !checkRes.rows[0].bau_disponivel || checkRes.rows[0].streak_atual < 7) {
             await client.query("ROLLBACK");
-            return res.status(400).json({ success: false, error: "Baú não disponível." });
+            return res.status(400).json({ success: false, error: "Baú não disponível ou requisitos de dias não preenchidos." });
         }
 
         const nivel = checkRes.rows[0].nivel;
 
-        // 2. Calcula o prêmio conforme a fórmula definida
+        // 3. Calcula o prêmio conforme a fórmula definida
         const base = 0.40;
         const fatorNivel = 0.05;
         const teto = 0.80;
         const premioPontos = Math.min(base + (nivel * fatorNivel), teto);
         const premioTickets = 2; 
 
-        // 3. Atualiza Saldo do Usuário
+        // 4. Atualiza Saldo do Usuário
         await client.query(`
             UPDATE usuarios 
             SET pontos = pontos + $1 
             WHERE telegram_id = $2
         `, [premioPontos, telegram_id]);
 
-        // 4. Insere no Histórico de Ganhos
+        // 5. Insere no Histórico de Ganhos
         await client.query(`
             INSERT INTO historico_ganhos 
             (telegram_id, origem, pontos, nome_tarefa, data_registro) 
             VALUES ($1, 'bau_semanal', $2, 'Baú de 7 Dias (Nível ' || $3 || ')', NOW())
         `, [telegram_id, premioPontos, nivel]);
 
-        // 5. Insere os 2 tickets na tabela roleta_tickets
+        // 6. Insere os 2 tickets na tabela roleta_tickets
         await client.query(`
             INSERT INTO roleta_tickets (telegram_id, usado, data_registro) 
             VALUES 
@@ -1222,7 +1239,7 @@ app.post("/api/abrir-bau", async (req, res) => {
             ($1, false, CURRENT_DATE)
         `, [telegram_id]);
 
-        // 6. Atualiza o status do baú na tabela streaks
+        // 7. Atualiza o status do baú na tabela streaks
         await client.query(`
             UPDATE usuarios_streaks 
             SET bau_disponivel = FALSE 
@@ -1246,7 +1263,6 @@ app.post("/api/abrir-bau", async (req, res) => {
         client.release();
     }
 });
-
 
 app.post("/api/limpar-aviso-reset", async (req, res) => {
     const { telegram_id } = req.body;
