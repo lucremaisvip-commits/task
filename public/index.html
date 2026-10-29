@@ -212,6 +212,47 @@
     margin-top: 10px;
     box-sizing: border-box;
   }
+
+ /* 📢 BLOCO DE PATROCÍNIO PADRONIZADO */
+  .sponsorship-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: nowrap;
+  }
+
+  .ad-card {
+    width: 110px;
+    height: 110px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+  }
+
+  .ad-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+
+  .ad-card iframe {
+    width: 300px;
+    height: 250px;
+    border: none;
+    transform: scale(0.36);
+    transform-origin: center;
+  }
+
+    
 </style>
   
 </head>
@@ -331,6 +372,31 @@
     <li>✅ <span id="vip5">...e muito mais!</span></li>
   </ul>
   <button id="btnVipGo" onclick="location.href='vip.html'" style="background: #f59e0b; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🚀 Tornar-se VIP Agora</button>
+</div>
+<div class="card" style="text-align:center;">
+  <h3 id="txtSponsorship">📢 Sponsorship</h3>
+  
+  <!-- Container Flex com os 3 cards padronizados -->
+  <div class="sponsorship-container">
+    
+    <!-- Banner 1: iPTP -->
+    <div class="ad-card">
+<a href="https://www.easyhits4u.com/?ref=chensonbh763"><img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="Traffic Exchange with 2,325,000+ members" border="0"/></a>
+    </div>
+
+    <!-- Banner 2: ZerAds -->
+    <div class="ad-card">
+      <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy" scrolling="no"></iframe>
+    </div>
+
+    <!-- Banner 3: FaucetPay -->
+    <div class="ad-card">
+      <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+        <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay">
+      </a>
+    </div>
+
+  </div>
 </div>
 
 <nav class="bottom-nav">
