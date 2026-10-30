@@ -2788,51 +2788,47 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
     const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
 
-    // 2. Agrupa o histórico excluindo testes do admin, saques E removendo a roleta/compra_tickets do loop comum para unificar depois
+    // 2. Agrupa o histórico excluindo testes do admin, saques E roleta/compra_tickets
     const historicoRes = await client.query(`
       SELECT 
         origem,
         COUNT(*) as total_acoes,
-        COALESCE(SUM(pontos), 0) as total_pontos_y
+        COALESCE(SUM(pontos::numeric), 0) as total_pontos_y
       FROM historico_ganhos
       WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets')
       GROUP BY origem
     `);
 
-    // 3. Cálculos específicos e precisos para a Roleta unificada
-    // A) Giros pagos com saldo (onde gratis = false) * 0.20 pontos
+    // 3. Cálculos para a Roleta unificada (tudo medido em pontos)
     const girosComSaldoRes = await client.query(`
       SELECT COUNT(*) as qtd_giros_saldo
       FROM roleta_giros
       WHERE gratis = false
     `);
     const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
-    const receitaGirosPontos = qtdGirosComSaldo * 0.20;
+    const receitaGirosPontos = qtdGirosComSaldo * 0.20; // Custo do giro em pontos
 
-    // B) Total gasto em compras de tickets no histórico
     const compraTicketsRes = await client.query(`
-      SELECT COALESCE(SUM(ABS(pontos)), 0) as total_compras_tickets
+      SELECT COALESCE(SUM(ABS(pontos::numeric)), 0) as total_compras_tickets
       FROM historico_ganhos
       WHERE origem = 'compra_tickets'
     `);
     const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
 
-    // C) Total de prêmios pagos aos usuários extraídos diretamente de roleta_giros (pontos_ganhos)
     const roletaGirosPremiosRes = await client.query(`
       SELECT 
         COUNT(*) as total_acoes_roleta,
-        COALESCE(SUM(pontos_ganhos), 0) as total_pago_roleta
+        COALESCE(SUM(pontos_ganhos::numeric), 0) as total_pago_roleta
       FROM roleta_giros
     `);
     const acoesRoletaTotal = parseInt(roletaGirosPremiosRes.rows[0]?.total_acoes_roleta || 0);
     const pagoRoletaPontos = parseFloat(roletaGirosPremiosRes.rows[0]?.total_pago_roleta || 0);
 
-    // Receita Gerada (X) = (Giros com saldo * 0.20) + (Total gasto em compras de tickets)
     const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
 
     const relatorio = [];
 
-    // Função de formatação com conversão dupla (USD + LTC)
+    // Função de formatação: recebe PONTOS e converte para USD e LTC usando a tabela de cotações
     const formatarValores = (pontos) => {
       const usd = pontos * cotacaoUSD;
       const ltc = pontos * cotacaoLTC;
@@ -2847,35 +2843,28 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     for (const row of historicoRes.rows) {
       let origem = row.origem;
       let acoes = parseInt(row.total_acoes);
-      let yPontos = parseFloat(row.total_pontos_y);
-      let xPontos = 0;
+      let yPontos = parseFloat(row.total_pontos_y); // Total pago em pontos
+      let xPontos = 0; // Receita gerada em pontos
 
       switch (origem) {
         case 'zerads':
         case 'moneyrain':
+        case 'tarefa':
+        case 'anuncio_extra':
+          // Modelo de repasse de 40%: Se o usuário recebeu Y, a receita gerada X é Y / 0.40
           xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
           break;
 
-        case 'tarefa':
-          xPontos = acoes * (0.001 / cotacaoUSD);
-          break;
-
-        case 'anuncio_extra':
-          xPontos = acoes * (0.00391 / cotacaoUSD);
-          break;
-
         case 'indicacao':
-          const indicacaoRealRes = await client.query(`
-            SELECT COUNT(*) as total FROM historico_ganhos 
-            WHERE origem = 'indicacao' AND referencia_id != '1677694125'
-          `);
-          acoes = parseInt(indicacaoRealRes.rows[0]?.total || acoes);
-          yPontos = acoes * 0.40;
-          xPontos = acoes * (0.003 / cotacaoUSD);
+          // Exemplo de repasse fixo por indicação
+          xPontos = yPontos * 1.25; // Exemplo de margem base
           break;
 
         case 'booster_entrada':
         case 'bau_semanal':
+        case 'correcao':
+        case 'bonus_indicado':
+          // Bônus ou correções puras não geram receita externa direta (X = 0 ou X = Y)
           xPontos = 0;
           break;
 
@@ -2893,7 +2882,7 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
       });
     }
 
-    // Adiciona APENAS UMA linha unificada da Roleta ao relatório final
+    // Adiciona a Roleta unificada ao relatório
     relatorio.push({
       origem: 'roleta',
       acoes: acoesRoletaTotal,
