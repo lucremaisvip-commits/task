@@ -2788,7 +2788,7 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
     const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
     const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
 
-    // 2. Agrupa o histórico excluindo testes do admin, saques E roleta/compra_tickets
+    // 2. Agrupa o histórico do banco
     const historicoRes = await client.query(`
       SELECT 
         origem,
@@ -2799,36 +2799,29 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
       GROUP BY origem
     `);
 
-    // 3. Cálculos para a Roleta unificada (tudo medido em pontos)
+    // 3. Cálculos da Roleta unificada
     const girosComSaldoRes = await client.query(`
-      SELECT COUNT(*) as qtd_giros_saldo
-      FROM roleta_giros
-      WHERE gratis = false
+      SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false
     `);
     const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
-    const receitaGirosPontos = qtdGirosComSaldo * 0.20; // Custo do giro em pontos
+    const receitaGirosPontos = qtdGirosComSaldo * 0.20;
 
     const compraTicketsRes = await client.query(`
       SELECT COALESCE(SUM(ABS(pontos::numeric)), 0) as total_compras_tickets
-      FROM historico_ganhos
-      WHERE origem = 'compra_tickets'
+      FROM historico_ganhos WHERE origem = 'compra_tickets'
     `);
     const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
 
     const roletaGirosPremiosRes = await client.query(`
-      SELECT 
-        COUNT(*) as total_acoes_roleta,
-        COALESCE(SUM(pontos_ganhos::numeric), 0) as total_pago_roleta
+      SELECT COUNT(*) as total_acoes_roleta, COALESCE(SUM(pontos_ganhos::numeric), 0) as total_pago_roleta
       FROM roleta_giros
     `);
     const acoesRoletaTotal = parseInt(roletaGirosPremiosRes.rows[0]?.total_acoes_roleta || 0);
     const pagoRoletaPontos = parseFloat(roletaGirosPremiosRes.rows[0]?.total_pago_roleta || 0);
-
     const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
 
     const relatorio = [];
 
-    // Função de formatação: recebe PONTOS e converte para USD e LTC usando a tabela de cotações
     const formatarValores = (pontos) => {
       const usd = pontos * cotacaoUSD;
       const ltc = pontos * cotacaoLTC;
@@ -2839,33 +2832,29 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
       };
     };
 
-    // Processa as demais origens comuns do histórico
+    // Processa cada origem do histórico
     for (const row of historicoRes.rows) {
-      let origem = row.origem;
-      let acoes = parseInt(row.total_acoes);
-      let yPontos = parseFloat(row.total_pontos_y); // Total pago em pontos
-      let xPontos = 0; // Receita gerada em pontos
+      const origem = row.origem;
+      const numAcoes = parseInt(row.total_acoes);       // Quantidade exata de ações (COUNT)
+      const yPontos = parseFloat(row.total_pontos_y);  // Total pago ao usuário em pontos (Y)
+      let xPontos = 0;                                 // Receita gerada em pontos (X)
 
       switch (origem) {
         case 'zerads':
         case 'moneyrain':
         case 'tarefa':
         case 'anuncio_extra':
-          // Modelo de repasse de 40%: Se o usuário recebeu Y, a receita gerada X é Y / 0.40
+          // Se o usuário ganha 40% (Y), a receita bruta gerada (X) é Y / 0.40
           xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
           break;
 
         case 'indicacao':
-          // Exemplo de repasse fixo por indicação
-          xPontos = yPontos * 1.25; // Exemplo de margem base
-          break;
-
+        case 'bonus_indicado':
         case 'booster_entrada':
         case 'bau_semanal':
         case 'correcao':
-        case 'bonus_indicado':
-          // Bônus ou correções puras não geram receita externa direta (X = 0 ou X = Y)
-          xPontos = 0;
+          // Bonificações e correções não geram receita externa direta (X = 0 ou X acompanha Y se for estorno)
+          xPontos = origem === 'correcao' ? yPontos : 0;
           break;
 
         default:
@@ -2875,14 +2864,14 @@ app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
 
       relatorio.push({
         origem,
-        acoes,
+        acoes: numAcoes, // Garante que exibe o número inteiro de ações
         receita_x: formatarValores(xPontos),
         pago_y: formatarValores(yPontos),
         lucro_teorico: formatarValores(xPontos - yPontos)
       });
     }
 
-    // Adiciona a Roleta unificada ao relatório
+    // Adiciona a Roleta
     relatorio.push({
       origem: 'roleta',
       acoes: acoesRoletaTotal,
