@@ -3624,19 +3624,21 @@ cron.schedule('0 15 * * *', () => {
 atualizarCotacoesAutomaticamente();
 
 // =========================================================================
-// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS (COM LIMITE E DATA DE BLOQUEIO)
+// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS (COM REATIVAÇÃO E BÔNUS)
 // =========================================================================
 
 async function dispararEngajamento(lang, tipo) {
   try {
     let query;
     if (tipo === 'inativo') {
-      // Usuários que cadastraram, não têm ganhos nas últimas 48h e NUNCA receberam a notificação de inativo
+      // Usuários que cadastraram, não têm ganhos nas últimas 48h, NUNCA receberam a notificação de inativo 
+      // e AINDA NÃO resgataram o bônus de reativação.
       query = `SELECT u.telegram_id 
                FROM usuarios u 
                WHERE u.lang = $1 
                AND (u.status_conta IS NULL OR u.status_conta = 'ativo')
                AND COALESCE(u.notif_inativo_enviada, FALSE) = FALSE
+               AND COALESCE(u.bonus_reativacao_resgatado, FALSE) = FALSE
                AND NOT EXISTS (
                  SELECT 1 FROM historico_ganhos h 
                  WHERE h.telegram_id = u.telegram_id 
@@ -3666,17 +3668,24 @@ async function dispararEngajamento(lang, tipo) {
 
     for (const u of rows) {
       const isPt = lang === 'pt';
+      
+      // Mensagem personalizada para inativos (com o bônus surpresa) e iniciantes
       const mensagem = tipo === 'inativo' 
-        ? (isPt ? "👋 Olá! São apenas 2 minutos para ganhar seus primeiros pontos no LucreMaisTask. Não perca essa chance!" : "👋 Hello! It only takes 2 minutes to earn your first points on CashTaskBot. Don't miss out!")
+        ? (isPt ? "🎁 Sentimos sua falta! Deixamos um bônus especial de **0.05 pontos** te esperando no Mini App para impulsionar seu saldo. Resgate agora antes que expire!" : "🎁 We missed you! We left a special bonus of **0.05 points** waiting for you in the Mini App to boost your balance. Claim it now before it expires!")
         : (isPt ? "🚀 Você está indo bem! Faltam poucas tarefas para seu bônus de consistência. Volte agora e garanta seus pontos!" : "🚀 You're doing great! Only a few tasks left for your consistency bonus. Come back now and secure your points!");
 
-      const btnText = isPt ? "📲 Fazer Tarefas Agora" : "📲 Complete Tasks Now";
+      // Se for inativo, joga direto para a página de reativação. Senão, vai para as tarefas normais.
+      const urlDestino = tipo === 'inativo' ? 'reativacao.html' : 'tarefas.html';
+      const btnText = isPt 
+        ? (tipo === 'inativo' ? "🎁 Resgatar Bônus Agora" : "📲 Fazer Tarefas Agora") 
+        : (tipo === 'inativo' ? "🎁 Claim Bonus Now" : "📲 Complete Tasks Now");
 
       try {
         await bot.telegram.sendMessage(u.telegram_id, mensagem, {
+          parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
-              { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/tarefas.html?id=${u.telegram_id}&lang=${lang}` } }
+              { text: btnText, web_app: { url: `${process.env.APP_DOMAIN}/${urlDestino}?id=${u.telegram_id}&lang=${lang}` } }
             ]]
           }
         });
