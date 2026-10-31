@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- SDK Monetag Nativo -->
+<script src='//libtl.com/sdk.js' data-zone='11315704' data-sdk='show_11315704'></script>  
+<title id="pageTitle">🎁 Bônus de Retorno</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<style>
+  body { 
+    font-family: 'Segoe UI', sans-serif; 
+    background: #0f172a; 
+    color: #f1f5f9; 
+    text-align: center; 
+    padding: 20px; 
+    padding-bottom: 100px; /* Espaço para o menu inferior fixo */
+    margin: 0; 
+  }
+
+  /* MENU INFERIOR FIXO */
+  .bottom-nav { 
+    position: fixed; 
+    bottom: 0; 
+    left: 0; 
+    width: 100%; 
+    background: #111; 
+    display: flex; 
+    justify-content: space-around; 
+    padding: 10px 0; 
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.3); 
+    z-index: 9999; 
+  }
+  .bottom-nav a { 
+    color: #aaa; 
+    text-decoration: none; 
+    font-size: 11px; 
+    text-align: center; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 4px; 
+    width: 20%; 
+  }
+  .bottom-nav a.active { color: #00ff88; }
+  .bottom-nav a span { font-size: 18px; }
+
+  .card { 
+    background: linear-gradient(135deg, #1e293b, #0f172a); 
+    padding: 25px; 
+    margin: 40px auto; 
+    max-width: 400px; 
+    border-radius: 16px; 
+    border: 1px solid #3b82f6; 
+    box-shadow: 0 8px 16px rgba(0,0,0,0.4); 
+    text-align: center; 
+  }
+  h1 { color: #38bdf8; margin-bottom: 10px; }
+  p { color: #94a3b8; font-size: 14px; line-height: 1.5; }
+  button { 
+    padding: 14px; 
+    border: none; 
+    border-radius: 10px; 
+    cursor: pointer; 
+    font-weight: bold; 
+    width: 100%; 
+    margin-top: 20px; 
+    font-size: 15px; 
+    background: #00ff88; 
+    color: #000; 
+    transition: opacity 0.3s; 
+  }
+  button:active { opacity: 0.8; }
+  button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
+  #statusMsg { margin-top: 15px; font-weight: bold; font-size: 14px; }
+</style>
+</head>
+
+<body>
+
+  <!-- MENU INFERIOR FIXO -->
+  <nav class="bottom-nav">
+    <a href="index.html" id="navHome"><span>🏠</span><span class="txt-nav">Home</span></a>
+    <a href="tarefas.html" id="navTasks"><span>🚀</span><span class="txt-nav">Tasks</span></a>
+    <a href="indicacoes.html" id="navInvites"><span>👥</span><span class="txt-nav">Invites</span></a>
+    <a href="tarefas-externas.html" id="navOfferwalls"><span>🧩</span><span class="txt-nav">Offerwalls</span></a>
+    <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
+  </nav>
+
+  <div class="card">
+    <h1 id="tituloCard">🎁 Bônus Surpresa!</h1>
+    <p id="descCard">Sentimos sua falta! Preparamos um bônus especial de <strong>0.05 pontos</strong> para impulsionar seu saldo de volta. Assista ao vídeo rápido abaixo para desbloquear instantaneamente!</p>
+    
+    <button id="btnResgatar" onclick="resgatarBonusReativacao()">
+      📺 Assistir Anúncio & Resgatar (+0.05 Pts)
+    </button>
+    
+    <div id="statusMsg"></div>
+  </div>
+
+<script>
+let telegram_id = "";
+let userLang = "en";
+
+// Dicionário de Idiomas
+const linguagens = {
+  pt: {
+    title: "🎁 Bônus de Retorno",
+    tituloCard: "🎁 Bônus de Retorno!",
+    descCard: "Sentimos sua falta! Preparamos um bônus especial de <strong>0.05 pontos</strong> para impulsionar seu saldo de volta. Assista ao anúncio rápido abaixo para desbloquear instantaneamente!",
+    btnResgatar: "📺 Assistir Anúncio & Resgatar (+0.05 Pts)",
+    sdkError: "O carregador de anúncios ainda está inicializando. Tente novamente em instantes.",
+    sucesso: "🎉 Bônus resgatado com sucesso! Redirecionando...",
+    jaResgatado: "⚠️ Você já resgatou este bônus anteriormente!",
+    erroGeral: "Erro ao processar o resgate. Tente novamente.",
+    navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque"
+  },
+  en: {
+    title: "🎁 Return Bonus",
+    tituloCard: "🎁 Return Bonus!",
+    descCard: "We missed you! We prepared a special bonus of <strong>0.05 points</strong> to boost your balance back. Watch the quick ad below to unlock it instantly!",
+    btnResgatar: "📺 Watch Ad & Claim (+0.05 Pts)",
+    sdkError: "Ad loader is still initializing. Please try again in a moment.",
+    sucesso: "🎉 Bonus successfully claimed! Redirecting...",
+    jaResgatado: "⚠️ You have already claimed this bonus!",
+    erroGeral: "Error processing claim. Please try again.",
+    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw"
+  }
+};
+
+document.addEventListener("DOMContentLoaded", () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
+  userLang = urlParams.get("lang") === "pt" ? "pt" : "en";
+  
+  if (telegram_id) {
+    localStorage.setItem("telegram_id", telegram_id);
+  }
+
+  document.documentElement.lang = userLang;
+  const t = linguagens[userLang];
+
+  document.getElementById("pageTitle").innerText = t.title;
+  document.getElementById("tituloCard").innerText = t.tituloCard;
+  document.getElementById("descCard").innerHTML = t.descCard;
+  document.getElementById("btnResgatar").innerText = t.btnResgatar;
+
+  // Atualiza os textos do menu inferior
+  document.querySelector("#navHome .txt-nav").innerText = t.navHome;
+  document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
+  document.querySelector("#navInvites .txt-nav").innerText = t.navInvites;
+  document.querySelector("#navOfferwalls .txt-nav").innerText = t.navOfferwalls;
+  document.querySelector("#navWithdraw .txt-nav").innerText = t.navWithdraw;
+
+  // Injeta o ID e o Idioma em todos os links do menu para manter a sessão ativa
+  document.querySelectorAll(".bottom-nav a").forEach(link => {
+    let currentHref = link.getAttribute("href");
+    if (currentHref) {
+      let baseHref = currentHref.split("?")[0];
+      link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+    }
+  });
+
+  if (!telegram_id) {
+    document.body.innerHTML = `<div style="color: #ff4444; padding: 50px;"><h2>❌ Acesso Negado</h2><p>Abra através do Telegram.</p></div>`;
+  }
+});
+
+async function resgatarBonusReativacao() {
+  const t = linguagens[userLang];
+  const btn = document.getElementById("btnResgatar");
+  const msg = document.getElementById("statusMsg");
+
+  if (typeof show_11315704 !== "function") {
+    alert(t.sdkError);
+    return;
+  }
+
+  btn.disabled>true; // corrigido para btn.disabled = true abaixo
+  btn.disabled = true;
+  msg.style.color = "#94a3b8";
+  msg.innerText = "Carregando anúncio...";
+
+  try {
+    // 1. Exibe o anúncio do Monetag
+    await show_11315704();
+
+    msg.innerText = "Processando bônus...";
+
+    // 2. Chama a API no backend para creditar com segurança
+    const res = await fetch("/api/resgatar-bonus-reativacao", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telegram_id })
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.sucesso) {
+      msg.style.color = "#00ff88";
+      msg.innerText = t.sucesso;
+      setTimeout(() => {
+        window.location.href = `index.html?id=${telegram_id}&lang=${userLang}`;
+      }, 2000);
+    } else {
+      msg.style.color = "#ff4444";
+      msg.innerText = data.erro || t.jaResgatado;
+      btn.disabled = false;
+    }
+
+  } catch (err) {
+    console.log("Anúncio cancelado ou falhou:", err);
+    msg.style.color = "#ff4444";
+    msg.innerText = "Anúncio cancelado ou indisponível. Tente novamente.";
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
