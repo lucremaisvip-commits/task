@@ -2441,7 +2441,7 @@ app.delete("/admin/anuncio/:id", verificarAdmin, async (req, res) => {
 // =========================================================================
 
 // Listar campanhas pendentes para moderação
-app.post("/admin/campanhas-pendentes", async (req, res) => {
+app.get("/admin/campanhas-pendentes", async (req, res) => {
   const adminKey = req.headers["x-admin-key"];
   if (adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ erro: "Não autorizado" });
