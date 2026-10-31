@@ -84,6 +84,15 @@
     margin-left: 5px;
   }
 
+  .badge-usuario {
+    background: #0284c7;
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 5px;
+  }
+
   /* BOTÕES */
   button { 
     padding: 12px; 
@@ -99,6 +108,20 @@
   .tarefa button { background: #3b82f6; color: white; }
   .tarefa.vip-task button { background: #ffd700; color: #000; }
   button:active { opacity: 0.8; }
+
+  /* INPUTS E FORMULÁRIOS */
+  input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #fff;
+    box-sizing: border-box;
+    font-size: 13px;
+  }
 
   /* CARDS E INFO */
   .card, .ads-box, .banner-box { 
@@ -149,6 +172,32 @@
   <button onclick="assistirAnuncioExtra()" style="background: #3b82f6; color: white;" id="extraBtn">
     📺 Watch Extra Ad
   </button>
+</div>
+
+<!-- 🚀 NOVO CARD: CRIAR TAREFA COM PONTOS -->
+<div class="card" style="border: 1px dashed #00ff88; max-width: 400px; margin: 20px auto; text-align: left;">
+  <h3 id="createTaskHeader" style="margin-top: 0; color: #00ff88; text-align: center;">📢 Create Your Task</h3>
+  <p id="createTaskDesc" style="font-size: 13px; color: #94a3b8; margin-bottom: 15px; text-align: center;">
+    Use your points to promote your link or channel within the bot rotation!
+  </p>
+
+  <label id="lblTaskTitle" style="font-size: 12px; color: #94a3b8;">Task Title:</label>
+  <input type="text" id="inputTaskTitle" placeholder="Ex: Join my Telegram Channel" />
+
+  <label id="lblTaskLink" style="font-size: 12px; color: #94a3b8;">Task Link:</label>
+  <input type="text" id="inputTaskLink" placeholder="Ex: https://t.me/your_channel" />
+
+  <label id="lblTaskPkg" style="font-size: 12px; color: #94a3b8;">Package:</label>
+  <select id="selectTaskPkg">
+    <option value="10">10 Clicks - Cost: 0.20 Points</option>
+    <option value="25">25 Clicks - Cost: 0.45 Points</option>
+    <option value="50">50 Clicks - Cost: 0.85 Points</option>
+  </select>
+
+  <button onclick="criarCampanhaUsuario()" style="background: #00ff88; color: #000; font-weight: bold;" id="btnCreateTask">
+    ⚡ Create Task (Starts at 21:00 BRT)
+  </button>
+  <div id="statusCriacao" style="margin-top: 10px; font-size: 12px; text-align: center; font-weight: bold;"></div>
 </div>
 
 </body>
@@ -214,12 +263,24 @@ const linguagens = {
     initTaskError: "Erro ao iniciar tarefa",
     execTaskError: "Erro ao executar tarefa",
     vipBadge: "✨ VIP",
+    userBadge: "👤 Usuário",
     extraTitle: "🔥 Anúncios Extras",
     extraDesc: "Suas tarefas diárias acabaram? Assista a um anúncio em vídeo e ganhe micropontos agora! (Limite: 10 por dia)",
     extraBtn: "📺 Assistir Anúncio Extra (+0.02 Pontos)",
     sdkError: "O carregador de anúncios ainda está inicializando. Tente novamente em instantes.",
     extraSuccess: "🎉 Anúncio concluído! +0.02 pontos adicionados.",
-    extraFail: "Erro ao creditar pontos do anúncio."
+    extraFail: "Erro ao creditar pontos do anúncio.",
+    createTaskHeader: "📢 Crie sua Própria Tarefa",
+    createTaskDesc: "Use seus pontos para promover seu link ou canal dentro da rotação do bot!",
+    lblTaskTitle: "Título da Tarefa:",
+    lblTaskLink: "Link de Destino:",
+    lblTaskPkg: "Pacote de Cliques:",
+    btnCreateTask: "⚡ Criar Tarefa (Inicia às 21:00h BRT)",
+    pkg10: "10 Cliques - Custo: 0.20 Pontos",
+    pkg25: "25 Cliques - Custo: 0.45 Pontos",
+    pkg50: "50 Cliques - Custo: 0.85 Pontos",
+    errFillAll: "Preencha o título e o link!",
+    successCamp: "✅ Campanha criada com sucesso! Ela entrará no ar após a moderação às 21h."
   },
   en: {
     title: "✅ Tasks",
@@ -238,12 +299,24 @@ const linguagens = {
     initTaskError: "Error starting task",
     execTaskError: "Error executing task",
     vipBadge: "✨ VIP",
+    userBadge: "👤 User",
     extraTitle: "🔥 Extra Ads",
     extraDesc: "Your daily tasks are complete? Watch a video ad and earn micropoints right now! (Limit: 10 per day)",
     extraBtn: "📺 Watch Extra Ad (+0.02 Points)",
     sdkError: "Ad loader is still initializing. Please try again in a moment.",
     extraSuccess: "🎉 Ad completed! +0.02 points added.",
-    extraFail: "Error crediting ad points."
+    extraFail: "Error crediting ad points.",
+    createTaskHeader: "📢 Create Your Task",
+    createTaskDesc: "Use your points to promote your link or channel within the bot rotation!",
+    lblTaskTitle: "Task Title:",
+    lblTaskLink: "Destination Link:",
+    lblTaskPkg: "Click Package:",
+    btnCreateTask: "⚡ Create Task (Starts at 21:00 BRT)",
+    pkg10: "10 Clicks - Cost: 0.20 Points",
+    pkg25: "25 Clicks - Cost: 0.45 Points",
+    pkg50: "50 Clicks - Cost: 0.85 Points",
+    errFillAll: "Please fill in the title and link!",
+    successCamp: "✅ Campaign created successfully! It will go live after moderation at 21:00."
   }
 };
   
@@ -265,10 +338,23 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("info").innerText = t.loading;
   document.getElementById("tarefas").innerText = t.loading;
 
-  // Textos do Card Extra traduzidos
+  // Tradução do Card Extra
   document.getElementById("extraTitle").innerText = t.extraTitle;
   document.getElementById("extraDesc").innerText = t.extraDesc;
   document.getElementById("extraBtn").innerText = t.extraBtn;
+
+  // Tradução do Card de Criar Tarefa
+  document.getElementById("createTaskHeader").innerText = t.createTaskHeader;
+  document.getElementById("createTaskDesc").innerText = t.createTaskDesc;
+  document.getElementById("lblTaskTitle").innerText = t.lblTaskTitle;
+  document.getElementById("lblTaskLink").innerText = t.lblTaskLink;
+  document.getElementById("lblTaskPkg").innerText = t.lblTaskPkg;
+  document.getElementById("btnCreateTask").innerText = t.btnCreateTask;
+
+  const selectPkg = document.getElementById("selectTaskPkg");
+  selectPkg.options[0].text = t.pkg10;
+  selectPkg.options[1].text = t.pkg25;
+  selectPkg.options[2].text = t.pkg50;
 
   document.querySelector("#navHome .txt-nav").innerText = t.navHome;
   document.querySelector("#navTasks .txt-nav").innerText = t.navTasks;
@@ -292,7 +378,7 @@ document.addEventListener("DOMContentLoaded", () => {
   carregarTarefas();
 });
 
-// 📥 CARREGAR TAREFAS DINÂMICAS (APENAS 1 GRUPO)
+// 📥 CARREGAR TAREFAS DINÂMICAS (COMUNS E CRIADAS POR USUÁRIOS)
 async function carregarTarefas() {
   const container = document.getElementById("tarefas");
   const cardExtra = document.getElementById("extraAdsCard");
@@ -313,20 +399,17 @@ async function carregarTarefas() {
 
     container.innerHTML = "";
 
-    // 1. Identifica o grupo ativo (Retornado da API ou calculado pelo dia da semana: 1 a 7)
     const grupoAtivo = data.grupo_ativo || (new Date().getDay() + 1);
 
-    // 2. Filtra apenas as tarefas não concluídas pertencentes EXCLUSIVAMENTE ao grupo ativo
     let lista = data.tarefas.filter(task => {
       if (task.concluida) return false;
-      // Se a tarefa tiver grupo_rotacao definido, só exibe se for igual ao grupo ativo
       if (task.grupo_rotacao) return Number(task.grupo_rotacao) === Number(grupoAtivo);
-      return true; // Se não tiver grupo específico, mantém visível
+      return true;
     });
 
     if (lista.length === 0) {
       container.innerHTML = t.noTasks;
-      cardExtra.style.display = "block"; // Exibe card de anúncios extras ao terminar o grupo
+      cardExtra.style.display = "block";
       return;
     } else {
       cardExtra.style.display = "none";
@@ -344,10 +427,11 @@ async function carregarTarefas() {
       const el = document.createElement("div");
       el.className = task.is_vip ? "tarefa vip-task" : "tarefa";
       const grupoRotacao = task.grupo_rotacao ? ` <span class="badge-grupo">Grupo ${task.grupo_rotacao}</span>` : '';
+      const badgeUsuario = task.criado_por_usuario ? ` <span class="badge-usuario">${t.userBadge}</span>` : '';
 
       el.innerHTML = `
         ${task.is_vip ? `<span class="badge-vip">${t.vipBadge}</span>` : ''}
-        <strong>${formatarTitulo(task.titulo, userLang)}</strong>${grupoRotacao}<br>
+        <strong>${formatarTitulo(task.titulo, userLang)}</strong>${grupoRotacao}${badgeUsuario}<br>
         ⭐ ${task.pontos} ${t.pointsWord}<br>
         <button onclick="executarTarefa('${encodeURIComponent(task.link)}', ${task.id})">
           ${usuarioVip ? t.btnVipTask : t.btnRegularTask}
@@ -445,6 +529,46 @@ async function assistirAnuncioExtra() {
     });
   } catch (err) {
     alert(t.extraFail);
+  }
+}
+
+// 🚀 CRIAR CAMPANHA DE TAREFA POR PONTOS
+async function criarCampanhaUsuario() {
+  const t = linguagens[userLang];
+  const titulo = document.getElementById("inputTaskTitle").value.trim();
+  const link = document.getElementById("inputTaskLink").value.trim();
+  const cliques = document.getElementById("selectTaskPkg").value;
+  const statusEl = document.getElementById("statusCriacao");
+
+  if (!titulo || !link) {
+    alert(t.errFillAll);
+    return;
+  }
+
+  statusEl.style.color = "#ff9f43";
+  statusEl.innerText = userLang === "pt" ? "Processando campanha..." : "Processing campaign...";
+
+  try {
+    const res = await requisicaoSegura("/api/criar-campanha-usuario", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telegram_id, titulo, link, cliques_totais: cliques, lang: userLang })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      statusEl.style.color = "#00ff88";
+      statusEl.innerText = data.mensagem || t.successCamp;
+      document.getElementById("inputTaskTitle").value = "";
+      document.getElementById("inputTaskLink").value = "";
+    } else {
+      statusEl.style.color = "#ef4444";
+      statusEl.innerText = "❌ " + (data.error || "Error");
+    }
+  } catch (err) {
+    statusEl.style.color = "#ef4444";
+    statusEl.innerText = "❌ Connection error.";
   }
 }
 </script>  
