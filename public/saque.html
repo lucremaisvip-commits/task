@@ -48,7 +48,7 @@
       <div class="saldo-LTC" id="valorLTC">Carregando...</div>
     </div>
     <input type="email" id="emailFaucet" placeholder="E-mail da FaucetPay" />
-    <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tem FaucetPay? Clique aqui.</a>
+    <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tiene FaucetPay? Clique aqui.</a>
     <button id="btnSacar" onclick="solicitarSaque()">Solicitar Saque</button>
     <button id="btnDuvidas" onclick="alert(t.alertaDuvida)">❓ Dúvidas sobre Saques</button>
   </div>
@@ -74,7 +74,7 @@
     const traducoes = {
       pt: { 
         titulo: "💰 Solicitar Saque", 
-        regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.", 
+        regras: "Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 0,30 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 0,15 pts.", 
         limiteDiario: "Seu limite diário atual: ",
         saques: " saques",
         comp: "Comprovante",
@@ -100,7 +100,7 @@
       },
       en: { 
         titulo: "💰 Request Withdrawal", 
-        regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.", 
+        regras: "Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 0.30 pts.<br>• <strong>VIP Users:</strong> Min 0.15 pts.", 
         limiteDiario: "Your current daily limit: ",
         saques: " withdrawals",
         comp: "Receipt",
@@ -170,11 +170,11 @@
                 document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
                 window.isVip = userData.data.vip === true;
 
-                // EXIBE LIMITE DINÂMICO BASEADO NO NÍVEL DO USUÁRIO
+                // EXIBE LIMITE DINÂMICO BASEADO NO NÍVEL DO USUÁRIO E REGRAS DE SAQUE ATUALIZADAS
                 const limite = TABELA_NIVEIS[nivel]?.limite_saque || 1;
                 const txtRegrasBase = lang === "pt" 
-                    ? `Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 2,02802 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 1,01401 pts.`
-                    : `Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 2.02802 pts.<br>• <strong>VIP Users:</strong> Min 1.01401 pts.`;
+                    ? `Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 0,30 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 0,15 pts.`
+                    : `Withdrawal rules via FaucetPay:<br>• <strong>Standard Users:</strong> Min 0.30 pts.<br>• <strong>VIP Users:</strong> Min 0.15 pts.`;
                 
                 document.getElementById("txtRegras").innerHTML = `${txtRegrasBase}<br><strong>• ${t.limiteDiario}${limite}${t.saques}</strong>`;
 
@@ -230,7 +230,8 @@
         if (!email) return alert(t.alEmail);
         if (!emailRegex.test(email)) return alert(lang === 'pt' ? "E-mail inválido!" : "Invalid email format!");
 
-        const limite = window.isVip ? 1.01401 : 2.02802;
+        // 🎯 Atualizado: Mínimo de 0.15 para VIP e 0.30 para Usuários Padrão
+        const limite = window.isVip ? 0.15 : 0.30;
         if (saldoUsuario < limite) return alert(t.alMin);
 
         if (!telegram_id) {
