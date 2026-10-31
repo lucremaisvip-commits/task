@@ -1852,7 +1852,8 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     // liberamos o saque de qualquer valor (teste imediato).
     const éPrimeiroSaqueMoneyRain = (parseInt(total_saques_anteriores) === 0 && parseInt(total_moneyrain) >= 1);
 
-    const pontosMinimos = vip ? 1.01401 : 2.02802;
+    // 🎯 Ajustado: VIP saca a partir de 0.15 pontos e Usuários Padrão a partir de 0.30 pontos
+    const pontosMinimos = vip ? 0.15 : 0.30;
 
     // Se não for o primeiro saque de teste elegível, aplica a regra padrão de pontos mínimos
     if (!éPrimeiroSaqueMoneyRain && pontos < pontosMinimos) {
