@@ -26,6 +26,26 @@
     #btnDuvidas { background: #334155; color: white; margin-top: 15px; }
     .historico-lista { list-style: none; padding: 0; margin-top: 10px; color: #94a3b8; font-size: 14px; }
     .historico-lista li { background: #0f172a; padding: 10px; border-radius: 6px; margin-bottom: 5px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* 🎯 Ajustes de centralização e espaçamento do Banner FaucetPay */
+    .ad-item { 
+      width: 300px; 
+      height: 250px; 
+      overflow: hidden; 
+      border-radius: 8px; 
+      background: #fff; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+      margin: 20px auto 5px auto; /* Centraliza horizontalmente e dá respiro nas pontas */
+    }
+    .ad-item iframe, .ad-item img { 
+      width: 300px !important; 
+      height: 250px !important; 
+      object-fit: cover; 
+      border: none; 
+    }
   </style>
 </head>
 <body>
@@ -48,9 +68,16 @@
       <div class="saldo-LTC" id="valorLTC">Carregando...</div>
     </div>
     <input type="email" id="emailFaucet" placeholder="E-mail da FaucetPay" />
-    <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tiene FaucetPay? Clique aqui.</a>
+    <a href="https://faucetpay.io/?r=998373" class="link-faucet" id="txtLink">Não tem FaucetPay? Clique aqui.</a>
     <button id="btnSacar" onclick="solicitarSaque()">Solicitar Saque</button>
     <button id="btnDuvidas" onclick="alert(t.alertaDuvida)">❓ Dúvidas sobre Saques</button>
+
+    <!-- Banner FaucetPay centralizado e espaçado -->
+    <div class="ad-item">
+      <a href="https://faucetpay.io/?r=998373" target="_blank">
+        <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay" />
+      </a>
+    </div>
   </div>
 
   <div class="card">
@@ -58,7 +85,7 @@
     <ul class="historico-lista"><li>Carregando...</li></ul>
   </div>
 
-<script>
+  <script>
     const urlParams = new URLSearchParams(window.location.search);
     const lang = urlParams.get("lang") === "en" ? "en" : "pt";
     const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
@@ -97,7 +124,6 @@
         alErro: "❌ Erro: ", 
         alertaDuvida: "Processamento em até 24 horas.",
         menu: ["Início", "Tarefas", "Indicações", "Externas", "Saque"],
-        // Mensagens de erro bilíngues alinhadas com as travas do backend
         erroPendente: "Você já possui um pedido de saque pendente. Conclua ou cancele o anterior antes de solicitar um novo.",
         erroLimite: "Limite diário de saques atingido.",
         erroMin: "Pontos insuficientes para realizar o saque.",
@@ -129,7 +155,6 @@
         alErro: "❌ Error: ", 
         alertaDuvida: "Processing within 24 hours.",
         menu: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"],
-        // Error messages in English
         erroPendente: "You already have a pending withdrawal request. Complete or cancel it before requesting a new one.",
         erroLimite: "Daily withdrawal limit reached.",
         erroMin: "Insufficient points for withdrawal.",
@@ -140,7 +165,6 @@
 
     const t = traducoes[lang];
 
-    // Aplicar textos gerais
     document.getElementById("txtTitulo").innerText = t.titulo;
     document.getElementById("txtRegras").innerHTML = t.regras;
     document.getElementById("txtSaldo").innerText = t.saldo;
@@ -151,7 +175,6 @@
     document.getElementById("btnDuvidas").innerText = t.btnDuvidas;
     document.getElementById("txtHist").innerText = t.hist;
 
-    // Aplicar textos do Menu Inferior
     const menuLinks = document.querySelectorAll(".bottom-nav a span:nth-child(2)");
     t.menu.forEach((text, index) => {
         if (menuLinks[index]) {
@@ -182,7 +205,6 @@
                 document.querySelector(".saldo-valor").innerText = `${saldoUsuario.toFixed(8)} ${t.pts}`;
                 window.isVip = userData.data.vip === true;
 
-                // EXIBE LIMITE DINÂMICO BASEADO NO NÍVEL DO USUÁRIO E REGRAS DE SAQUE ATUALIZADAS
                 const limite = TABELA_NIVEIS[nivel]?.limite_saque || 1;
                 const txtRegrasBase = lang === "pt" 
                     ? `Regras de Saque via FaucetPay:<br>• <strong>Usuários Padrão:</strong> Mínimo 0,30 pts.<br>• <strong>Usuários VIP:</strong> Mínimo 0,15 pts.`
@@ -208,7 +230,6 @@
                         const data = s.data_solicitacao ? new Date(s.data_solicitacao).toLocaleDateString() : "N/A";
                         const pts = Number(s.pontos_solicitados || 0).toFixed(8);
                         
-                        // Tradução correta do status (tratado em minúsculas)
                         const statusKey = s.status ? s.status.toLowerCase() : 'waiting';
                         const statusTraduzido = t[statusKey] || s.status;
                         
@@ -242,7 +263,6 @@
         if (!email) return alert(t.alEmail);
         if (!emailRegex.test(email)) return alert(lang === 'pt' ? "E-mail inválido!" : "Invalid email format!");
 
-        // Validação local de saldo mínimo
         const limiteMinimo = window.isVip ? 0.15 : 0.30;
         if (saldoUsuario < limiteMinimo) return alert(t.alMin);
 
@@ -266,7 +286,6 @@
                 alert(lang === 'pt' ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque." : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal."); 
                 carregarDados(); 
             } else { 
-                // 🎯 MAPEAMENTO INTELIGENTE DE ERROS: Traduz a mensagem do servidor com base no idioma da página
                 let mensagemErroFinal = t.erroDesconhecido;
                 const servidorErro = (data.error || "").toLowerCase();
 
@@ -279,7 +298,7 @@
                 } else if (servidorErro.includes("banido") || servidorErro.includes("banned")) {
                     mensagemErroFinal = t.erroBanido;
                 } else if (data.error) {
-                    mensagemErroFinal = data.error; // Fallback caso venha outra mensagem específica
+                    mensagemErroFinal = data.error; 
                 }
 
                 alert(t.alErro + mensagemErroFinal); 
