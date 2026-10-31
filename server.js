@@ -1797,32 +1797,20 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   const { telegram_id, chave_pix } = req.body;
   
   if (!telegram_id) {
-    return res.status(401).json({ error: "Identificação do usuário ausente." });
+    return res.status(401).json({ error: "User identification missing / Identificação do usuário ausente." });
   }
 
   const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(emailLimpo)) {
-    return res.status(400).json({ error: "Formato de e-mail inválido." });
+    return res.status(400).json({ error: "Invalid email format / Formato de e-mail inválido." });
   }
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // 🔒 TRAVA ANTI-DUPLICAÇÃO: Impede novo saque se houver pendente ('Aguardando Chat' ou 'Waiting')
-    const saquePendenteRes = await client.query(
-      `SELECT id FROM saques 
-       WHERE telegram_id = $1 
-         AND status IN ('Aguardando Chat', 'Waiting')`,
-      [telegram_id]
-    );
-
-    if (saquePendenteRes.rows.length > 0) {
-      throw new Error("SAQUE_PENDENTE_EXISTENTE");
-    }
-
-    // 1. Busca dados do usuário, status e verifica se já fez pelo menos 1 MoneyRain e se já sacou antes
+    // 1. Busca dados do usuário, status e idioma para garantir mensagens corretas
     const userResult = await client.query(
       `SELECT u.pontos, u.vip, u.lang, u.status_conta, u.nivel, u.booster_usado,
               (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain') as total_moneyrain,
@@ -1838,6 +1826,18 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     const { pontos, vip, lang, nivel, total_moneyrain, total_saques_anteriores } = user;
     const isEn = lang === 'en';
 
+    // 🔒 TRAVA ANTI-DUPLICAÇÃO: Impede novo saque se houver pendente ('Aguardando Chat' ou 'Waiting')
+    const saquePendenteRes = await client.query(
+      `SELECT id FROM saques 
+       WHERE telegram_id = $1 
+         AND status IN ('Aguardando Chat', 'Waiting')`,
+      [telegram_id]
+    );
+
+    if (saquePendenteRes.rows.length > 0) {
+      throw new Error("SAQUE_PENDENTE_EXISTENTE");
+    }
+
     const limiteSaques = (typeof TABELA_NIVEIS !== 'undefined' && TABELA_NIVEIS[nivel]?.limite_saque) ? TABELA_NIVEIS[nivel].limite_saque : 1;
     const saquesHoje = await client.query(`
       SELECT COUNT(*) FROM saques 
@@ -1847,20 +1847,15 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     if (parseInt(saquesHoje.rows[0].count) >= limiteSaques) throw new Error("LIMITE_ATINGIDO");
 
     // 💡 REGRA DA MISSÃO DE ENTRADA: 
-    // Se for o primeiro saque da vida do usuário (total_saques_anteriores === 0) 
-    // E ele já tiver feito pelo menos 1 tarefa no MoneyRain (total_moneyrain >= 1), 
-    // liberamos o saque de qualquer valor (teste imediato).
     const éPrimeiroSaqueMoneyRain = (parseInt(total_saques_anteriores) === 0 && parseInt(total_moneyrain) >= 1);
 
-    // 🎯 Ajustado: VIP saca a partir de 0.15 pontos e Usuários Padrão a partir de 0.30 pontos
+    // 🎯 Mínimo de 0.15 para VIP e 0.30 para Usuários Padrão
     const pontosMinimos = vip ? 0.15 : 0.30;
 
-    // Se não for o primeiro saque de teste elegível, aplica a regra padrão de pontos mínimos
     if (!éPrimeiroSaqueMoneyRain && pontos < pontosMinimos) {
       throw new Error("PONTOS_INSUFICIENTES");
     }
 
-    // Garante que o usuário tem saldo maior que zero para sacar
     if (pontos <= 0) {
       throw new Error("PONTOS_INSUFICIENTES");
     }
@@ -1904,7 +1899,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     await client.query("ROLLBACK");
     console.error(`[ERRO SAQUE] Usuário: ${telegram_id}, Erro: ${err.message}`);
     
-    // Identifica o idioma do usuário para retornar a mensagem de erro formatada corretamente
+    // Identifica o idioma atualizado do usuário para a resposta do erro
     let isEn = false;
     try {
       const langCheck = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
@@ -1932,7 +1927,6 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     client.release();
   }
 });
-
 app.get("/api/saques", async (req, res) => {
   const { telegram_id } = req.query;
 
@@ -1955,6 +1949,8 @@ app.get("/api/saques", async (req, res) => {
     res.status(500).json({ error: "Erro ao buscar histórico de saques" });
   }
 });
+
+
 // 1. Rota para listar saques com status "Aguardando Chat"
 app.get('/api/admin/pending-withdrawals', async (req, res) => {
     const { adminKey } = req.query;
