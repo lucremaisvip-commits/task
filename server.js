@@ -846,28 +846,17 @@ app.get("/zeradsptc.php", async (req, res) => {
 
     await client.query("BEGIN");
 
-    // 2. Busca a cotação mais recente do USD/ZER do banco
+    // 2. Busca o fator de câmbio (valor_zer) mais recente da tabela cotacoes
     const cotacaoRes = await client.query(
-      "SELECT valor_usd, valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+      "SELECT valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
     );
 
-    // Pegamos o valor do ZER ou usamos uma base segura (ex: 1 ZER = ~$0.0388 USD conforme painel do ZerAds)
-    const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.010056;
+    // Se houver valor cadastrado na tabela, usa ele como multiplicador (exchange), senão usa um padrão seguro
+    const fatorExchange = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_zer) : 0.36;
     
-    // Valor de 1 Ponto em USD fixo no seu sistema (~$0.01005 USD)
-    const valorUsdPorPonto = cotacaoUSD; 
-
-    // O ZerAds paga em ZER. Vamos converter o ZER para USD (Ex: 1 ZER = $0.0388 USD) e depois para Pontos do seu bot.
-    // Ou usar a taxa de câmbio direta configurada na sua tabela de cotações.
-    const valorZerEmUSD = 0.038889; // Taxa padrão informada pelo painel do ZerAds para sua conta
-    const valorTotalUSDDoClick = valorZER * valorZerEmUSD;
-
-    // Converte USD para Pontos do usuário
-    const pontos Brutos = valorTotalUSDDoClick / valorUsdPorPonto;
-
-    // Aplica o fator de repasse de 40% para o usuário
+    // Aplicação direta do modelo do ZerAds (amount * exchange) já aplicando os 40% de repasse
     const percentualRepasse = 0.40; 
-    const pontosCalculados = pontosBrutos * percentualRepasse;
+    const pontosCalculados = (valorZER * fatorExchange) * percentualRepasse;
     
     const pontosFinal = pontosCalculados.toFixed(8);
     const xpGerado = totalClicks * 6;
@@ -905,7 +894,7 @@ app.get("/zeradsptc.php", async (req, res) => {
 
     await client.query("COMMIT");
     
-    console.log(`✅ Créditos ZerAds Corrigidos: ${pontosFinal} pts | ZER: ${valorZER} | XP: ${xpGerado} | Usuário: ${user}`);
+    console.log(`✅ Créditos ZerAds Corrigidos: ${pontosFinal} pts | ZER: ${valorZER} | Fator: ${fatorExchange} | XP: ${xpGerado} | Usuário: ${user}`);
     res.send("ok");
 
   } catch (err) {
@@ -916,6 +905,7 @@ app.get("/zeradsptc.php", async (req, res) => {
     client.release();
   }
 });
+
 // moneyrain verificar secret
 
 const SECRET = '555406b2062d06a989af47844f99b39a265860bf9a237a54';
