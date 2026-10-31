@@ -468,6 +468,119 @@ app.post("/api/concluir-tarefa", async (req, res) => {
   }
 });
 
+// =========================================================================
+// 🔹 Rota: Criar Campanha de Tarefa pelo Usuário (Bilingue PT/EN)
+// =========================================================================
+app.post("/api/criar-campanha-usuario", async (req, res) => {
+  let { telegram_id, titulo, link, cliques_totais, lang } = req.body;
+
+  telegram_id = String(telegram_id || "").trim();
+  titulo = String(titulo || "").trim();
+  link = String(link || "").trim();
+  const cliques = parseInt(cliques_totais);
+  const userLang = (lang === "pt") ? "pt" : "en";
+
+  // Dicionário de mensagens de erro/sucesso bilíngue
+  const msgs = {
+    pt: {
+      invalidData: "Dados inválidos ou incompletos.",
+      invalidPackage: "Pacote de cliques inválido.",
+      activeExists: "Você já possui uma campanha ativa ou aguardando moderação no momento.",
+      userNotFound: "Usuário não encontrado.",
+      lowBalance: (custo) => `Saldo insuficiente. Você precisa de ${custo} pontos.`,
+      success: "Campanha criada com sucesso! Ela entrará no ar após a moderação.",
+      internalError: "Erro interno ao criar campanha.",
+      historyName: (c) => `Criação de Campanha (${c} cliques)`
+    },
+    en: {
+      invalidData: "Invalid or incomplete data.",
+      invalidPackage: "Invalid click package.",
+      activeExists: "You already have an active campaign or one awaiting moderation.",
+      userNotFound: "User not found.",
+      lowBalance: (custo) => `Insufficient balance. You need ${custo} points.`,
+      success: "Campaign successfully created! It will go live after moderation.",
+      internalError: "Internal error while creating campaign.",
+      historyName: (c) => `Campaign Creation (${c} clicks)`
+    }
+  };
+
+  const t = msgs[userLang];
+
+  if (!telegram_id || !titulo || !link || isNaN(cliques)) {
+    return res.status(400).json({ success: false, error: t.invalidData });
+  }
+
+  // 📦 Tabela de preços estipulada baseada na média (10, 25 ou 50 cliques)
+  let custoTotalPontos = 0;
+  if (cliques === 10) custoTotalPontos = 0.20;
+  else if (cliques === 25) custoTotalPontos = 0.45;
+  else if (cliques === 50) custoTotalPontos = 0.85;
+  else {
+    return res.status(400).json({ success: false, error: t.invalidPackage });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 🔒 1. Verificar se o usuário já possui uma campanha ativa ou pendente (Regra: Apenas 1 por vez)
+    const activeCheck = await client.query(
+      `SELECT id FROM campanhas_usuarios WHERE telegram_id = $1 AND status IN ('pendente', 'ativa')`,
+      [telegram_id]
+    );
+
+    if (activeCheck.rows.length > 0) {
+      throw new Error(t.activeExists);
+    }
+
+    // 🔒 2. Verificar o saldo atual de pontos do usuário
+    const userRes = await client.query(
+      `SELECT pontos FROM usuarios WHERE telegram_id = $1 FOR UPDATE`,
+      [telegram_id]
+    );
+
+    if (userRes.rows.length === 0) {
+      throw new Error(t.userNotFound);
+    }
+
+    const pontosAtuais = parseFloat(userRes.rows[0].pontos || 0);
+    if (pontosAtuais < custoTotalPontos) {
+      throw new Error(t.lowBalance(custoTotalPontos));
+    }
+
+    // 💰 3. Descontar os pontos imediatamente (Queima de pontos)
+    await client.query(
+      `UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2`,
+      [custoTotalPontos, telegram_id]
+    );
+
+    // 📝 4. Inserir a campanha com status 'pendente'
+    await client.query(
+      `INSERT INTO campanhas_usuarios 
+       (telegram_id, titulo, link, cliques_totais, custo_total_pontos, status, data_inicio_agendada)
+       VALUES ($1, $2, $3, $4, $5, 'pendente', CURRENT_DATE + TIME '21:00:00')`,
+      [telegram_id, titulo, link, cliques, custoTotalPontos]
+    );
+
+    // 📜 5. Registrar no histórico de ganhos / transações
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+       VALUES ($1, 'criacao_campanha', -$2, $3, 'campanha_usuario', NOW())`,
+      [telegram_id, custoTotalPontos, t.historyName(cliques)]
+    );
+
+    await client.query("COMMIT");
+    res.json({ success: true, mensagem: t.success });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ success: false, error: err.message || t.internalError });
+  } finally {
+    client.release();
+  }
+});
+
 app.post("/api/concluir-anuncio-extra", async (req, res) => {
   let { telegram_id } = req.body;
 
@@ -2289,6 +2402,99 @@ app.delete("/admin/anuncio/:id", verificarAdmin, async (req, res) => {
 
 
 // 🔹 9. Admin - Métricas e Relatórios de Desempenho
+
+// =========================================================================
+// 🔹 Rotas Admin: Gestão de Campanhas de Usuários
+// =========================================================================
+
+// Listar campanhas pendentes para moderação
+app.post("/admin/campanhas-pendentes", async (req, res) => {
+  const adminKey = req.headers["x-admin-key"];
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ erro: "Não autorizado" });
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT c.*, u.nome as nome_criador FROM campanhas_usuarios c 
+       LEFT JOIN usuarios u ON c.telegram_id = u.telegram_id 
+       WHERE c.status = 'pendente' ORDER BY c.id ASC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ erro: "Erro ao buscar campanhas pendentes" });
+  }
+});
+
+// Aprovar ou Rejeitar Campanha
+app.post("/admin/moderar-campanha", async (req, res) => {
+  const adminKey = req.headers["x-admin-key"];
+  if (adminKey !== process.env.ADMIN_KEY) {
+    return res.status(401).json({ erro: "Não autorizado" });
+  }
+
+  let { campanha_id, acao } = req.body; // acao: 'aprovar' ou 'rejeitar'
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const campRes = await client.query(
+      `SELECT * FROM campanhas_usuarios WHERE id = $1 FOR UPDATE`,
+      [campanha_id]
+    );
+
+    if (campRes.rows.length === 0) {
+      throw new Error("Campanha não encontrada.");
+    }
+
+    const camp = campRes.rows[0];
+
+    if (acao === 'aprovar') {
+      // 1. Atualiza status da campanha para ativa
+      await client.query(
+        `UPDATE campanhas_usuarios SET status = 'ativa' WHERE id = $1`,
+        [campanha_id]
+      );
+
+      // 2. Insere na tabela oficial de tarefas para começar a rodar nas rotações (ex: Grupo 1 padrão)
+      await client.query(
+        `INSERT INTO tarefas (titulo, link, pontos, ativa, status, grupo_rotacao, is_vip)
+         VALUES ($1, $2, $3, true, 'ativo', 1, false)`,
+        [camp.titulo, camp.link, camp.pontos_por_clique]
+      );
+
+    } else if (acao === 'rejeitar') {
+      // 1. Atualiza status para rejeitada
+      await client.query(
+        `UPDATE campanhas_usuarios SET status = 'rejeitada' WHERE id = $1`,
+        [campanha_id]
+      );
+
+      // 2. Estorna/Reembolsa os pontos integrais de volta para o usuário
+      await client.query(
+        `UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2`,
+        [camp.custo_total_pontos, camp.telegram_id]
+      );
+
+      // 3. Registra estorno no histórico
+      await client.query(
+        `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+         VALUES ($1, 'estorno_campanha', $2, $3, 'campanha_rejeitada', NOW())`,
+        [camp.telegram_id, camp.custo_total_pontos, `Estorno por Campanha Rejeitada (ID: ${camp.id})`]
+      );
+    }
+
+    await client.query("COMMIT");
+    res.json({ success: true, mensagem: `Campanha ${acao}da com sucesso!` });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ success: false, erro: err.message });
+  } finally {
+    client.release();
+  }
+});
 
 // Métricas de um anúncio específico
 app.get("/api/admin/anuncio-metricas/:id", verificarAdmin, async (req, res) => {
