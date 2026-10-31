@@ -311,6 +311,9 @@ app.get("/api/tarefas", async (req, res) => {
   }
 });
 
+// =========================================================================
+// 🔹 Rota: Concluir Tarefa (Com controle automático de campanhas de usuários)
+// =========================================================================
 app.post("/api/concluir-tarefa", async (req, res) => {
   let { telegram_id, tarefa_id, token } = req.body;
 
@@ -350,7 +353,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       throw new Error("Tempo insuficiente");
     }
 
-    const tarefa = await client.query(`SELECT id, pontos, ativa FROM tarefas WHERE id = $1`, [tarefaId]);
+    const tarefa = await client.query(`SELECT id, pontos, ativa, link FROM tarefas WHERE id = $1`, [tarefaId]);
     if (tarefa.rows.length === 0 || !tarefa.rows[0].ativa) {
       throw new Error("Tarefa inválida");
     }
@@ -364,6 +367,36 @@ app.post("/api/concluir-tarefa", async (req, res) => {
     }
 
     const pontos = tarefa.rows[0].pontos;
+    const linkTarefa = tarefa.rows[0].link;
+
+    // 🚀 1. Controle automático de cliques da campanha de usuário (se houver)
+    const campanhaCheck = await client.query(
+      `SELECT id, cliques_totais, cliques_entregues FROM campanhas_usuarios WHERE link = $1 AND status = 'ativa' FOR UPDATE`,
+      [linkTarefa]
+    );
+
+    if (campanhaCheck.rows.length > 0) {
+      const camp = campanhaCheck.rows[0];
+      const novosCliquesEntregues = camp.cliques_entregues + 1;
+
+      if (novosCliquesEntregues >= camp.cliques_totais) {
+        // 🎯 Atingiu o limite de cliques! Encerra a campanha e desativa a tarefa
+        await client.query(
+          `UPDATE campanhas_usuarios SET cliques_entregues = $1, status = 'concluida' WHERE id = $2`,
+          [novosCliquesEntregues, camp.id]
+        );
+        await client.query(
+          `UPDATE tarefas SET ativa = false WHERE id = $1`,
+          [tarefaId]
+        );
+      } else {
+        // 🔄 Atualiza o progresso de cliques entregues
+        await client.query(
+          `UPDATE campanhas_usuarios SET cliques_entregues = $1 WHERE id = $2`,
+          [novosCliquesEntregues, camp.id]
+        );
+      }
+    }
 
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
@@ -386,7 +419,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     // 🔍 Busca a indicação E o idioma/nome do indicado para formatar a notificação
     const indicacaoRes = await client.query(
-      `SELECT i.*, 
+      `SELECT i*, 
               u_ind.nome as nome_indicador,
               u_do.lang as lang_indicado
        FROM indicacoes i 
