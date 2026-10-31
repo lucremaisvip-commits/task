@@ -163,11 +163,11 @@ async function secureFetch(url, options = {}) {
   return fetch(url, options);
 }
 
-// 📋 CARREGAR CAMPANHAS PENDENTES DE USUÁRIOS
+// 📋 CARREGAR CAMPANHAS PENDENTES DE USUÁRIOS (Agora via GET limpo)
 async function carregarCampanhasPendentes() {
   try {
     const res = await secureFetch("/admin/campanhas-pendentes", {
-      method: "POST"
+      method: "GET"
     });
     const data = await res.json();
     const tbody = document.querySelector("#tabelaPendentes tbody");
