@@ -58,7 +58,7 @@
     <ul class="historico-lista"><li>Carregando...</li></ul>
   </div>
 
-  <script>
+<script>
     const urlParams = new URLSearchParams(window.location.search);
     const lang = urlParams.get("lang") === "en" ? "en" : "pt";
     const telegram_id = urlParams.get("id") || window.Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem("telegram_id");
@@ -96,7 +96,13 @@
         alSucesso: "✅ Saque solicitado com sucesso!", 
         alErro: "❌ Erro: ", 
         alertaDuvida: "Processamento em até 24 horas.",
-        menu: ["Início", "Tarefas", "Indicações", "Externas", "Saque"] 
+        menu: ["Início", "Tarefas", "Indicações", "Externas", "Saque"],
+        // Mensagens de erro bilíngues alinhadas com as travas do backend
+        erroPendente: "Você já possui um pedido de saque pendente. Conclua ou cancele o anterior antes de solicitar um novo.",
+        erroLimite: "Limite diário de saques atingido.",
+        erroMin: "Pontos insuficientes para realizar o saque.",
+        erroBanido: "Sua conta está banida.",
+        erroDesconhecido: "Erro interno ao processar saque."
       },
       en: { 
         titulo: "💰 Request Withdrawal", 
@@ -122,7 +128,13 @@
         alSucesso: "✅ Withdrawal requested successfully!", 
         alErro: "❌ Error: ", 
         alertaDuvida: "Processing within 24 hours.",
-        menu: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"]
+        menu: ["Home", "Tasks", "Invites", "Offerwalls", "Withdraw"],
+        // Error messages in English
+        erroPendente: "You already have a pending withdrawal request. Complete or cancel it before requesting a new one.",
+        erroLimite: "Daily withdrawal limit reached.",
+        erroMin: "Insufficient points for withdrawal.",
+        erroBanido: "Your account has been banned.",
+        erroDesconhecido: "Internal error processing withdrawal."
       }
     };
 
@@ -152,7 +164,7 @@
 
     async function carregarDados() {
         if (!telegram_id) {
-            document.querySelector(".saldo-valor").innerText = "ID não encontrado";
+            document.querySelector(".saldo-valor").innerText = lang === 'pt' ? "ID não encontrado" : "ID not found";
             return;
         }
 
@@ -230,9 +242,9 @@
         if (!email) return alert(t.alEmail);
         if (!emailRegex.test(email)) return alert(lang === 'pt' ? "E-mail inválido!" : "Invalid email format!");
 
-        // 🎯 Atualizado: Mínimo de 0.15 para VIP e 0.30 para Usuários Padrão
-        const limite = window.isVip ? 0.15 : 0.30;
-        if (saldoUsuario < limite) return alert(t.alMin);
+        // Validação local de saldo mínimo
+        const limiteMinimo = window.isVip ? 0.15 : 0.30;
+        if (saldoUsuario < limiteMinimo) return alert(t.alMin);
 
         if (!telegram_id) {
             return alert(lang === 'pt' ? "Erro: Identificação do usuário ausente." : "Error: User identification missing.");
@@ -254,7 +266,23 @@
                 alert(lang === 'pt' ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque." : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal."); 
                 carregarDados(); 
             } else { 
-                alert(t.alErro + (data.error || "Erro desconhecido")); 
+                // 🎯 MAPEAMENTO INTELIGENTE DE ERROS: Traduz a mensagem do servidor com base no idioma da página
+                let mensagemErroFinal = t.erroDesconhecido;
+                const servidorErro = (data.error || "").toLowerCase();
+
+                if (servidorErro.includes("pendente") || servidorErro.includes("pending") || servidorErro.includes("saque_pendente")) {
+                    mensagemErroFinal = t.erroPendente;
+                } else if (servidorErro.includes("limite") || servidorErro.includes("limit")) {
+                    mensagemErroFinal = t.erroLimite;
+                } else if (servidorErro.includes("pontos") || servidorErro.includes("insuficientes") || servidorErro.includes("insufficient")) {
+                    mensagemErroFinal = t.erroMin;
+                } else if (servidorErro.includes("banido") || servidorErro.includes("banned")) {
+                    mensagemErroFinal = t.erroBanido;
+                } else if (data.error) {
+                    mensagemErroFinal = data.error; // Fallback caso venha outra mensagem específica
+                }
+
+                alert(t.alErro + mensagemErroFinal); 
             }
         } catch (e) { 
             console.error("Erro na requisição:", e);
