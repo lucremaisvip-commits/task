@@ -582,9 +582,9 @@ app.post("/api/criar-campanha-usuario", async (req, res) => {
       throw new Error(t.lowBalance(custoTotalPontos));
     }
 
-    // 💰 3. Descontar os pontos imediatamente (Queima de pontos)
+    // 💰 3. Descontar os pontos imediatamente (Com CAST explícito para evitar conflito de operadores no PG)
     await client.query(
-      `UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2`,
+      `UPDATE usuarios SET pontos = (pontos::NUMERIC - CAST($1 AS NUMERIC)) WHERE telegram_id = $2`,
       [custoTotalPontos, telegram_id]
     );
 
@@ -599,7 +599,7 @@ app.post("/api/criar-campanha-usuario", async (req, res) => {
     // 📜 5. Registrar no histórico de ganhos / transações
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-       VALUES ($1, 'criacao_campanha', -$2, $3, 'campanha_usuario', NOW())`,
+       VALUES ($1, 'criacao_campanha', CAST($2 AS NUMERIC) * -1, $3, 'campanha_usuario', NOW())`,
       [telegram_id, custoTotalPontos, t.historyName(cliques)]
     );
 
