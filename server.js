@@ -826,7 +826,7 @@ app.post("/api/roleta/comprar-tickets", async (req, res) => {
 app.get("/zeradsptc.php", async (req, res) => {
   const { pwd, user, amount, clicks } = req.query;
 
-  // 1. Validação de segurança
+  // 1. Validação de segurança rigorosa
   const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
   const realIP = rawIP.split(',')[0]?.trim();
   const allowedIP = "162.0.208.108";
@@ -840,28 +840,39 @@ app.get("/zeradsptc.php", async (req, res) => {
     const valorZER = parseFloat(amount || 0);
     const totalClicks = parseInt(clicks || 0);
 
-    if (valorZER <= 0) {
+    if (valorZER <= 0 || !user) {
       return res.send("ok");
     }
 
     await client.query("BEGIN");
 
-    // 2. Busca a cotação mais recente do banco (gerenciada pelo Cron)
+    // 2. Busca a cotação mais recente do USD/ZER do banco
     const cotacaoRes = await client.query(
-      "SELECT valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+      "SELECT valor_usd, valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
     );
 
-    const valorZerPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_zer) : 2.5;
-
-    // 3. Cálculo Dinâmico Baseado na Cotação Atual (Fator de repasse de 40%)
-    const percentualRepasse = 0.40; 
-    const pontosCalculados = (valorZER / valorZerPorPonto) * percentualRepasse;
+    // Pegamos o valor do ZER ou usamos uma base segura (ex: 1 ZER = ~$0.0388 USD conforme painel do ZerAds)
+    const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.010056;
     
-    // Formata rigorosamente para string com 8 casas decimais para casar perfeitamente com o tipo NUMERIC do PostgreSQL
+    // Valor de 1 Ponto em USD fixo no seu sistema (~$0.01005 USD)
+    const valorUsdPorPonto = cotacaoUSD; 
+
+    // O ZerAds paga em ZER. Vamos converter o ZER para USD (Ex: 1 ZER = $0.0388 USD) e depois para Pontos do seu bot.
+    // Ou usar a taxa de câmbio direta configurada na sua tabela de cotações.
+    const valorZerEmUSD = 0.038889; // Taxa padrão informada pelo painel do ZerAds para sua conta
+    const valorTotalUSDDoClick = valorZER * valorZerEmUSD;
+
+    // Converte USD para Pontos do usuário
+    const pontos Brutos = valorTotalUSDDoClick / valorUsdPorPonto;
+
+    // Aplica o fator de repasse de 40% para o usuário
+    const percentualRepasse = 0.40; 
+    const pontosCalculados = pontosBrutos * percentualRepasse;
+    
     const pontosFinal = pontosCalculados.toFixed(8);
     const xpGerado = totalClicks * 6;
 
-    // 4. Atualizar pontos do usuário de forma segura via cast para NUMERIC
+    // 3. Atualizar pontos do usuário de forma segura
     const updateResult = await client.query(
       "UPDATE usuarios SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC) WHERE telegram_id = $2",
       [pontosFinal, user]
@@ -876,7 +887,7 @@ app.get("/zeradsptc.php", async (req, res) => {
     await adicionarXP(user, xpGerado, client);
     // ---------------------------------------
 
-    // 5. Registrar no histórico unificado (historico_ganhos)
+    // 4. Registrar no histórico unificado (historico_ganhos)
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, data_registro) 
        VALUES ($1, $2, CAST($3 AS NUMERIC), $4, NOW())`,
@@ -894,7 +905,7 @@ app.get("/zeradsptc.php", async (req, res) => {
 
     await client.query("COMMIT");
     
-    console.log(`✅ Créditos ZerAds: ${pontosFinal} pts (Base ZER: ${valorZerPorPonto}) | XP: ${xpGerado} | Usuário: ${user} | Meta: ${metaBatida}`);
+    console.log(`✅ Créditos ZerAds Corrigidos: ${pontosFinal} pts | ZER: ${valorZER} | XP: ${xpGerado} | Usuário: ${user}`);
     res.send("ok");
 
   } catch (err) {
@@ -905,89 +916,6 @@ app.get("/zeradsptc.php", async (req, res) => {
     client.release();
   }
 });
-
-
-app.get("/cpalead-postback", async (req, res) => {
-  const { subid, payout, offer_id, campaign_name } = req.query;
-  
-  if (!subid) {
-    return res.status(400).send("❌ Subid ausente.");
-  }
-
-  const telegram_id = subid.replace("telegram_", "");
-
-  const client = await pool.connect();
-  try {
-    const valorPayout = parseFloat(payout || 0);
-
-    if (valorPayout <= 0) {
-      return res.status(200).send("✅ Payout zerado ignorado.");
-    }
-
-    await client.query("BEGIN");
-
-    // 1. Busca a cotação USD mais recente do banco (gerenciada pelo Cron)
-    const cotacaoRes = await client.query(
-      "SELECT valor_usd FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
-    );
-
-    // Valor base padrão caso a tabela esteja vazia (ex: 0.00909091)
-    const valorUsdPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
-
-    // 2. Cálculo Dinâmico Baseado no Payout em USD e Fator de Repasse (40%)
-    // O payout vem em dólares (ex: $0.50). Dividimos pelo valor de USD de 1 ponto e aplicamos o repasse.
-    const percentualRepasse = 0.40;
-    const pontosCalculados = (valorPayout / valorUsdPorPonto) * percentualRepasse;
-    
-    // Formata com 8 casas decimais para garantir compatibilidade perfeita com o tipo NUMERIC
-    const pontosFinal = pontosCalculados.toFixed(8);
-
-    // 3. Idempotência: Checa na historico_ganhos
-    const check = await client.query(
-      "SELECT 1 FROM historico_ganhos WHERE referencia_id = $1 AND origem = 'cpalead'", 
-      [offer_id]
-    );
-    
-    if (check.rowCount > 0) {
-      await client.query("ROLLBACK");
-      return res.status(200).send("✅ Tarefa já registrada.");
-    }
-
-    // 4. Log na tabela unificada (historico_ganhos)
-    await client.query(
-      `INSERT INTO historico_ganhos 
-      (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) 
-      VALUES ($1, 'cpalead', CAST($3 AS NUMERIC), $4, $5, NOW())`,
-      [telegram_id, 'cpalead', pontosFinal, campaign_name || 'Oferta CPALead', offer_id]
-    );
-
-    // 5. Update saldo e tarefas de forma segura via cast para NUMERIC
-    await client.query(
-      `UPDATE usuarios 
-         SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC), 
-             tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 
-         WHERE telegram_id = $2`,
-      [pontosFinal, telegram_id]
-    );
-
-    // --- CHAMADA DA FUNÇÃO DE XP E NÍVEL ---
-    await adicionarXP(telegram_id, 5, client);
-    // ---------------------------------------
-
-    await client.query("COMMIT");
-    
-    console.log(`✅ CPALead Sucesso: ${pontosFinal} pts (Base USD: ${valorUsdPorPonto}) | Usuário: ${telegram_id} | Oferta: ${offer_id}`);
-    res.status(200).send("✅ Sucesso.");
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("Erro CPALead:", err.message);
-    res.status(500).send("❌ Erro interno.");
-  } finally {
-    client.release();
-  }
-});
-
 // moneyrain verificar secret
 
 const SECRET = '555406b2062d06a989af47844f99b39a265860bf9a237a54';
