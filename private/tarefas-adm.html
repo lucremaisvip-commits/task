@@ -30,7 +30,7 @@
     <a href="anuncios-adm.html">Anúncios</a>
     <a href="historico.html">Histórico</a>
     <a href="financeiro.html">Financeiro</a>
-   <a href="notificacao.html">Notificação</a>
+    <a href="notificacao.html">Notificação</a>
   </nav>
 
   <div class="card">
@@ -41,8 +41,25 @@
     <pre id="statusChave">Nenhuma chave usada.</pre>
   </div>
 
+  <!-- ⏳ CARD DE MODERAÇÃO DE TAREFAS DOS USUÁRIOS -->
+  <div class="card" style="border: 2px dashed #f59e0b; background: #fffbeb;">
+    <h3 style="color: #d97706; margin-top: 0;">⏳ Moderação de Tarefas dos Usuários (Pendentes)</h3>
+    <p style="font-size: 13px; color: #78350f;">Aprove para mandar para a rotação (Grupo 1) ou rejeite para estornar os pontos automaticamente ao usuário.</p>
+    <button onclick="carregarCampanhasPendentes()" style="background: #d97706;">🔄 Atualizar Pendentes</button>
+    <table id="tabelaPendentes" style="margin-top: 10px;">
+      <thead>
+        <tr>
+          <th>ID</th><th>Criador (ID)</th><th>Título / Link</th><th>Cliques</th><th>Custo (Pts)</th><th>Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="6" style="text-align: center; color: #666;">Insira a chave admin para carregar.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
   <div class="card">
-    <h2>📋 Lista de Tarefas</h2>
+    <h2>📋 Lista de Tarefas Oficiais</h2>
     <button onclick="carregarTarefas()">🔄 Atualizar</button>
     <table id="tabelaTarefas">
       <thead>
@@ -55,7 +72,7 @@
   </div>
 
   <div class="card">
-    <h3>➕ Nova Tarefa</h3>
+    <h3>➕ Nova Tarefa Oficial</h3>
     <form onsubmit="criarTarefa(); return false;">
       <input type="text" id="titulo" placeholder="Título" required>
       <input type="text" id="link" placeholder="Link" required>
@@ -127,6 +144,7 @@ function usarChave() {
     document.getElementById("statusChave").textContent = "✅ Chave definida.";
     alert("🔑 Chave registrada!");
     carregarTarefas();
+    carregarCampanhasPendentes();
   } else {
     alert("❌ Digite sua chave admin!");
   }
@@ -143,6 +161,68 @@ async function secureFetch(url, options = {}) {
     "x-admin-key": chaveAdmin
   };
   return fetch(url, options);
+}
+
+// 📋 CARREGAR CAMPANHAS PENDENTES DE USUÁRIOS
+async function carregarCampanhasPendentes() {
+  try {
+    const res = await secureFetch("/admin/campanhas-pendentes", {
+      method: "POST"
+    });
+    const data = await res.json();
+    const tbody = document.querySelector("#tabelaPendentes tbody");
+    tbody.innerHTML = "";
+    
+    if (!Array.isArray(data) || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #666;">Nenhuma campanha pendente no momento.</td></tr>`;
+      return;
+    }
+
+    data.forEach(c => {
+      tbody.innerHTML += `
+        <tr>
+          <td>${c.id}</td>
+          <td><b>${c.nome_criador || 'Usuário'}</b><br><small style="color:#666;">ID: ${c.telegram_id}</small></td>
+          <td><b>${c.titulo}</b><br><a href="${c.link}" target="_blank" style="font-size:12px; color:#2563eb; word-break:break-all;">${c.link}</a></td>
+          <td>${c.cliques_totais} cliques</td>
+          <td>${c.custo_total_pontos} pts</td>
+          <td>
+            <button onclick="moderarCampanha(${c.id}, 'aprovar')" style="background:#16a34a;">✅ Aprovar</button>
+            <button onclick="moderarCampanha(${c.id}, 'rejeitar')" style="background:#dc2626;">❌ Rejeitar</button>
+          </td>
+        </tr>
+      `;
+    });
+  } catch (err) {
+    console.error("Erro ao carregar campanhas pendentes:", err);
+  }
+}
+
+// ⚖️ APROVAR OU REJEITAR CAMPANHA
+async function moderarCampanha(campanhaId, acao) {
+  const msg = acao === 'aprovar' 
+    ? "Deseja aprovar esta campanha e enviá-la para a rotação de tarefas?" 
+    : "Deseja rejeitar esta campanha? Os pontos serão estornados automaticamente para o usuário.";
+  
+  if (!confirm(msg)) return;
+
+  try {
+    const res = await secureFetch("/admin/moderar-campanha", {
+      method: "POST",
+      body: JSON.stringify({ campanha_id: campanhaId, acao: acao })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.success) {
+      alert("✅ " + data.mensagem);
+      carregarCampanhasPendentes();
+      carregarTarefas();
+    } else {
+      alert("❌ Erro: " + (data.erro || "Falha ao processar"));
+    }
+  } catch (err) {
+    alert("❌ Erro na requisição de moderação.");
+  }
 }
 
 async function carregarTarefas() {
@@ -189,7 +269,7 @@ async function desativarTarefa(id) {
   carregarTarefas();
 }
 
-async function activarTarefa(id) {
+async function ativarTarefa(id) {
   const sql = `UPDATE tarefas SET ativa = true WHERE id = ${id}`;
   await secureFetch("/admin/sql", { method: "POST", body: JSON.stringify({ sql }) });
   carregarTarefas();
@@ -273,6 +353,7 @@ async function salvarEdicao() {
 
 if (chaveAdmin) {
   carregarTarefas();
+  carregarCampanhasPendentes();
 }
 
 const params = new URLSearchParams(window.location.search);
