@@ -1810,6 +1810,18 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // 🔒 TRAVA ANTI-DUPLICAÇÃO: Impede novo saque se houver pendente ('Aguardando Chat' ou 'Waiting')
+    const saquePendenteRes = await client.query(
+      `SELECT id FROM saques 
+       WHERE telegram_id = $1 
+         AND status IN ('Aguardando Chat', 'Waiting')`,
+      [telegram_id]
+    );
+
+    if (saquePendenteRes.rows.length > 0) {
+      throw new Error("SAQUE_PENDENTE_EXISTENTE");
+    }
+
     // 1. Busca dados do usuário, status e verifica se já fez pelo menos 1 MoneyRain e se já sacou antes
     const userResult = await client.query(
       `SELECT u.pontos, u.vip, u.lang, u.status_conta, u.nivel, u.booster_usado,
@@ -1885,16 +1897,34 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
       });
     }
 
-    res.json({ success: true, message: "Verifique seu chat do Telegram para confirmar o saque." });
+    res.json({ success: true, message: isEn ? "Check your Telegram chat to confirm the withdrawal." : "Verifique seu chat do Telegram para confirmar o saque." });
 
   } catch (err) {
     await client.query("ROLLBACK");
     console.error(`[ERRO SAQUE] Usuário: ${telegram_id}, Erro: ${err.message}`);
     
-    const msg = err.message === "USUARIO_NAO_ENCONTRADO" ? "Usuário não encontrado." :
-                err.message === "LIMITE_ATINGIDO" ? "Limite diário atingido." :
-                err.message === "PONTOS_INSUFICIENTES" ? "Pontos insuficientes." :
-                "Erro interno ao processar saque.";
+    // Identifica o idioma do usuário para retornar a mensagem de erro formatada corretamente
+    let isEn = false;
+    try {
+      const langCheck = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
+      isEn = langCheck.rows[0]?.lang === 'en';
+    } catch (e) {}
+
+    let msg = isEn ? "Internal error processing withdrawal." : "Erro interno ao processar saque.";
+    
+    if (err.message === "SAQUE_PENDENTE_EXISTENTE") {
+      msg = isEn 
+        ? "You already have a pending withdrawal request. Complete or cancel it before requesting a new one." 
+        : "Você já possui um pedido de saque pendente. Conclua ou cancele o anterior antes de solicitar um novo.";
+    } else if (err.message === "USUARIO_NAO_ENCONTRADO") {
+      msg = isEn ? "User not found." : "Usuário não encontrado.";
+    } else if (err.message === "USUARIO_BANIDO") {
+      msg = isEn ? "Account banned." : "Conta banida.";
+    } else if (err.message === "LIMITE_ATINGIDO") {
+      msg = isEn ? "Daily limit reached." : "Limite diário atingido.";
+    } else if (err.message === "PONTOS_INSUFICIENTES") {
+      msg = isEn ? "Insufficient points." : "Pontos insuficientes.";
+    }
                 
     res.status(400).json({ error: msg });
   } finally {
