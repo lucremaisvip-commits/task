@@ -1080,7 +1080,73 @@ async function verificarMissaoEntrada(client, telegram_id) {
         throw error;
     }
 }
+app.post("/api/resgatar-bonus-reativacao", async (req, res) => {
+  let { telegram_id } = req.body;
 
+  telegram_id = String(telegram_id || "").trim();
+
+  if (!telegram_id) {
+    return res.status(400).json({ erro: "Dados inválidos" });
+  }
+
+  if (!checkRateLimit(telegram_id)) {
+    return res.status(429).json({ erro: "Muitas requisições. Aguarde um instante." });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 🔒 1. Verifica se o usuário existe e se já resgatou o bônus antes
+    const userRes = await client.query(
+      `SELECT bonus_reativacao_resgatado FROM usuarios WHERE telegram_id = $1`,
+      [telegram_id]
+    );
+
+    if (userRes.rows.length === 0) {
+      throw new Error("Usuário não encontrado.");
+    }
+
+    if (userRes.rows[0].bonus_reativacao_resgatado) {
+      throw new Error("Você já resgatou este bônus de reativação anteriormente!");
+    }
+
+    // 💰 2. Valor do Bônus (0.05 pontos calculados para ser seguro e atraente)
+    const bonusPontos = 0.05;
+    const xpGerado = 15;
+
+    // 📝 3. Marca como resgatado na tabela usuarios
+    await client.query(
+      `UPDATE usuarios SET bonus_reativacao_resgatado = TRUE, pontos = COALESCE(pontos, 0) + $1 WHERE telegram_id = $2`,
+      [bonusPontos, telegram_id]
+    );
+
+    // 📊 4. Registra no histórico unificado de ganhos
+    await client.query(
+      `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+       VALUES ($1, 'bonus_reativacao', $2, $3, $4, NOW())`,
+      [telegram_id, bonusPontos, "🎁 Bônus de Reativação + Monetag", "reativacao_ad"]
+    );
+
+    // ⭐ 5. Adiciona XP para movimentar o nível
+    await adicionarXP(telegram_id, xpGerado, client);
+
+    await client.query("COMMIT");
+    
+    console.log(`✅ Bônus Reativação Resgatado: +${bonusPontos} pts | Usuário: ${telegram_id}`);
+    res.json({ 
+      sucesso: true, 
+      mensagem: "🎉 Bônus de reativação resgatado com sucesso!" 
+    });
+
+  } catch (err) {
+    await client.query("ROLLBACK");
+    res.status(400).json({ erro: err.message || "Erro interno ao processar bônus." });
+  } finally {
+    client.release();
+  }
+});
 
 app.post("/api/abrir-bau", async (req, res) => {
     const { telegram_id } = req.body;
