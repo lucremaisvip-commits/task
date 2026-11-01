@@ -1421,21 +1421,27 @@ app.post("/api/limpar-aviso-reset", async (req, res) => {
     }
 });
 
-app.post("/api/marcar-alerta-visto", async (req, res) => {
-    const { telegram_id, tipo_alerta, metadados } = req.body;
-    if (!telegram_id || !tipo_alerta) return res.status(400).json({ error: "Dados incompletos" });
+app.post('/api/marcar-alerta-visto', async (req, res) => {
+    const telegramId = req.headers['x-telegram-id'] || req.body.telegram_id;
+    const { tipo_alerta } = req.body;
+
+    if (!telegramId || !tipo_alerta) {
+        return res.status(400).json({ success: false, error: 'Parâmetros ausentes' });
+    }
 
     try {
-        await client.query(`
-            INSERT INTO usuarios_notificacoes_vistas (telegram_id, tipo_alerta, referencia_data, visto, metadados)
-            VALUES ($1, $2, CURRENT_DATE, TRUE, $3::jsonb)
-            ON CONFLICT DO NOTHING
-        `, [telegram_id, tipo_alerta, JSON.stringify(metadados || {})]);
+        // Substitua 'client' por 'pool' (ou verifique se sua conexão se chama pool)
+        await pool.query(
+            `INSERT INTO usuarios_notificacoes_vistas (telegram_id, tipo_alerta, data_visto) 
+             VALUES ($1, $2, CURRENT_DATE) 
+             ON CONFLICT (telegram_id, tipo_alerta, data_visto) DO NOTHING`,
+            [telegramId, tipo_alerta]
+        );
 
         res.json({ success: true });
     } catch (err) {
         console.error("Erro ao marcar alerta visto:", err);
-        res.status(500).json({ error: "Erro interno" });
+        res.status(500).json({ success: false, error: err.message });
     }
 });
 
