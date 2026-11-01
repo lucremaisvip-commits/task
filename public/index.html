@@ -251,7 +251,6 @@
     transform: scale(0.36);
     transform-origin: center;
   }
-
     
 </style>
   <meta name="adbytes-site-verification" content="548bfaea3bbff7dd577e94cba8177cd815df429aa36dc910c0f1cede48c37f10" />
@@ -340,17 +339,17 @@
     </div>
   </div>
 
-  <!-- Barra 2: Sequência de Dias para o Baú (7 dias) -->
+  <!-- Barra 2: Sequência de Dias para o Baú (5 dias) -->
   <div class="streak-section">
-    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;" id="txtBauLabel">Sequência para o Baú Lendário (Streak):</p>
+    <p style="font-size: 13px; color: #94a3b8; margin-bottom: 6px;" id="txtBauLabel">Sequência para o Baú de 5 Dias (Streak):</p>
     <div class="progress-bar" style="background: #0f172a; height: 14px; border-radius: 7px; margin-bottom: 6px;">
       <div class="progress-fill" id="progBauDias" style="width: 0%; background: #f59e0b;"></div>
     </div>
     <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748b; margin-bottom: 8px;">
-      <span id="txtBauDiasContador">0 / 7 dias</span>
-      <span id="txtBauFaltam">Faltam 7 dias</span>
+      <span id="txtBauDiasContador">0 / 5 dias</span>
+      <span id="txtBauFaltam">Faltam 5 dias</span>
     </div>
-    <p id="txtBaudeIncentivo" style="font-size: 11px; color: #fbbf24; text-align: center; margin-top: 4px; font-weight: 500;">🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!</p>
+    <p id="txtBaudeIncentivo" style="font-size: 11px; color: #fbbf24; text-align: center; margin-top: 4px; font-weight: 500;">🎁 Complete 5 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!</p>
   </div>
 
   <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
@@ -500,7 +499,7 @@ function fecharModalNiveis() {
 let filaDeAvisos = [];
 let processandoAviso = false;
 
-// 3. Dicionário de Traduções
+// 3. Dicionário de Traduções (Atualizado para 5 dias)
 const linguagens = {
     pt: {
         pageTitle: "CashTaskBot",
@@ -524,8 +523,8 @@ const linguagens = {
         txtZeroAds: "ZeroAds",
         txtStreakLabel: "Progresso da Meta Diária (0,30 pts):",
         txtStatusStreak: "Mantenha o ritmo!",
-        txtBauLabel: "Sequência para o Baú Lendário (Streak):",
-        txtBaudeIncentivo: "🎁 Complete 7 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!",
+        txtBauLabel: "Sequência para o Baú de 5 Dias (Streak):",
+        txtBaudeIncentivo: "🎁 Complete 5 dias seguidos de tarefas para desbloquear o Baú Lendário com prêmios surpresa!",
         btnAbrirBau: "Abrir Baú",
         txtLuckyTitle: "🎡 Roleta da Sorte",
         txtLuckyDesc: "Teste sua sorte e transforme seus pontos em prêmios instantâneos!",
@@ -561,8 +560,8 @@ const linguagens = {
         txtZeroAds: "ZeroAds",
         txtStreakLabel: "Daily Goal Progress (0.30 pts):",
         txtStatusStreak: "Keep it up!",
-        txtBauLabel: "Legendary Chest Streak:",
-        txtBaudeIncentivo: "🎁 Complete 7 days in a row to unlock the Legendary Chest with surprise rewards!",
+        txtBauLabel: "5-Day Chest Streak:",
+        txtBaudeIncentivo: "🎁 Complete 5 days in a row to unlock the Legendary Chest with surprise rewards!",
         btnAbrirBau: "Open Chest",
         txtLuckyTitle: "🎡 Lucky Wheel",
         txtLuckyDesc: "Test your luck and turn your points into instant prizes!",
@@ -683,44 +682,38 @@ function fecharModal() {
 // --- 4. Comunicação com Servidor (Usando requisicaoSegura) ---
 async function carregarDados() {
     try {
-        // Se já foi solicitado o saque de entrada anteriormente, esconde o painel imediatamente
-        if (localStorage.getItem(`saque_inicial_solicitado_${telegram_id}`) === "true") {
-            const painelEntrada = document.getElementById('painelTarefaEntrada');
-            if (painelEntrada) painelEntrada.style.display = 'none';
-        }
-
         const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
         if (response.ok) {
             const data = await response.json();
             
-            // 1. Tratamento da Tarefa de Entrada (Baseado em missao_entrada)
+            // 1. Tratamento Rigoroso da Tarefa de Entrada Baseada na Rota
+            const painelEntrada = document.getElementById('painelTarefaEntrada');
             const containerEntrada = document.getElementById('conteudoTarefaEntrada');
             const missaoConcluida = data.missao_entrada?.concluida || false;
-            const saqueLiberado = data.missao_entrada?.saque_liberado || false;
+            const boosterRegistrado = data.missao_entrada?.booster_registrado || false;
 
-            if (localStorage.getItem(`saque_inicial_solicitado_${telegram_id}`) !== "true") {
-                if (saqueLiberado || missaoConcluida) {
-                    // Se já concluiu a tarefa de entrada, transforma o card no input de saque do FaucetPay
-                    if (data.primeiro_saque_concluido) {
-                        document.getElementById('painelTarefaEntrada').style.display = 'none';
-                    } else {
-                        document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
-                        containerEntrada.innerHTML = `
-                            <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
-                            <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
-                            <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
-                        `;
-                    }
-                } else {
-                    // Se ainda não concluiu, mostra progresso 0/1
-                    const el = document.getElementById('progMoneyEntry');
-                    if (el) el.style.width = '0%';
-                    
-                    const span = el.parentElement.parentElement.querySelector('.task-header span');
-                    if (span) {
-                        const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
-                        span.innerText = `${labelTexto} (0/1)`;
-                    }
+            // Se a missão já foi concluída/resgatada no banco, some com o painel permanentemente
+            if (missaoConcluida && boosterRegistrado) {
+                if (painelEntrada) painelEntrada.style.display = 'none';
+            } else if (missaoConcluida && !boosterRegistrado) {
+                // Concluiu 1 MoneyRain mas ainda não sacou/resgatou o bônus inicial: exibe o input do FaucetPay
+                if (painelEntrada) painelEntrada.style.display = 'block';
+                document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
+                containerEntrada.innerHTML = `
+                    <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
+                    <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
+                    <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
+                `;
+            } else {
+                // Não concluída: mostra o progresso 0/1
+                if (painelEntrada) painelEntrada.style.display = 'block';
+                const el = document.getElementById('progMoneyEntry');
+                if (el) el.style.width = '0%';
+                
+                const span = el?.parentElement?.parentElement?.querySelector('.task-header span');
+                if (span) {
+                    const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
+                    span.innerText = `${labelTexto} (0/1)`;
                 }
             }
 
@@ -737,19 +730,19 @@ async function carregarDados() {
                 txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
             }
 
-            // 3. Tratamento do Streak Semanal / Progresso para o Baú (7 dias)
+            // 3. Tratamento do Streak / Progresso para o Baú (Ajustado para 5 dias)
             const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
-            const porcentagemBau = Math.min((streakDiasCount / 7) * 100, 100);
+            const porcentagemBau = Math.min((streakDiasCount / 5) * 100, 100);
             
             const progBauDias = document.getElementById('progBauDias');
             if (progBauDias) progBauDias.style.width = porcentagemBau + '%';
 
             const txtBauDiasContador = document.getElementById('txtBauDiasContador');
             if (txtBauDiasContador) {
-                txtBauDiasContador.innerText = `${streakDiasCount} / 7 dias`;
+                txtBauDiasContador.innerText = `${streakDiasCount} / 5 dias`;
             }
 
-            const diasFaltantes = Math.max(7 - streakDiasCount, 0);
+            const diasFaltantes = Math.max(5 - streakDiasCount, 0);
             const txtBauFaltam = document.getElementById('txtBauFaltam');
             if (txtBauFaltam) {
                 txtBauFaltam.innerText = userLang === 'pt' ? `Faltam ${diasFaltantes} dias` : `${diasFaltantes} days left`;
@@ -828,9 +821,6 @@ async function solicitarSaqueEntrada() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            // Salva a flag no localStorage para ocultar permanentemente a tarefa de entrada na index
-            localStorage.setItem(`saque_inicial_solicitado_${telegram_id}`, "true");
-
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Saque Realizado!" : "Withdrawal Successful!", 
                 mensagem: userLang === 'pt' ? "📨 Quase lá! Abra o chat do bot no Telegram para confirmar o seu saque." : "📨 Almost there! Open your Telegram bot chat to confirm your withdrawal.", 
