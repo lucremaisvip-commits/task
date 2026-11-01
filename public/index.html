@@ -683,141 +683,147 @@ function fecharModal() {
 async function carregarDados() {
     try {
         const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
-        if (response.ok) {
-            const data = await response.json();
-            
-            // 1. Tratamento da Tarefa de Entrada
-            const painelEntrada = document.getElementById('painelTarefaEntrada');
-            const containerEntrada = document.getElementById('conteudoTarefaEntrada');
-            const missaoConcluida = data.missao_entrada?.concluida || false;
-            const boosterRegistrado = data.missao_entrada?.booster_registrado || false;
+        
+        if (!response.ok) {
+            console.error("Erro no servidor ao buscar status-checklist. Status:", response.status);
+            return; // Interrompe com segurança se o backend retornar erro
+        }
 
-            if (missaoConcluida && boosterRegistrado) {
-                if (painelEntrada) painelEntrada.style.display = 'none';
-            } else if (missaoConcluida && !boosterRegistrado) {
-                if (painelEntrada) painelEntrada.style.display = 'block';
-                document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
-                containerEntrada.innerHTML = `
-                    <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
-                    <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
-                    <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
-                `;
-            } else {
-                if (painelEntrada) painelEntrada.style.display = 'block';
-                const el = document.getElementById('progMoneyEntry');
-                if (el) el.style.width = '0%';
-            }
+        const data = await response.json();
+        
+        // 1. Tratamento da Tarefa de Entrada
+        const painelEntrada = document.getElementById('painelTarefaEntrada');
+        const containerEntrada = document.getElementById('conteudoTarefaEntrada');
+        const missaoConcluida = data.missao_entrada?.concluida || false;
+        const boosterRegistrado = data.missao_entrada?.booster_registrado || false;
 
-            // 2. Tratamento da Meta Diária
-            const pontosHoje = parseFloat(data.progresso_pontos?.atual) || 0;
-            const metaPontosDiarios = parseFloat(data.progresso_pontos?.meta) || 0.30;
-            const porcentagemPontos = parseFloat(data.progresso_pontos?.porcentagem) || 0;
-            
-            const progBarStreak = document.getElementById('progStreak');
-            if (progBarStreak) progBarStreak.style.width = porcentagemPontos + '%';
-            
-            const txtStreakDias = document.getElementById('txtStreakDias');
-            if (txtStreakDias) {
-                txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
-            }
+        if (missaoConcluida && boosterRegistrado) {
+            if (painelEntrada) painelEntrada.style.display = 'none';
+        } else if (missaoConcluida && !boosterRegistrado) {
+            if (painelEntrada) painelEntrada.style.display = 'block';
+            document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
+            containerEntrada.innerHTML = `
+                <p style="font-size: 13px; color: #34d399; margin-bottom: 10px;">${linguagens[userLang].txtFaucetPrompt}</p>
+                <input type="email" id="emailFaucetPay" class="faucet-input" placeholder="seu-email@exemplo.com">
+                <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
+            `;
+        } else {
+            if (painelEntrada) painelEntrada.style.display = 'block';
+            const el = document.getElementById('progMoneyEntry');
+            if (el) el.style.width = '0%';
+        }
 
-            // 3. Tratamento do Streak / Baú
-            const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
-            const porcentagemBau = Math.min((streakDiasCount / 5) * 100, 100);
-            
-            const progBauDias = document.getElementById('progBauDias');
-            if (progBauDias) progBauDias.style.width = porcentagemBau + '%';
+        // 2. Tratamento da Meta Diária
+        const pontosHoje = parseFloat(data.progresso_pontos?.atual) || 0;
+        const metaPontosDiarios = parseFloat(data.progresso_pontos?.meta) || 0.30;
+        const porcentagemPontos = parseFloat(data.progresso_pontos?.porcentagem) || 0;
+        
+        const progBarStreak = document.getElementById('progStreak');
+        if (progBarStreak) progBarStreak.style.width = porcentagemPontos + '%';
+        
+        const txtStreakDias = document.getElementById('txtStreakDias');
+        if (txtStreakDias) {
+            txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
+        }
 
-            const txtBauDiasContador = document.getElementById('txtBauDiasContador');
-            if (txtBauDiasContador) {
-                txtBauDiasContador.innerText = `${streakDiasCount} / 5 dias`;
-            }
+        // 3. Tratamento do Streak / Baú
+        const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
+        const porcentagemBau = Math.min((streakDiasCount / 5) * 100, 100);
+        
+        const progBauDias = document.getElementById('progBauDias');
+        if (progBauDias) progBauDias.style.width = porcentagemBau + '%';
 
-            const diasFaltantes = Math.max(5 - streakDiasCount, 0);
-            const txtBauFaltam = document.getElementById('txtBauFaltam');
-            if (txtBauFaltam) {
-                txtBauFaltam.innerText = userLang === 'pt' ? `Faltam ${diasFaltantes} dias` : `${diasFaltantes} days left`;
-            }
+        const txtBauDiasContador = document.getElementById('txtBauDiasContador');
+        if (txtBauDiasContador) {
+            txtBauDiasContador.innerText = `${streakDiasCount} / 5 dias`;
+        }
 
-            const txtStatusStreak = document.getElementById('txtStatusStreak');
-            if (txtStatusStreak) {
-                txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
-            }
+        const diasFaltantes = Math.max(5 - streakDiasCount, 0);
+        const txtBauFaltam = document.getElementById('txtBauFaltam');
+        if (txtBauFaltam) {
+            txtBauFaltam.innerText = userLang === 'pt' ? `Faltam ${diasFaltantes} dias` : `${diasFaltantes} days left`;
+        }
 
-            const btnBau = document.getElementById('btnAbrirBau');
-            if (btnBau) {
-                btnBau.style.display = data.streak?.bau_disponivel ? 'block' : 'none';
-            }
+        const txtStatusStreak = document.getElementById('txtStatusStreak');
+        if (txtStatusStreak) {
+            txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
+        }
 
-            // =========================================================================
-            // 🛡️ GERENCIAMENTO CONDICIONAL DE ALERTAS PENDENTES (VIA BACKEND)
-            // =========================================================================
-            const alertas = data.alertas_pendentes || {};
+        const btnBau = document.getElementById('btnAbrirBau');
+        if (btnBau) {
+            btnBau.style.display = data.streak?.bau_disponivel ? 'block' : 'none';
+        }
 
-            // A. Alerta de Meta Concluída
-            if (alertas.meta_concluida) {
-                exibirAvisoServidor({ 
-                    titulo: linguagens[userLang].modalTitulo, 
-                    mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída com sucesso! 🎉" : "Daily goal of 0.30 points successfully completed! 🎉", 
-                    icone: "✅" 
-                });
-                marcarAlertaVisto('meta_concluida');
-            }
+        // =========================================================================
+        // 🛡️ GERENCIAMENTO CONDICIONAL DE ALERTAS PENDENTES (VIA BACKEND)
+        // =========================================================================
+        const alertas = data.alertas_pendentes || {};
 
-            // B. Alerta de Baú Pronto
-            if (alertas.bau_pronto) {
-                exibirAvisoServidor({ 
-                    titulo: userLang === 'pt' ? "Baú Disponível 🎁" : "Chest Available 🎁", 
-                    mensagem: userLang === 'pt' ? "Você completou 5 dias de sequência e tem um baú lendário esperando para ser aberto!" : "You have completed a 5-day streak and have a legendary chest waiting to be opened!", 
-                    icone: "📦" 
-                });
-                marcarAlertaVisto('bau_pronto');
-            }
+        // A. Alerta de Meta Concluída
+        if (alertas.meta_concluida) {
+            exibirAvisoServidor({ 
+                titulo: linguagens[userLang].modalTitulo, 
+                mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída com sucesso! 🎉" : "Daily goal of 0.30 points successfully completed! 🎉", 
+                icone: "✅" 
+            });
+            marcarAlertaVisto('meta_concluida');
+        }
 
-            // C. Alerta de Streak Perdido
-            if (alertas.streak_perdido) {
-                exibirAvisoServidor({ 
-                    titulo: userLang === 'pt' ? "Ops! Streak Perdido ⚠️" : "Ops! Streak Lost ⚠️", 
-                    mensagem: userLang === 'pt' ? "Sua sequência diária foi reiniciada porque você não atingiu a meta ontem." : "Your daily sequence was reset because you didn't reach the goal yesterday.", 
-                    icone: "⚠️" 
-                });
-                marcarAlertaVisto('streak_perdido');
-                // Limpa o aviso no backend para o próximo ciclo
-                requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
-            }
+        // B. Alerta de Baú Pronto
+        if (alertas.bau_pronto) {
+            exibirAvisoServidor({ 
+                titulo: userLang === 'pt' ? "Baú Disponível 🎁" : "Chest Available 🎁", 
+                mensagem: userLang === 'pt' ? "Você completou 5 dias de sequência e tem um baú lendário esperando para ser aberto!" : "You have completed a 5-day streak and have a legendary chest waiting to be opened!", 
+                icone: "📦" 
+            });
+            marcarAlertaVisto('bau_pronto');
+        }
+
+        // C. Alerta de Streak Perdido
+        if (alertas.streak_perdido) {
+            exibirAvisoServidor({ 
+                titulo: userLang === 'pt' ? "Ops! Streak Perdido ⚠️" : "Ops! Streak Lost ⚠️", 
+                mensagem: userLang === 'pt' ? "Sua sequência diária foi reiniciada porque você não atingiu a meta ontem." : "Your daily sequence was reset because you didn't reach the goal yesterday.", 
+                icone: "⚠️" 
+            });
+            marcarAlertaVisto('streak_perdido');
+            // Limpa o aviso no backend para o próximo ciclo
+            requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
         }
     } catch (err) { console.error("Erro checklist:", err); }
 
     try {
         const res = await requisicaoSegura(`/api/status-usuario?telegram_id=${telegram_id}`);
-        const result = await res.json();
-        if (result.success) {
-            const data = result.data;
-            const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
-            if (data.nivel > nivelSalvo) {
-                const info = TABELA_NIVEIS[data.nivel];
-                const nomeTitulo = info.titulo[userLang] || info.titulo['pt'];
-                exibirAvisoServidor({ 
-                    titulo: userLang === 'pt' ? "Subiu de Nível! 🎉" : "Level Up! 🎉", 
-                    mensagem: userLang === 'pt' 
-                        ? `Parabéns! Você agora é Nível ${data.nivel} (${nomeTitulo}).\n\nNovas Vantagens:\n• ${info.limite_saque} saques/dia\n• ${info.giros} giros na roleta\n• Timer de anúncio reduzido para ${info.tempo_ad}s!` 
-                        : `Congrats! You are now Level ${data.nivel} (${nomeTitulo}).`, 
-                    icone: "🏆" 
-                });
-                localStorage.setItem('nivel_usuario', data.nivel);
+        if (res.ok) {
+            const result = await res.json();
+            if (result.success) {
+                const data = result.data;
+                const nivelSalvo = parseInt(localStorage.getItem('nivel_usuario')) || 1;
+                if (data.nivel > nivelSalvo) {
+                    const info = TABELA_NIVEIS[data.nivel];
+                    const nomeTitulo = info.titulo[userLang] || info.titulo['pt'];
+                    exibirAvisoServidor({ 
+                        titulo: userLang === 'pt' ? "Subiu de Nível! 🎉" : "Level Up! 🎉", 
+                        mensagem: userLang === 'pt' 
+                            ? `Parabéns! Você agora é Nível ${data.nivel} (${nomeTitulo}).\n\nNovas Vantagens:\n• ${info.limite_saque} saques/dia\n• ${info.giros} giros na roleta\n• Timer de anúncio reduzido para ${info.tempo_ad}s!` 
+                            : `Congrats! You are now Level ${data.nivel} (${nomeTitulo}).`, 
+                        icone: "🏆" 
+                    });
+                    localStorage.setItem('nivel_usuario', data.nivel);
+                }
+                const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
+                const nomeTituloAtual = infoNivel.titulo[userLang] || infoNivel.titulo['pt'];
+                document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${nomeTituloAtual}`;
+                const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
+                const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
+                document.getElementById("barXp").style.width = progresso + "%";
+                document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
             }
-            const infoNivel = TABELA_NIVEIS[data.nivel] || TABELA_NIVEIS[1];
-            const nomeTituloAtual = infoNivel.titulo[userLang] || infoNivel.titulo['pt'];
-            document.getElementById("txtNivel").innerText = `Nível ${data.nivel} - ${nomeTituloAtual}`;
-            const proxInfo = TABELA_NIVEIS[data.nivel + 1] || { xp_min: infoNivel.xp_min + 500 };
-            const progresso = Math.min(((data.xp - infoNivel.xp_min) / (proxInfo.xp_min - infoNivel.xp_min)) * 100, 100);
-            document.getElementById("barXp").style.width = progresso + "%";
-            document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
         }
     } catch (err) { console.error("Erro status:", err); }
 }
 
-// Função auxiliar para notificar o backend que o alerta foi exibido ao usuário
+// Função auxiliar obrigatória para registrar no banco que o alerta foi exibido
 async function marcarAlertaVisto(tipoAlerta) {
     try {
         await requisicaoSegura('/api/marcar-alerta-visto', {
@@ -829,6 +835,7 @@ async function marcarAlertaVisto(tipoAlerta) {
         console.error("Erro ao registrar alerta visto:", e);
     }
 }
+
   
 async function solicitarSaqueEntrada() {
     const emailInput = document.getElementById('emailFaucetPay');
@@ -897,11 +904,14 @@ window.alternarIdioma = function() {
     atualizarUrlsMenu();
     carregarDados();
 };
-</script>
 <script type="text/javascript">
-    aclib.runAutoTag({
-        zoneId: '5m0guixneh',
-    });
+    if (typeof aclib !== 'undefined') {
+        aclib.runAutoTag({
+            zoneId: '5m0guixneh',
+        });
+    } else {
+        console.warn("aclib não foi carregado corretamente.");
+    }
 </script>
 
 </body>
