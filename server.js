@@ -400,12 +400,12 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     await client.query(
       `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-       VALUES ($1, 'tarefa', $2, $3, $4, NOW())`,
+       VALUES ($1, 'tarefa', CAST($2 AS NUMERIC), $3, $4, NOW())`,
       [telegram_id, pontos, "Tarefa ID: " + tarefaId, String(tarefaId)]
     );
 
     await client.query(
-      `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + $1, tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
+      `UPDATE usuarios SET pontos = (COALESCE(pontos, 0)::NUMERIC + CAST($1 AS NUMERIC)), tarefas_feitas = COALESCE(tarefas_feitas, 0) + 1 WHERE telegram_id = $2`,
       [pontos, telegram_id]
     );
 
@@ -417,9 +417,9 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         infoBooster = await verificarMissaoEntrada(client, telegram_id);
     }
 
-    // 🔍 Busca a indicação E o idioma/nome do indicado para formatar a notificação
+    // 🔍 CORRIGIDO: i.* no lugar de i*
     const indicacaoRes = await client.query(
-      `SELECT i*, 
+      `SELECT i.*, 
               u_ind.nome as nome_indicador,
               u_do.lang as lang_indicado
        FROM indicacoes i 
@@ -447,20 +447,20 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       if (parseInt(tarefasRes.rows[0].count) >= 3) {
         await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
         
-        // 1. Premia o Indicador com 0.60 pts (Promocional)
+        // 1. CORRIGIDO: Premia o Indicador com 0.40 pts (Alinhado no Update e no Insert)
         await client.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.60, indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
+          `UPDATE usuarios SET pontos = (COALESCE(pontos, 0)::NUMERIC + 0.40), indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
         );
         await adicionarXP(indicacao.id_indicador, 20, client);
         await client.query(
-          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.60, 'Bônus por indicação (Promocional)', $2, NOW())`,
+          `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
           [indicacao.id_indicador, String(telegram_id)]
         );
 
         // 2. Premia o Indicado com 0.20 pts na hora
         await client.query(
-          `UPDATE usuarios SET pontos = COALESCE(pontos, 0) + 0.20 WHERE telegram_id = $1`,
+          `UPDATE usuarios SET pontos = (COALESCE(pontos, 0)::NUMERIC + 0.20) WHERE telegram_id = $1`,
           [telegram_id]
         );
         await client.query(
