@@ -1954,7 +1954,7 @@ app.get("/api/indicacoes-info", async (req, res) => {
       [telegram_id]
     );
 
-    // Busca apenas o evento mais recente de premiação de indicação para o front comparar
+    // Busca o ID e a data da última premiação de indicação
     const historicoRes = await pool.query(
       "SELECT id, data_registro FROM historico_ganhos WHERE telegram_id = $1 AND origem = 'indicacao' ORDER BY data_registro DESC LIMIT 1",
       [telegram_id]
@@ -1962,14 +1962,14 @@ app.get("/api/indicacoes-info", async (req, res) => {
 
     res.json({
       totalAprovadas: parseInt(totalRes.rows[0].count),
-      ultimaPremiacao: historicoRes.rows.length > 0 ? historicoRes.rows[0].data_registro : null
+      ultimaPremiacaoId: historicoRes.rows.length > 0 ? historicoRes.rows[0].id : null,
+      ultimaPremiacaoData: historicoRes.rows.length > 0 ? historicoRes.rows[0].data_registro : null
     });
   } catch (err) {
     console.error("Erro ao buscar indicações:", err);
     res.status(500).json({ erro: "Erro ao buscar dados" });
   }
 });
-
 
 // =========================================================================
 // 🔹 5. Ranking Otimizado com critérios de desempate
