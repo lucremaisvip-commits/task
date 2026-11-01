@@ -226,27 +226,25 @@ async function carregarDados() {
 
     document.getElementById("totalAprovadas").innerText = data.totalAprovadas;
 
-    const ultimaDataLocal = localStorage.getItem("ultima_indicacao_data");
-    const dataServidor = data.ultimaPremiacao; 
+    const ultimoIdSalvo = localStorage.getItem("ultima_indicacao_id");
+    const idServidor = data.ultimaPremiacaoId; 
 
-    if (dataServidor) {
-      const dataServidorObj = new Date(dataServidor);
-      const dataLocalObj = ultimaDataLocal ? new Date(ultimaDataLocal) : new Date(0);
+    // Só exibe o modal se houver um ID novo no servidor que ainda não foi exibido localmente
+    if (idServidor && String(idServidor) !== String(ultimoIdSalvo)) {
+      document.getElementById("modalTitle").innerText = t.modalTitle;
+      document.getElementById("modalDesc").innerHTML = t.modalDesc;
+      document.getElementById("modalBtn").innerText = t.modalBtn;
 
-      if (dataServidorObj > dataLocalObj) {
-        document.getElementById("modalTitle").innerText = t.modalTitle;
-        document.getElementById("modalDesc").innerHTML = t.modalDesc;
-        document.getElementById("modalBtn").innerText = t.modalBtn;
-
-        document.getElementById("modalIndicacao").style.display = "flex";
-        localStorage.setItem("ultima_indicacao_data", dataServidor);
-      }
+      document.getElementById("modalIndicacao").style.display = "flex";
+      
+      // Salva o ID atual para que ele não se repita
+      localStorage.setItem("ultima_indicacao_id", idServidor);
     }
   } catch (error) {
     console.error("Falha ao carregar dados de indicação:", error);
   }
 }
-
+  
 function fecharModal() {
   document.getElementById("modalIndicacao").style.display = "none";
 }
