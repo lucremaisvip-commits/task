@@ -499,7 +499,7 @@ function fecharModalNiveis() {
 let filaDeAvisos = [];
 let processandoAviso = false;
 
-// 3. Dicionário de Traduções (Atualizado para 5 dias)
+// 3. Dicionário de Traduções
 const linguagens = {
     pt: {
         pageTitle: "CashTaskBot",
@@ -579,7 +579,6 @@ const linguagens = {
 
 let userLang = localStorage.getItem("userLang") || "pt";
 
-// Redirecionamentos dos Botões Rápidos
 function irParaTutorial() {
     window.location.href = `welcome.html?id=${telegram_id}&lang=${userLang}`;
 }
@@ -591,15 +590,11 @@ function irParaAjuda() {
     window.open(urlAjuda, "_blank");
 }
 
-// --- Função segura para aplicar traduções ---
 function aplicarTraducoes() {
     const t = linguagens[userLang];
-
     const set = (id, text) => {
         const el = document.getElementById(id);
-        if (el) {
-            el.innerText = text;
-        }
+        if (el) el.innerText = text;
     };
 
     set("pageTitle", t.pageTitle);
@@ -658,7 +653,6 @@ function atualizarUrlsMenu() {
     });
 }
 
-// --- 3. Funções de Notificação ---
 function exibirAvisoServidor(dados) {
     filaDeAvisos.push(dados);
     if (!processandoAviso) processarFila();
@@ -679,19 +673,17 @@ function fecharModal() {
     processarFila();
 }
 
-// --- 4. Comunicação com Servidor (Usando requisicaoSegura) ---
 async function carregarDados() {
     try {
         const response = await requisicaoSegura(`/api/status-checklist?telegram_id=${telegram_id}`);
         
         if (!response.ok) {
             console.error("Erro no servidor ao buscar status-checklist. Status:", response.status);
-            return; // Interrompe com segurança se o backend retornar erro
+            return;
         }
 
         const data = await response.json();
         
-        // 1. Tratamento da Tarefa de Entrada
         const painelEntrada = document.getElementById('painelTarefaEntrada');
         const containerEntrada = document.getElementById('conteudoTarefaEntrada');
         const missaoConcluida = data.missao_entrada?.concluida || false;
@@ -713,7 +705,6 @@ async function carregarDados() {
             if (el) el.style.width = '0%';
         }
 
-        // 2. Tratamento da Meta Diária
         const pontosHoje = parseFloat(data.progresso_pontos?.atual) || 0;
         const metaPontosDiarios = parseFloat(data.progresso_pontos?.meta) || 0.30;
         const porcentagemPontos = parseFloat(data.progresso_pontos?.porcentagem) || 0;
@@ -726,7 +717,6 @@ async function carregarDados() {
             txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
         }
 
-        // 3. Tratamento do Streak / Baú
         const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
         const porcentagemBau = Math.min((streakDiasCount / 5) * 100, 100);
         
@@ -754,12 +744,8 @@ async function carregarDados() {
             btnBau.style.display = data.streak?.bau_disponivel ? 'block' : 'none';
         }
 
-        // =========================================================================
-        // 🛡️ GERENCIAMENTO CONDICIONAL DE ALERTAS PENDENTES (VIA BACKEND)
-        // =========================================================================
         const alertas = data.alertas_pendentes || {};
 
-        // A. Alerta de Meta Concluída
         if (alertas.meta_concluida) {
             exibirAvisoServidor({ 
                 titulo: linguagens[userLang].modalTitulo, 
@@ -769,7 +755,6 @@ async function carregarDados() {
             marcarAlertaVisto('meta_concluida');
         }
 
-        // B. Alerta de Baú Pronto
         if (alertas.bau_pronto) {
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Baú Disponível 🎁" : "Chest Available 🎁", 
@@ -779,7 +764,6 @@ async function carregarDados() {
             marcarAlertaVisto('bau_pronto');
         }
 
-        // C. Alerta de Streak Perdido
         if (alertas.streak_perdido) {
             exibirAvisoServidor({ 
                 titulo: userLang === 'pt' ? "Ops! Streak Perdido ⚠️" : "Ops! Streak Lost ⚠️", 
@@ -787,7 +771,6 @@ async function carregarDados() {
                 icone: "⚠️" 
             });
             marcarAlertaVisto('streak_perdido');
-            // Limpa o aviso no backend para o próximo ciclo
             requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
         }
     } catch (err) { console.error("Erro checklist:", err); }
@@ -823,7 +806,6 @@ async function carregarDados() {
     } catch (err) { console.error("Erro status:", err); }
 }
 
-// Função auxiliar obrigatória para registrar no banco que o alerta foi exibido
 async function marcarAlertaVisto(tipoAlerta) {
     try {
         await requisicaoSegura('/api/marcar-alerta-visto', {
@@ -835,7 +817,6 @@ async function marcarAlertaVisto(tipoAlerta) {
         console.error("Erro ao registrar alerta visto:", e);
     }
 }
-
   
 async function solicitarSaqueEntrada() {
     const emailInput = document.getElementById('emailFaucetPay');
@@ -880,7 +861,6 @@ async function abrirBau() {
     }
 }
 
-// 5. Inicialização Única
 document.addEventListener("DOMContentLoaded", () => {
     validarSessaoOuBloquear();
 
@@ -904,6 +884,8 @@ window.alternarIdioma = function() {
     atualizarUrlsMenu();
     carregarDados();
 };
+</script>
+
 <script type="text/javascript">
     if (typeof aclib !== 'undefined') {
         aclib.runAutoTag({
