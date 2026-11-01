@@ -686,17 +686,15 @@ async function carregarDados() {
         if (response.ok) {
             const data = await response.json();
             
-            // 1. Tratamento Rigoroso da Tarefa de Entrada Baseada na Rota
+            // 1. Tratamento da Tarefa de Entrada
             const painelEntrada = document.getElementById('painelTarefaEntrada');
             const containerEntrada = document.getElementById('conteudoTarefaEntrada');
             const missaoConcluida = data.missao_entrada?.concluida || false;
             const boosterRegistrado = data.missao_entrada?.booster_registrado || false;
 
-            // Se a missão já foi concluída/resgatada no banco, some com o painel permanentemente
             if (missaoConcluida && boosterRegistrado) {
                 if (painelEntrada) painelEntrada.style.display = 'none';
             } else if (missaoConcluida && !boosterRegistrado) {
-                // Concluiu 1 MoneyRain mas ainda não sacou/resgatou o bônus inicial: exibe o input do FaucetPay
                 if (painelEntrada) painelEntrada.style.display = 'block';
                 document.getElementById('txtEntryTaskTitle').innerHTML = `🎯 <span>${userLang === 'pt' ? "Solicitar Saque Inicial" : "Request Initial Withdrawal"}</span>`;
                 containerEntrada.innerHTML = `
@@ -705,19 +703,12 @@ async function carregarDados() {
                     <button onclick="solicitarSaqueEntrada()" style="background: #2a8f43; margin-top: 10px;">${linguagens[userLang].btnWithdrawNow}</button>
                 `;
             } else {
-                // Não concluída: mostra o progresso 0/1
                 if (painelEntrada) painelEntrada.style.display = 'block';
                 const el = document.getElementById('progMoneyEntry');
                 if (el) el.style.width = '0%';
-                
-                const span = el?.parentElement?.parentElement?.querySelector('.task-header span');
-                if (span) {
-                    const labelTexto = userLang === 'pt' ? "Progresso MoneyRain" : "MoneyRain Progress";
-                    span.innerText = `${labelTexto} (0/1)`;
-                }
             }
 
-            // 2. Tratamento da Meta Diária (Baseado em progresso_pontos)
+            // 2. Tratamento da Meta Diária
             const pontosHoje = parseFloat(data.progresso_pontos?.atual) || 0;
             const metaPontosDiarios = parseFloat(data.progresso_pontos?.meta) || 0.30;
             const porcentagemPontos = parseFloat(data.progresso_pontos?.porcentagem) || 0;
@@ -730,7 +721,7 @@ async function carregarDados() {
                 txtStreakDias.innerText = `${pontosHoje.toFixed(2)} / ${metaPontosDiarios.toFixed(2)} pts`;
             }
 
-            // 3. Tratamento do Streak / Progresso para o Baú (Ajustado para 5 dias)
+            // 3. Tratamento do Streak / Baú
             const streakDiasCount = parseInt(data.streak?.streak_atual) || 0;
             const porcentagemBau = Math.min((streakDiasCount / 5) * 100, 100);
             
@@ -752,24 +743,46 @@ async function carregarDados() {
             if (txtStatusStreak) {
                 txtStatusStreak.innerText = userLang === 'pt' ? `Sequência: ${streakDiasCount} dias` : `Streak: ${streakDiasCount} days`;
             }
-            
-            const hoje = new Date().toDateString();
-            if (data.progresso_pontos?.concluido && localStorage.getItem('aviso_checklist') !== hoje) {
-                exibirAvisoServidor({ titulo: linguagens[userLang].modalTitulo, mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída!" : "Daily goal of 0.30 points completed!", icone: "✅" });
-                localStorage.setItem('aviso_checklist', hoje);
-            }
 
             const btnBau = document.getElementById('btnAbrirBau');
             if (btnBau) {
                 btnBau.style.display = data.streak?.bau_disponivel ? 'block' : 'none';
-                if (data.streak?.bau_disponivel && localStorage.getItem('aviso_bau') !== hoje) {
-                    exibirAvisoServidor({ titulo: userLang === 'pt' ? "Baú Disponível" : "Chest Available", mensagem: userLang === 'pt' ? "Você tem um baú de recompensa esperando!" : "You have a reward chest waiting!", icone: "🎁" });
-                    localStorage.setItem('aviso_bau', hoje);
-                }
             }
 
-            if (data.streak?.streak_quebrado) {
-                exibirAvisoServidor({ titulo: userLang === 'pt' ? "Ops! Streak Perdido" : "Ops! Streak Lost", mensagem: userLang === 'pt' ? "Sua sequência foi reiniciada." : "Your sequence was reset.", icone: "⚠️" });
+            // =========================================================================
+            // 🛡️ GERENCIAMENTO CONDICIONAL DE ALERTAS PENDENTES (VIA BACKEND)
+            // =========================================================================
+            const alertas = data.alertas_pendentes || {};
+
+            // A. Alerta de Meta Concluída
+            if (alertas.meta_concluida) {
+                exibirAvisoServidor({ 
+                    titulo: linguagens[userLang].modalTitulo, 
+                    mensagem: userLang === 'pt' ? "Meta diária de 0,30 pontos concluída com sucesso! 🎉" : "Daily goal of 0.30 points successfully completed! 🎉", 
+                    icone: "✅" 
+                });
+                marcarAlertaVisto('meta_concluida');
+            }
+
+            // B. Alerta de Baú Pronto
+            if (alertas.bau_pronto) {
+                exibirAvisoServidor({ 
+                    titulo: userLang === 'pt' ? "Baú Disponível 🎁" : "Chest Available 🎁", 
+                    mensagem: userLang === 'pt' ? "Você completou 5 dias de sequência e tem um baú lendário esperando para ser aberto!" : "You have completed a 5-day streak and have a legendary chest waiting to be opened!", 
+                    icone: "📦" 
+                });
+                marcarAlertaVisto('bau_pronto');
+            }
+
+            // C. Alerta de Streak Perdido
+            if (alertas.streak_perdido) {
+                exibirAvisoServidor({ 
+                    titulo: userLang === 'pt' ? "Ops! Streak Perdido ⚠️" : "Ops! Streak Lost ⚠️", 
+                    mensagem: userLang === 'pt' ? "Sua sequência diária foi reiniciada porque você não atingiu a meta ontem." : "Your daily sequence was reset because you didn't reach the goal yesterday.", 
+                    icone: "⚠️" 
+                });
+                marcarAlertaVisto('streak_perdido');
+                // Limpa o aviso no backend para o próximo ciclo
                 requisicaoSegura('/api/limpar-aviso-reset', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telegram_id }) });
             }
         }
@@ -802,6 +815,19 @@ async function carregarDados() {
             document.getElementById("txtXpProgresso").innerText = `${data.xp} / ${proxInfo.xp_min} XP`;
         }
     } catch (err) { console.error("Erro status:", err); }
+}
+
+// Função auxiliar para notificar o backend que o alerta foi exibido ao usuário
+async function marcarAlertaVisto(tipoAlerta) {
+    try {
+        await requisicaoSegura('/api/marcar-alerta-visto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ telegram_id, tipo_alerta: tipoAlerta })
+        });
+    } catch (e) {
+        console.error("Erro ao registrar alerta visto:", e);
+    }
 }
   
 async function solicitarSaqueEntrada() {
