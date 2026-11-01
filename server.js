@@ -1157,10 +1157,12 @@ app.post('/api/moneyrain-callback', express.raw({ type: 'application/json' }), a
 });
 
 async function verificarMetaDiaria(client, telegram_id) {
+    // 1. Soma os pontos de hoje considerando o fuso de Brasília
     const res = await client.query(`
         SELECT SUM(pontos) as total_pontos
         FROM historico_ganhos 
-        WHERE telegram_id = $1 AND data_registro::date = CURRENT_DATE
+        WHERE telegram_id = $1 
+        AND (data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
     `, [telegram_id]);
 
     const stats = res.rows[0];
@@ -1174,10 +1176,11 @@ async function verificarMetaDiaria(client, telegram_id) {
             SELECT meta_cumprida_hoje FROM usuarios_streaks WHERE telegram_id = $1 FOR UPDATE
         `, [telegram_id]);
 
+        // Apenas MARCA que a meta do dia foi cumprida. O incremento do streak acontece na virada do dia!
         if (check.rows.length > 0 && !check.rows[0].meta_cumprida_hoje) {
             await client.query(`
                 UPDATE usuarios_streaks 
-                SET meta_cumprida_hoje = TRUE, streak_atual = streak_atual + 1
+                SET meta_cumprida_hoje = TRUE
                 WHERE telegram_id = $1
             `, [telegram_id]);
         }
@@ -1187,7 +1190,6 @@ async function verificarMetaDiaria(client, telegram_id) {
 
 async function verificarMissaoEntrada(client, telegram_id) {
     try {
-        // 1. Verifica se o usuário tem pelo menos 1 tarefa no MoneyRain e ainda não usou a missão de boas-vindas
         const query = `
             SELECT u.booster_usado,
                    (SELECT COUNT(*) FROM historico_ganhos WHERE telegram_id = u.telegram_id AND origem = 'moneyrain') as total_moneyrain
@@ -1203,9 +1205,8 @@ async function verificarMissaoEntrada(client, telegram_id) {
             const totalMoneyRain = parseInt(usuario.total_moneyrain) || 0;
             const jaUsou = usuario.booster_usado;
 
-            // Se ele fez pelo menos 1 MoneyRain e ainda não marcou como concluído
+            // Fez 1 MoneyRain na vida e ainda não havia resgatado a missão de entrada
             if (totalMoneyRain >= 1 && !jaUsou) {
-                // Apenas marca como concluído para liberar o saque imediato e não rodar de novo
                 await client.query(`
                     UPDATE usuarios 
                     SET booster_usado = TRUE 
@@ -1226,6 +1227,7 @@ async function verificarMissaoEntrada(client, telegram_id) {
         throw error;
     }
 }
+
 app.post("/api/resgatar-bonus-reativacao", async (req, res) => {
   let { telegram_id } = req.body;
 
@@ -1301,42 +1303,46 @@ app.post("/api/abrir-bau", async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        // 1. Check de consistência: Verifica se tem pelo menos 7 dias distintos com histórico de ganhos
-        const diasCheck = await client.query(`
-            SELECT COUNT(DISTINCT DATE(data_registro)) as dias_ativos
-            FROM historico_ganhos
-            WHERE telegram_id = $1
-        `, [telegram_id]);
-
-        const diasAtivos = parseInt(diasCheck.rows[0]?.dias_ativos || 0);
-
-        if (diasAtivos < 7) {
-            await client.query("ROLLBACK");
-            return res.status(400).json({ 
-                success: false, 
-                error: `Você possui apenas ${diasAtivos} dia(s) ativo(s). São necessários 7 dias cumpridos para abrir o baú.` 
-            });
-        }
-
-        // 2. Verifica se o baú está disponível E se o streak_atual é >= 7
+        // 1. Check de consistência híbrido: Verifica dias distintos reais no histórico E o status do streak
         const checkRes = await client.query(`
-            SELECT us.bau_disponivel, us.streak_atual, u.nivel 
+            SELECT 
+                us.bau_disponivel, 
+                us.streak_atual, 
+                u.nivel,
+                (
+                    SELECT COUNT(DISTINCT DATE(h.data_registro)) 
+                    FROM historico_ganhos h 
+                    WHERE h.telegram_id = $1
+                ) as dias_ativos
             FROM usuarios_streaks us
             JOIN usuarios u ON us.telegram_id = u.telegram_id
             WHERE us.telegram_id = $1 FOR UPDATE
         `, [telegram_id]);
 
-        if (checkRes.rows.length === 0 || !checkRes.rows[0].bau_disponivel || checkRes.rows[0].streak_atual < 7) {
+        if (checkRes.rows.length === 0) {
             await client.query("ROLLBACK");
-            return res.status(400).json({ success: false, error: "Baú não disponível ou requisitos de dias não preenchidos." });
+            return res.status(404).json({ success: false, error: "Usuário ou dados de streak não encontrados." });
         }
 
-        const nivel = checkRes.rows[0].nivel;
+        const dadosUsuario = checkRes.rows[0];
+        const diasAtivos = parseInt(dadosUsuario.dias_ativos || 0);
+        const streakAtual = parseInt(dadosUsuario.streak_atual || 0);
+        const bauDisponivel = dadosUsuario.bau_disponivel;
+        const nivel = dadosUsuario.nivel;
 
-        // 3. Calcula o prêmio conforme a fórmula definida
-        const base = 0.40;
+        // Validação rigorosa: exige pelo menos 5 dias distintos reais E streak atual >= 5
+        if (!bauDisponivel || diasAtivos < 5 || streakAtual < 5) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ 
+                success: false, 
+                error: `Baú não disponível. Você possui ${diasAtivos} dia(s) ativo(s) e streak de ${streakAtual}. São necessários 5 dias cumpridos.` 
+            });
+        }
+
+        // 3. Calcula o prêmio ajustado para o ciclo de 5 dias
+        const base = 0.30;
         const fatorNivel = 0.05;
-        const teto = 0.80;
+        const teto = 0.60;
         const premioPontos = Math.min(base + (nivel * fatorNivel), teto);
         const premioTickets = 2; 
 
@@ -1351,7 +1357,7 @@ app.post("/api/abrir-bau", async (req, res) => {
         await client.query(`
             INSERT INTO historico_ganhos 
             (telegram_id, origem, pontos, nome_tarefa, data_registro) 
-            VALUES ($1, 'bau_semanal', $2, 'Baú de 7 Dias (Nível ' || $3 || ')', NOW())
+            VALUES ($1, 'bau_semanal', $2, 'Baú de 5 Dias (Nível ' || $3 || ')', NOW())
         `, [telegram_id, premioPontos, nivel]);
 
         // 6. Insere os 2 tickets na tabela roleta_tickets
@@ -1373,7 +1379,7 @@ app.post("/api/abrir-bau", async (req, res) => {
 
         res.json({
             success: true,
-            mensagem: "🎉 Baú aberto com sucesso!",
+            mensagem: "🎉 Baú de 5 dias aberto com sucesso!",
             premioPontos: premioPontos.toFixed(8),
             premioTickets: premioTickets
         });
@@ -1618,21 +1624,25 @@ app.get("/api/status-checklist", async (req, res) => {
 
     const client = await pool.connect();
     try {
-        // 1. Busca dados do usuário, streaks e soma dos pontos ganhos hoje
+        await client.query("BEGIN");
+
+        // 1. Busca dados do usuário, streaks e soma dos pontos ganhos hoje (fuso de Brasília)
         const result = await client.query(`
             SELECT 
                 u.data_registro::date as data_criacao,
                 u.booster_usado,
                 u.pontos as saldo_total,
+                u.escudos,
                 us.streak_atual, 
                 us.bau_disponivel,
                 us.streak_quebrado,
                 us.meta_cumprida_hoje,
+                us.ultima_data_checkin,
                 COALESCE((
                     SELECT SUM(pontos) 
                     FROM historico_ganhos 
                     WHERE telegram_id = u.telegram_id 
-                    AND data_registro::date = CURRENT_DATE
+                    AND (data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
                 ), 0) as pontos_hoje,
                 COALESCE((
                     SELECT COUNT(*) 
@@ -1643,11 +1653,13 @@ app.get("/api/status-checklist", async (req, res) => {
             FROM usuarios u
             LEFT JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
             WHERE u.telegram_id = $1
+            FOR UPDATE
         `, [telegram_id]);
 
-        const data = result.rows[0];
+        let data = result.rows[0];
 
         if (!data) {
+            await client.query("ROLLBACK");
             return res.status(404).json({ error: "Usuário não encontrado" });
         }
 
@@ -1657,9 +1669,76 @@ app.get("/api/status-checklist", async (req, res) => {
         // A meta diária é batida se acumulou >= 0.30 pts hoje
         const metaBatidaHoje = pontosHoje >= metaDiariaAlvo || data.meta_cumprida_hoje === true;
 
-        // Missão de entrada: Fez pelo menos 1 MoneyRain
+        // =========================================================================
+        // 🔄 VIRADA DE DIA E CONTROLE DE STREAK (5 DIAS)
+        // =========================================================================
+        const hojeBr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+        const ultimaDataCheckinBr = data.ultima_data_checkin 
+            ? new Date(data.ultima_data_checkin).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) 
+            : null;
+
+        let streakAtual = parseInt(data.streak_atual || 0);
+        let streakQuebrado = data.streak_quebrado || false;
+        let bauDisponivel = data.bau_disponivel || false;
+        let metaCumpridaHojeBanco = data.meta_cumprida_hoje || false;
+
+        // Se mudou o dia em relação à última visita
+        if (ultimaDataCheckinBr && ultimaDataCheckinBr < hojeBr) {
+            const bateuMetaOntem = data.meta_cumprida_hoje;
+            const escudosAtuais = parseInt(data.escudos || 0);
+
+            if (bateuMetaOntem) {
+                streakAtual += 1; // Incrementa o streak apenas AQUI na virada do dia
+            } else if (escudosAtuais > 0) {
+                // Protege com escudo caso não tenha feito tarefas ontem
+                await client.query(`UPDATE usuarios SET escudos = escudos - 1 WHERE telegram_id = $1`, [telegram_id]);
+            } else {
+                // Zera o streak se não fez tarefas e não tinha escudo
+                streakAtual = 0;
+                streakQuebrado = true;
+            }
+
+            // Libera o baú se alcançou 5 dias
+            if (streakAtual >= 5) {
+                bauDisponivel = true;
+            }
+
+            metaCumpridaHojeBanco = false; // Reseta a flag para o novo dia
+
+            // Atualiza a tabela de streaks para o novo dia
+            await client.query(`
+                UPDATE usuarios_streaks 
+                SET streak_atual = $1,
+                    meta_cumprida_hoje = $2,
+                    ultima_data_checkin = CURRENT_DATE,
+                    streak_quebrado = $3,
+                    bau_disponivel = $4
+                WHERE telegram_id = $5
+            `, [streakAtual, metaCumpridaHojeBanco, streakQuebrado, bauDisponivel, telegram_id]);
+            
+        } else if (!ultimaDataCheckinBr) {
+            // Inicializa a data caso esteja nula
+            await client.query(`
+                UPDATE usuarios_streaks 
+                SET ultima_data_checkin = CURRENT_DATE 
+                WHERE telegram_id = $1
+            `, [telegram_id]);
+        }
+
+        // Se ele atingiu a meta HOJE e o banco ainda não tinha registrado
+        if (metaBatidaHoje && !metaCumpridaHojeBanco) {
+            await client.query(`
+                UPDATE usuarios_streaks 
+                SET meta_cumprida_hoje = TRUE 
+                WHERE telegram_id = $1
+            `, [telegram_id]);
+        }
+
+        await client.query("COMMIT");
+
+        // Missão de Entrada: Concluída se tem pelo menos 1 MoneyRain no histórico
         const totalMoneyRain = parseInt(data.total_moneyrain) || 0;
-        const missaoEntradaConcluida = totalMoneyRain >= 1;
+        const missaoEntradaConcluida = totalMoneyRain >= 1 || data.booster_usado === true;
 
         res.json({
             success: true,
@@ -1671,24 +1750,26 @@ app.get("/api/status-checklist", async (req, res) => {
             },
             missao_entrada: {
                 concluida: missaoEntradaConcluida,
-                saque_liberado: missaoEntradaConcluida, // Fez 1 MoneyRain = Pode sacar imediato
+                saque_liberado: missaoEntradaConcluida,
                 booster_registrado: data.booster_usado
             },
             streak: { 
-                streak_atual: data.streak_atual || 0, 
-                bau_disponivel: data.bau_disponivel || false,
-                streak_quebrado: data.streak_quebrado || false
+                streak_atual: streakAtual, 
+                bau_disponivel: bauDisponivel,
+                streak_quebrado: streakQuebrado
             },
             data_criacao: data.data_criacao
         });
 
     } catch (err) {
+        await client.query("ROLLBACK");
         console.error("Erro na rota /api/status-checklist:", err);
         res.status(500).json({ error: "Erro interno no servidor" });
     } finally {
         client.release();
     }
 });
+
 
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
@@ -3920,15 +4001,13 @@ cron.schedule('0 15 * * *', () => {
 atualizarCotacoesAutomaticamente();
 
 // =========================================================================
-// 🔹 11, 12, 13, 14. CRON JOBS E ROTINAS DIÁRIAS (COM REATIVAÇÃO E BÔNUS)
+// 🔹 CRON JOBS E ROTINAS DE ENGAJAMENTO (MANTIDOS)
 // =========================================================================
 
 async function dispararEngajamento(lang, tipo) {
   try {
     let query;
     if (tipo === 'inativo') {
-      // Usuários que cadastraram, não têm ganhos nas últimas 48h, NUNCA receberam a notificação de inativo 
-      // e AINDA NÃO resgataram o bônus de reativação.
       query = `SELECT u.telegram_id 
                FROM usuarios u 
                WHERE u.lang = $1 
@@ -3941,7 +4020,6 @@ async function dispararEngajamento(lang, tipo) {
                  AND h.data_registro > NOW() - INTERVAL '48 hours'
                )`;
     } else {
-      // Usuários que já ganharam pontos nas últimas 48h, estão há 24h sem interagir e NUNCA receberam a notificação de iniciante
       query = `SELECT u.telegram_id 
                FROM usuarios u 
                WHERE u.lang = $1 
@@ -3965,12 +4043,10 @@ async function dispararEngajamento(lang, tipo) {
     for (const u of rows) {
       const isPt = lang === 'pt';
       
-      // Mensagem personalizada para inativos (com o bônus surpresa) e iniciantes
       const mensagem = tipo === 'inativo' 
         ? (isPt ? "🎁 Sentimos sua falta! Deixamos um bônus especial de **0.05 pontos** te esperando no Mini App para impulsionar seu saldo. Resgate agora antes que expire!" : "🎁 We missed you! We left a special bonus of **0.05 points** waiting for you in the Mini App to boost your balance. Claim it now before it expires!")
         : (isPt ? "🚀 Você está indo bem! Faltam poucas tarefas para seu bônus de consistência. Volte agora e garanta seus pontos!" : "🚀 You're doing great! Only a few tasks left for your consistency bonus. Come back now and secure your points!");
 
-      // Se for inativo, joga direto para a página de reativação. Senão, vai para as tarefas normais.
       const urlDestino = tipo === 'inativo' ? 'reativacao.html' : 'tarefas.html';
       const btnText = isPt 
         ? (tipo === 'inativo' ? "🎁 Resgatar Bônus Agora" : "📲 Fazer Tarefas Agora") 
@@ -3986,7 +4062,6 @@ async function dispararEngajamento(lang, tipo) {
           }
         });
 
-        // Se a mensagem foi enviada com sucesso, marca a flag correspondente no banco (Máximo de 1 envio)
         const colunaFlag = tipo === 'inativo' ? 'notif_inativo_enviada' : 'notif_iniciante_enviada';
         await pool.query(
           `UPDATE usuarios SET ${colunaFlag} = TRUE WHERE telegram_id = $1`,
@@ -4017,7 +4092,7 @@ async function dispararEngajamento(lang, tipo) {
   }
 }
 
-// Disparos automatizados (Cron Jobs)
+// Disparos automatizados de Inativos e Iniciantes (Manhã)
 cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('pt', 'inativo');
   await dispararEngajamento('pt', 'iniciante');
@@ -4028,7 +4103,7 @@ cron.schedule("0 10 * * *", async () => {
   await dispararEngajamento('en', 'iniciante');
 }, { timezone: "America/New_York" });
 
-// Cron Job de Fidelidade VIP (Com salvamento de data_bloqueio em caso de erro 403)
+// Cron Job de Fidelidade VIP (Mantido)
 cron.schedule("0 12 * * *", async () => {
   try {
     const query = `
@@ -4076,75 +4151,11 @@ cron.schedule("0 12 * * *", async () => {
   }
 });
 
-// Processamento Diário de Streaks, XP e Escudos (00:05)
-cron.schedule('5 0 * * *', async () => {
-    console.log("🕒 Iniciando processamento diário de streaks e XP com proteção de escudos...");
-    const client = await pool.connect();
-    try {
-        await client.query("BEGIN");
+// ❌ O CRON JOB DE STREAKS MEIA-NOITE ('5 0 * * *') FOI REMOVIDO DAQUI.
+// Agora a lógica de streak e virada de dia roda de forma inteligente e sob demanda 
+// diretamente na rota /api/status-checklist quando o usuário abre o app.
 
-        await client.query(`
-            UPDATE usuarios_streaks us
-            SET 
-                streak_quebrado = CASE 
-                    WHEN us.meta_cumprida_hoje = FALSE 
-                         AND us.streak_atual > 0 
-                         AND (u.escudos = 0 OR u.escudos IS NULL) THEN TRUE 
-                    ELSE FALSE 
-                END,
-                
-                streak_atual = CASE 
-                    WHEN us.meta_cumprida_hoje = TRUE THEN us.streak_atual + 1 
-                    WHEN (u.escudos > 0 AND us.meta_cumprida_hoje = FALSE) THEN us.streak_atual 
-                    ELSE 0 
-                END,
-                
-                bau_disponivel = CASE 
-                    WHEN (us.streak_atual + (CASE WHEN us.meta_cumprida_hoje = TRUE THEN 1 ELSE 0 END)) >= 7 THEN TRUE 
-                    ELSE us.bau_disponivel 
-                END,
-                
-                meta_cumprida_hoje = FALSE
-            FROM usuarios u
-            WHERE us.telegram_id = u.telegram_id
-        `);
-
-        await client.query(`
-            UPDATE usuarios 
-            SET escudos = escudos - 1
-            WHERE telegram_id IN (
-                SELECT us.telegram_id 
-                FROM usuarios_streaks us 
-                WHERE us.meta_cumprida_hoje = FALSE 
-                AND us.streak_atual > 0 
-                AND escudos > 0
-            )
-        `);
-
-        await client.query(`
-            UPDATE usuarios 
-            SET xp = FLOOR(xp * 0.90),
-                nivel = FLOOR(SQRT(FLOOR(xp * 0.90) / 100)) + 1
-            WHERE (escudos = 0 OR escudos IS NULL)
-            AND telegram_id IN (
-                SELECT us.telegram_id 
-                FROM usuarios_streaks us 
-                WHERE us.meta_cumprida_hoje = FALSE 
-                AND us.streak_atual > 0
-            )
-        `);
-
-        await client.query("COMMIT");
-        console.log("✅ Processamento diário concluído com sucesso.");
-    } catch (err) {
-        await client.query("ROLLBACK");
-        console.error("❌ Erro fatal no processamento diário de streaks:", err);
-    } finally {
-        client.release();
-    }
-});
-
-// Tratamento de Erros Global para o Bot (Captura bloqueios em tempo de execução com data)
+// Tratamento de Erros Global para o Bot (Mantido)
 bot.catch(async (err, ctx) => {
   console.error(`Erro crítico no Telegraf para o update ${ctx.updateType}:`, err);
   if (err.code === 403 || (err.message && err.message.includes('blocked by the user'))) {
@@ -4166,7 +4177,7 @@ bot.catch(async (err, ctx) => {
   }
 });
 
-// Inicialização do Servidor e do Bot
+// Inicialização do Servidor e do Bot (Mantido)
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
 
