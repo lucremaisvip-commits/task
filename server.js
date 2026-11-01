@@ -1651,9 +1651,9 @@ app.get("/api/status-checklist", async (req, res) => {
                     AND origem = 'moneyrain'
                 ), 0) as total_moneyrain
             FROM usuarios u
-            LEFT JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
+            JOIN usuarios_streaks us ON u.telegram_id = us.telegram_id
             WHERE u.telegram_id = $1
-            FOR UPDATE
+            FOR UPDATE OF u, us
         `, [telegram_id]);
 
         let data = result.rows[0];
@@ -1769,7 +1769,6 @@ app.get("/api/status-checklist", async (req, res) => {
         client.release();
     }
 });
-
 
 // Padronizado conforme Dossiê: uso de BIGINT para telegram_id
 app.get("/api/usuarios/:telegram_id", async (req, res) => {
