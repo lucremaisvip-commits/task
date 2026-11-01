@@ -3490,11 +3490,12 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     const totalHistorico = parseFloat(risco.total_pontos_historico || 0);
     const acoesExtremas = parseInt(risco.acoes_extrema_velocidade || 0);
 
-    // Regras atualizadas para aprovar automático:
-    // 1. Tolerância de até 5 ações extremas (< 1s) para absorver eventuais lotes de postback sem travar o usuário honesto.
-    // 2. O histórico de pontos acumulados tem que cobrir o valor solicitado (integridade correta).
-    // 3. O valor do saque não pode ultrapassar o teto automático (0.30 pontos).
-    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= 0.30;
+    // =========================================================================
+    // ⚙️ NOVO TETO DE SAQUE AUTOMÁTICO (ALTERADO PARA 1.00 PONTO - AJUSTÁVEL)
+    // =========================================================================
+    const TETO_SAQUE_AUTOMATICO = 1.00; 
+
+    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= TETO_SAQUE_AUTOMATICO;
 
     if (passouNoFiltro) {
       // ✅ TUDO CERTO (Caminho Verde): Debita, aprova e paga direto via FaucetPay
@@ -3531,7 +3532,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
 
           const pontosFormatados = pontosSolicitados.toFixed(2);
           
-          // Mensagem ajustada com o ID da transação em texto plano (sem link 404)
           const mensagemSucesso = isEn
             ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🆔 **TX ID:** \`${payoutId}\``
             : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🆔 **ID da Transação:** \`${payoutId}\``;
@@ -3545,13 +3545,15 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
       return ctx.editMessageText(isEn ? "✅ Withdrawal approved and paid successfully!" : "✅ Saque aprovado e pago automaticamente com sucesso!");
     }
 
-    // ❌ ALGO SUSPEITO (Caminho Vermelho): Manda notificação para você avaliar
+    // ❌ ALGO SUSPEITO OU ACIMA DO TETO (Caminho Vermelho): Manda notificação para o Admin avaliar
     await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
     await client.query("COMMIT");
 
     const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
     if (adminId && typeof bot !== 'undefined') {
-      const motivoAlerta = acoesExtremas > 5 ? `⚠️ *Alerta:* Alta frequência de cliques extremos detectada (${acoesExtremas} ações < 1s).` : `⚠️ *Alerta:* Revisão de teto ou histórico.`;
+      const motivoAlerta = acoesExtremas > 5 
+        ? `⚠️ *Alerta:* Alta frequência de cliques extremos detectada (${acoesExtremas} ações < 1s).` 
+        : `⚠️ *Alerta:* Saque acima do teto automático (${pontosSolicitados} Pts) ou revisão de histórico.`;
       
       const mensagemAdmin = `🚨 **SAQUE ENVIADO PARA REVISÃO MANUAL!**\n\n` +
         `${motivoAlerta}\n` +
@@ -3639,7 +3641,7 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
 // 🔹 AÇÕES DO ADMINISTRADOR DITO PELO TELEGRAM (BOTÕES INTERATIVOS)
 // =========================================================================
 
-// 1. Botão: Checar Atividades Recentes do Usuário (Com Auditoria de Indicação)
+// 1. Botão: Checar Atividades Recentes do Usuário
 bot.action(/admin_checar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -3650,7 +3652,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
   try {
     await ctx.answerCbQuery("Buscando auditoria completa...");
 
-    // 1. Busca as últimas 10 atividades do indicador
     const resIndicador = await pool.query(
       `SELECT origem, nome_tarefa, pontos, data_registro 
        FROM historico_ganhos 
@@ -3659,7 +3660,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
       [telegramId]
     );
 
-    // 2. Busca quem esse usuário indicou na tabela 'indicacoes'
     const resIndicados = await pool.query(
       `SELECT id_indicado, data_registro, pontos_ativados 
        FROM indicacoes 
@@ -3671,7 +3671,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
     let relatorio = `📊 **AUDITORIA DE ATIVIDADES & FRAUDE**\n`;
     let relatorioIndicados = "";
 
-    // Se houver indicados, busca as atividades da indicação mais recente (ou de todas)
     if (resIndicados.rows.length > 0) {
       relatorioIndicados += `\n👥 **Usuários Indicados (${resIndicados.rows.length}):**\n`;
       
@@ -3679,7 +3678,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
         const dataIndFormatada = new Date(ind.data_registro).toLocaleString('pt-BR');
         relatorioIndicados += `- ID Indicado: \`${ind.id_indicado}\` (Ativado: ${ind.pontos_ativados ? 'Sim' : 'Não'})\n  Data: ${dataIndFormatada}\n`;
 
-        // Busca as 10 últimas atividades do indicado para comparar o padrão
         const resAtividadesIndicado = await pool.query(
           `SELECT origem, nome_tarefa, pontos, data_registro 
            FROM historico_ganhos 
@@ -3703,7 +3701,6 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
       relatorioIndicados = `\n👥 **Indicados:** Este usuário não possui indicações registradas.\n`;
     }
 
-    // Monta a parte do Indicador Principal
     let relatorioPrincipal = `\n👤 **Indicador Principal:** \`${telegramId}\`\n`;
     let saldoRecenteTotal = 0;
 
@@ -3735,7 +3732,7 @@ bot.action(/admin_checar_(\d+)/, async (ctx) => {
   }
 });
 
-// 2. Botão: Aprovar e Pagar o Saque Direto pela FaucetPay
+// 2. Botão: Aprovar e Pagar o Saque Direto pela FaucetPay (Admin)
 bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -3758,8 +3755,12 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
     const saque = saqueRes.rows[0];
     const isEn = saque.lang === 'en';
 
-    const TAXA_PONTO_LTC = 0.000001; 
-    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
+    // Puxa cotação atual do banco dinamicamente
+    const cotacaoRes = await pool.query(
+      "SELECT valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
+    );
+    const ltcPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00017390;
+    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * ltcPorPonto) * 100000000);
 
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
       api_key: FAUCETPAY_API_KEY, 
@@ -3808,7 +3809,7 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
   }
 });
 
-// 3. NOVO BOTÃO: Recusar o Saque Diretamente pelo Chat
+// 3. Botão: Recusar o Saque Diretamente pelo Chat (Admin)
 bot.action(/admin_recusar_(\d+)/, async (ctx) => {
   const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
   if (ctx.from.id.toString() !== adminId) {
@@ -3831,25 +3832,19 @@ bot.action(/admin_recusar_(\d+)/, async (ctx) => {
     const saque = saqueRes.rows[0];
     const isEn = saque.lang === 'en';
 
-    // Atualiza o status do saque para 'Recusado' ou 'Cancelado'
     await pool.query(
       "UPDATE saques SET status = 'Recusado', data_aprovacao = NOW() WHERE id = $1",
       [saqueId]
     );
 
-    // Opcional: Se quiser devolver os pontos para o saldo do usuário ao recusar, descomente a linha abaixo:
-    // await pool.query("UPDATE usuarios SET pontos = pontos + $1 WHERE telegram_id = $2", [saque.pontos_solicitados, saque.telegram_id]);
-
     const mensagemRecusaUser = isEn
       ? `❌ **Withdrawal Declined**\n\nYour withdrawal request #${saqueId} has been reviewed and declined by administration.`
       : `❌ **Saque Recusado**\n\nSeu pedido de saque #${saqueId} foi analisado e recusado pela administração.`;
 
-    // Notifica o usuário no chat dele
     try {
       await bot.telegram.sendMessage(saque.telegram_id, mensagemRecusaUser, { parse_mode: "Markdown" });
     } catch (e) {}
 
-    // Atualiza a mensagem no chat do admin
     await ctx.editMessageText(`❌ **Saque #${saqueId} RECUSADO com sucesso.**\nO usuário foi notificado.`, {
       parse_mode: "Markdown"
     });
@@ -3859,6 +3854,7 @@ bot.action(/admin_recusar_(\d+)/, async (ctx) => {
     await ctx.reply("❌ Erro interno ao processar a recusa.");
   }
 });
+
 
 // =========================================================================
 // 🔹 AUTOMATIZAÇÃO DE COTAÇÕES (1 VEZ AO DIA ÀS 12:00 DE BRASÍLIA)
