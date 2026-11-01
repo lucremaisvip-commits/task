@@ -165,19 +165,39 @@
         <input type="password" id="adminKey" placeholder="Insira sua ADMIN_KEY para autorizar os envios">
     </div>
 
-    <!-- CENTRAL DE DISPARO (INDIVIDUAL OU EM MASSA BILÍNGUE) -->
+    <!-- CENTRAL DE DISPARO SEGMENTADO -->
     <div class="card">
-        <h3>🚀 Enviar Notificação (Individual ou Massa)</h3>
+        <h3>🚀 Enviar Notificação Segmentada</h3>
         
-        <label for="tipoEnvio">Tipo de Envio</label>
+        <label for="tipoEnvio">Tipo de Envio / Destinatários</label>
         <select id="tipoEnvio" onchange="alternarCamposEnvio()">
             <option value="individual">👤 Apenas para um Telegram ID específico</option>
+            <option value="lista">📋 Lista de IDs personalizados (Separados por ponto e vírgula ';')</option>
+            <option value="filtro">🔍 Filtrar por Categoria / Idioma / Comportamento</option>
             <option value="massa">🌍 Para Todos os Usuários Ativos (Massa Bilíngue)</option>
         </select>
 
+        <!-- Bloco Individual -->
         <div id="blocoTargetId">
             <label for="targetId">Telegram ID do Destinatário</label>
             <input type="text" id="targetId" placeholder="Ex: 8462641789">
+        </div>
+
+        <!-- Bloco Lista com Ponto e Vírgula -->
+        <div id="blocoListaIds" style="display: none;">
+            <label for="listaIdsInput">Lista de Telegram IDs (Separados por ponto e vírgula ';')</label>
+            <textarea id="listaIdsInput" rows="3" placeholder="Ex: 123456789; 987654321; 456789123"></textarea>
+        </div>
+
+        <!-- Bloco de Filtros Avançados -->
+        <div id="blocoFiltros" style="display: none;">
+            <label for="filtroSelect">Selecione o Critério de Filtro</label>
+            <select id="filtroSelect">
+                <option value="lang_pt">🇧🇷 Apenas usuários com idioma PT</option>
+                <option value="lang_en">🇺🇸 Apenas usuários com idioma EN</option>
+                <option value="saques_pendentes">⏳ Usuários com saques pendentes</option>
+                <option value="inativos_7d">💤 Usuários inativos há mais de 7 dias</option>
+            </select>
         </div>
 
         <div class="grid-2">
@@ -239,15 +259,18 @@
 
     function alternarCamposEnvio() {
         const tipo = document.getElementById('tipoEnvio').value;
-        const blocoId = document.getElementById('blocoTargetId');
-        blocoId.style.display = tipo === 'individual' ? 'block' : 'none';
+        document.getElementById('blocoTargetId').style.display = tipo === 'individual' ? 'block' : 'none';
+        document.getElementById('blocoListaIds').style.display = tipo === 'lista' ? 'block' : 'none';
+        document.getElementById('blocoFiltros').style.display = tipo === 'filtro' ? 'block' : 'none';
     }
 
-    // Função unificada para disparo (Individual ou Massa Bilíngue)
+    // Função unificada para disparo com todas as opções (Individual, Lista, Filtros, Massa)
     async function enviarNotificacaoGeral() {
         const adminKey = document.getElementById('adminKey').value.trim();
         const tipoEnvio = document.getElementById('tipoEnvio').value;
         const targetId = document.getElementById('targetId').value.trim();
+        const listaIdsInput = document.getElementById('listaIdsInput').value.trim();
+        const filtroSelect = document.getElementById('filtroSelect').value;
         const messagePt = document.getElementById('messagePt').value.trim();
         const messageEn = document.getElementById('messageEn').value.trim();
 
@@ -261,12 +284,22 @@
             return;
         }
 
+        if (tipoEnvio === 'lista' && !listaIdsInput) {
+            showStatus('⚠️ Insira a lista de Telegram IDs separados por ponto e vírgula (;).', 'warning');
+            return;
+        }
+
         if (!messagePt && !messageEn) {
             showStatus('⚠️ Preencha ao menos uma das mensagens (PT ou EN).', 'warning');
             return;
         }
 
-        if (!confirm(tipoEnvio === 'massa' ? 'Deseja realmente disparar esta campanha em massa para todos os usuários ativos?' : `Deseja enviar a mensagem para o ID ${targetId}?`)) {
+        let confirmMsg = 'Deseja realmente disparar esta notificação?';
+        if (tipoEnvio === 'massa') confirmMsg = 'Deseja realmente disparar esta campanha em massa para todos os usuários ativos?';
+        if (tipoEnvio === 'filtro') confirmMsg = `Deseja disparar para o filtro selecionado (${filtroSelect})?`;
+        if (tipoEnvio === 'lista') confirmMsg = 'Deseja disparar para a lista de IDs informada?';
+
+        if (!confirm(confirmMsg)) {
             return;
         }
 
@@ -283,6 +316,8 @@
                 body: JSON.stringify({
                     tipo: tipoEnvio,
                     telegram_id: targetId,
+                    lista_ids: listaIdsInput,
+                    filtro: filtroSelect,
                     mensagem_pt: messagePt,
                     mensagem_en: messageEn
                 })
