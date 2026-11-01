@@ -476,7 +476,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     await client.query("COMMIT");
 
-    // 💬 Dispara a notificação bilíngue no chat do Telegram do indicado
+    // 💬 Dispara a ção bilíngue no chat do Telegram do indicado
     if (ganhouBonusIndicacao && typeof bot !== 'undefined' && bot.telegram) {
       const isEn = langIndicado === 'en';
 
@@ -2114,91 +2114,151 @@ app.get('/api/admin/pending-withdrawals', async (req, res) => {
     }
 });
 
-// 2. Rota para disparar a mensagem via Telegram Bot API
+// =========================================================================
+// 🔹 Rota 1: Envio Rápido Direto (Individual)
+// =========================================================================
 app.post('/api/admin/notify', async (req, res) => {
     const { adminKey, telegramId, message } = req.body;
-    if (adminKey !== process.env.ADMIN_KEY) {
+    
+    // Suporte tanto para x-admin-key no header quanto para adminKey no body
+    const keyAuth = adminKey || req.headers['x-admin-key'];
+    if (keyAuth !== process.env.ADMIN_KEY) {
         return res.status(403).json({ success: false, message: 'ADMIN_KEY inválida.' });
     }
 
+    if (!telegramId || !message) {
+        return res.status(400).json({ success: false, message: 'Telegram ID ou mensagem não informados.' });
+    }
+
     try {
-        // Envia a mensagem direta via Telegram Bot API
-        await bot.telegram.sendMessage(telegramId, message);
+        await bot.telegram.sendMessage(telegramId, message, { parse_mode: "Markdown" });
         res.json({ success: true, message: 'Mensagem enviada com sucesso.' });
     } catch (err) {
         res.status(500).json({ success: false, message: 'Erro no bot: ' + err.message });
     }
 });
 
-// 🔹 Rota Admin: Envio de Notificação Personalizada (Individual ou Massa Bilíngue)
+
+// =========================================================================
+// 🔹 Rota 2: Central de Notificação (Individual, Lista por ';', Filtros e Massa)
+// =========================================================================
 app.post("/api/admin/enviar-notificacao-personalizada", verificarAdmin, async (req, res) => {
-  const { tipo, telegram_id, mensagem_pt, mensagem_en } = req.body;
+  const { tipo, telegram_id, lista_ids, filtro, mensagem_pt, mensagem_en } = req.body;
 
   if (!mensagem_pt && !mensagem_en) {
     return res.status(400).json({ success: false, error: "Preencha ao menos uma mensagem (PT ou EN)." });
   }
 
   try {
+    let destinatarios = [];
+
     // 1. ENVIO INDIVIDUAL
     if (tipo === 'individual') {
       if (!telegram_id) {
         return res.status(400).json({ success: false, error: "Telegram ID não informado." });
       }
-
-      // Consulta o idioma do usuário específico no banco
-      const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [telegram_id]);
-      const userLang = userRes.rows[0]?.lang || 'pt';
-
-      // Define a mensagem com base no idioma do usuário (se faltar uma, usa a outra como fallback)
-      const textoFinal = userLang === 'en' ? (mensagem_en || mensagem_pt) : (mensagem_pt || mensagem_en);
-
-      await bot.telegram.sendMessage(telegram_id, textoFinal, { parse_mode: "Markdown" });
-      return res.json({ success: true, message: `Mensagem enviada com sucesso para o ID ${telegram_id}!` });
+      destinatarios.push(String(telegram_id).trim());
     }
 
-    // 2. ENVIO EM MASSA PARA TODOS OS USUÁRIOS ATIVOS
-    if (tipo === 'massa') {
-      // Busca todos os usuários ativos do bot e seus respectivos idiomas
-      const { rows: usuarios } = await pool.query(
-        "SELECT telegram_id, lang FROM usuarios WHERE status_conta IS NULL OR status_conta = 'ativo'"
-      );
+    // 2. ENVIO PARA LISTA DE IDs (Separados por ponto e vírgula ';')
+    else if (tipo === 'lista') {
+      if (!lista_ids) {
+        return res.status(400).json({ success: false, error: "Nenhuma lista de IDs informada." });
+      }
+      destinatarios = lista_ids
+        .split(';')
+        .map(id => String(id).trim())
+        .filter(id => id.length > 0);
 
-      let enviados = 0;
-      let erros = 0;
+      if (destinatarios.length === 0) {
+        return res.status(400).json({ success: false, error: "A lista informada não contém IDs válidos." });
+      }
+    }
 
-      // Dispara de forma controlada para evitar bloqueios de taxa da API do Telegram
-      for (const u of usuarios) {
-        try {
-          const userLang = u.lang || 'pt';
-          const textoFinal = userLang === 'en' ? (mensagem_en || mensagem_pt) : (mensagem_pt || mensagem_en);
+    // 3. ENVIO POR FILTROS AVANÇADOS
+    else if (tipo === 'filtro') {
+      let queryFiltro = "";
+      let paramsFiltro = [];
 
-          if (!textoFinal) continue;
-
-          await bot.telegram.sendMessage(u.telegram_id, textoFinal, { parse_mode: "Markdown" });
-          enviados++;
-
-          // Pequeno atraso opcional para respeitar limites da Telegram Bot API em massa
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } catch (err) {
-          erros++;
-          // Se o usuário bloqueou o bot, atualiza o status no banco
-          if (err.code === 403 || (err.message && err.message.includes('blocked by the user'))) {
-            await pool.query("UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", [u.telegram_id]).catch(() => {});
-          }
-        }
+      if (filtro === 'lang_pt') {
+        queryFiltro = "SELECT telegram_id FROM usuarios WHERE lang = 'pt' AND (status_conta IS NULL OR status_conta = 'ativo')";
+      } else if (filtro === 'lang_en') {
+        queryFiltro = "SELECT telegram_id FROM usuarios WHERE lang = 'en' AND (status_conta IS NULL OR status_conta = 'ativo')";
+      } else if (filtro === 'saques_pendentes') {
+        // Busca usuários que possuem saques com status pendente ou aguardando chat
+        queryFiltro = "SELECT DISTINCT telegram_id FROM saques WHERE status = 'pendente' OR status = 'aguardando_chat'";
+      } else if (filtro === 'inativos_7d') {
+        // Exemplo: usuários que não movimentam ganho há mais de 7 dias
+        queryFiltro = `
+          SELECT u.telegram_id FROM usuarios u 
+          WHERE (u.status_conta IS NULL OR u.status_conta = 'ativo')
+          AND NOT EXISTS (
+            SELECT 1 FROM historico_ganhos h 
+            WHERE h.telegram_id = u.telegram_id 
+            AND h.data_registro >= NOW() - INTERVAL '7 days'
+          )
+        `;
+      } else {
+        return res.status(400).json({ success: false, error: "Critério de filtro inválido." });
       }
 
-      return res.json({ 
-        success: true, 
-        message: `Campanha em massa concluída! Enviadas com sucesso: ${enviados} | Falhas/Bloqueados: ${erros}` 
-      });
+      const resFiltro = await pool.query(queryFiltro, paramsFiltro);
+      destinatarios = resFiltro.rows.map(r => String(r.telegram_id));
+
+      if (destinatarios.length === 0) {
+        return res.status(400).json({ success: false, error: "Nenhum usuário encontrado para o filtro selecionado." });
+      }
     }
 
-    res.status(400).json({ success: false, error: "Tipo de envio inválido." });
+    // 4. ENVIO EM MASSA PARA TODOS OS USUÁRIOS ATIVOS
+    else if (tipo === 'massa') {
+      const { rows: usuarios } = await pool.query(
+        "SELECT telegram_id FROM usuarios WHERE status_conta IS NULL OR status_conta = 'ativo'"
+      );
+      destinatarios = usuarios.map(u => String(u.telegram_id));
+
+      if (destinatarios.length === 0) {
+        return res.status(400).json({ success: false, error: "Nenhum usuário ativo encontrado na base." });
+      }
+    } else {
+      return res.status(400).json({ success: false, error: "Tipo de envio inválido." });
+    }
+
+    // Processamento de Disparo com Rate Limit do Telegram e verificação de idioma individual
+    let enviados = 0;
+    let erros = 0;
+
+    for (const tid of destinatarios) {
+      try {
+        // Consulta o idioma do usuário para garantir o bilinguismo correto
+        const userRes = await pool.query("SELECT lang FROM usuarios WHERE telegram_id = $1", [tid]);
+        const userLang = userRes.rows[0]?.lang || 'pt';
+        const textoFinal = userLang === 'en' ? (mensagem_en || mensagem_pt) : (mensagem_pt || mensagem_en);
+
+        if (!textoFinal) continue;
+
+        await bot.telegram.sendMessage(tid, textoFinal, { parse_mode: "Markdown" });
+        enviados++;
+
+        // Atraso de 50ms para prevenir bloqueios de taxa (Flood Control / Too Many Requests) da API do Telegram
+        await new Promise(resolve => setTimeout(resolve, 50));
+      } catch (err) {
+        erros++;
+        // Se o usuário bloqueou o bot, atualiza o status automaticamente no banco
+        if (err.code === 403 || (err.message && err.message.includes('blocked by the user'))) {
+          await pool.query("UPDATE usuarios SET status_conta = 'bloqueado' WHERE telegram_id = $1", [tid]).catch(() => {});
+        }
+      }
+    }
+
+    return res.json({ 
+      success: true, 
+      message: `Disparo concluído! Enviadas com sucesso: ${enviados} | Falhas/Bloqueados: ${erros} (Total processado: ${destinatarios.length})` 
+    });
 
   } catch (err) {
-    console.error("Erro ao enviar notificação personalizada:", err);
-    res.status(500).json({ success: false, error: "Erro interno ao processar envios." });
+    console.error("Erro ao processar notificação personalizada:", err);
+    res.status(500).json({ success: false, error: "Erro interno ao processar os disparos." });
   }
 });
 
