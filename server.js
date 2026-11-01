@@ -417,7 +417,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         infoBooster = await verificarMissaoEntrada(client, telegram_id);
     }
 
-    // 🔍 CORRIGIDO: i.* no lugar de i*
+    // 🔍 Busca dados de indicação
     const indicacaoRes = await client.query(
       `SELECT i.*, 
               u_ind.nome as nome_indicador,
@@ -447,7 +447,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
       if (parseInt(tarefasRes.rows[0].count) >= 3) {
         await client.query("UPDATE indicacoes SET pontos_ativados = true WHERE id = $1", [indicacao.id]);
         
-        // 1. CORRIGIDO: Premia o Indicador com 0.40 pts (Alinhado no Update e no Insert)
+        // 1. Premia o Indicador com 0.40 pts
         await client.query(
           `UPDATE usuarios SET pontos = (COALESCE(pontos, 0)::NUMERIC + 0.40), indicacoes = COALESCE(indicacoes, 0) + 1 WHERE telegram_id = $1`,
           [indicacao.id_indicador]
@@ -456,6 +456,15 @@ app.post("/api/concluir-tarefa", async (req, res) => {
         await client.query(
           `INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro) VALUES ($1, 'indicacao', 0.40, 'Bônus por indicação', $2, NOW())`,
           [indicacao.id_indicador, String(telegram_id)]
+        );
+
+        // 🚀 NOVO: Registra notificação pendente para o indicador na tabela centralizada
+        // (Usamos referencia_id ou criamos um registro único para este evento de indicação)
+        await client.query(
+          `INSERT INTO usuarios_notificacoes_vistas (telegram_id, tipo_alerta, referencia_data, visto, metadados)
+           VALUES ($1, 'nova_indicacao', CURRENT_DATE, FALSE, $2::jsonb)
+           ON CONFLICT DO NOTHING`,
+          [indicacao.id_indicador, JSON.stringify({ indicado_id: telegram_id, pontos: 0.40 })]
         );
 
         // 2. Premia o Indicado com 0.20 pts na hora
@@ -476,7 +485,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     await client.query("COMMIT");
 
-    // 💬 Dispara a ção bilíngue no chat do Telegram do indicado
+    // 💬 Dispara a ação bilíngue no chat do Telegram do indicado
     if (ganhouBonusIndicacao && typeof bot !== 'undefined' && bot.telegram) {
       const isEn = langIndicado === 'en';
 
@@ -493,7 +502,7 @@ app.post("/api/concluir-tarefa", async (req, res) => {
 
     res.json({ mensagem: "✅ Concluído! +15 XP", metaBatida, booster: infoBooster.liberado });
 
-  } catch (err) {
+   } catch (err) {
     await client.query("ROLLBACK");
     res.status(400).json({ erro: err.message || "Erro interno" });
   } finally {
@@ -1412,6 +1421,24 @@ app.post("/api/limpar-aviso-reset", async (req, res) => {
     }
 });
 
+app.post("/api/marcar-alerta-visto", async (req, res) => {
+    const { telegram_id, tipo_alerta, metadados } = req.body;
+    if (!telegram_id || !tipo_alerta) return res.status(400).json({ error: "Dados incompletos" });
+
+    try {
+        await client.query(`
+            INSERT INTO usuarios_notificacoes_vistas (telegram_id, tipo_alerta, referencia_data, visto, metadados)
+            VALUES ($1, $2, CURRENT_DATE, TRUE, $3::jsonb)
+            ON CONFLICT DO NOTHING
+        `, [telegram_id, tipo_alerta, JSON.stringify(metadados || {})]);
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Erro ao marcar alerta visto:", err);
+        res.status(500).json({ error: "Erro interno" });
+    }
+});
+
 // =========================================================================
 // 🔹 ROTAS DO PROJETO PARALELO: FAUCETTASK (Identificado por E-mail FaucetPay)
 // =========================================================================
@@ -1734,11 +1761,28 @@ app.get("/api/status-checklist", async (req, res) => {
             `, [telegram_id]);
         }
 
+        // =========================================================================
+        // 🔍 CONSULTAR ALERTAS JÁ VISTOS HOJE (CONTROLE CENTRALIZADO)
+        // =========================================================================
+        const notifRes = await client.query(`
+            SELECT tipo_alerta FROM usuarios_notificacoes_vistas 
+            WHERE telegram_id = $1 AND referencia_data = CURRENT_DATE
+        `, [telegram_id]);
+
+        const vistasHoje = notifRes.rows.map(r => r.tipo_alerta);
+
         await client.query("COMMIT");
 
         // Missão de Entrada: Concluída se tem pelo menos 1 MoneyRain no histórico
         const totalMoneyRain = parseInt(data.total_moneyrain) || 0;
         const missaoEntradaConcluida = totalMoneyRain >= 1 || data.booster_usado === true;
+
+        // Define quais alertas precisam ser exibidos ao front (caso ainda não tenham sido vistos hoje)
+        const alertasPendentes = {
+            streak_perdido: streakQuebrado && !vistasHoje.includes('streak_perdido'),
+            meta_concluida: metaBatidaHoje && !vistasHoje.includes('meta_concluida'),
+            bau_pronto: bauDisponivel && !vistasHoje.includes('bau_pronto')
+        };
 
         res.json({
             success: true,
@@ -1758,6 +1802,7 @@ app.get("/api/status-checklist", async (req, res) => {
                 bau_disponivel: bauDisponivel,
                 streak_quebrado: streakQuebrado
             },
+            alertas_pendentes: alertasPendentes,
             data_criacao: data.data_criacao
         });
 
