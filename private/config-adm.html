@@ -118,6 +118,11 @@
   <p style="font-size: 13px; color: #666;">Clique em "Executar" em qualquer comando abaixo para rodar e visualizar instantaneamente:</p>
   <ul>
     <li>
+      <span>-- Ver campanhas de usuários pendentes de moderação:</span>
+      <code>SELECT id, telegram_id, titulo, link, cliques_totais, custo_total_pontos, status, data_criacao FROM campanhas_usuarios WHERE status = 'pendente' ORDER BY data_criacao DESC;</code>
+      <button onclick="executarQueryDireta(`SELECT id, telegram_id, titulo, link, cliques_totais, custo_total_pontos, status, data_criacao FROM campanhas_usuarios WHERE status = 'pendente' ORDER BY data_criacao DESC;`)">▶️ Executar</button>
+    </li>
+    <li>
       <span>-- Query para saber qual campanha converte melhor:</span>
       <code>SELECT utm_source, COUNT(*) as total_visitas, SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) as total_conversoes, ROUND(100.0 * SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) / COUNT(*), 2) as taxa_conversao_pct FROM traffic_logs GROUP BY utm_source ORDER BY taxa_conversao_pct DESC;</code>
       <button onclick="executarQueryDireta(`SELECT utm_source, COUNT(*) as total_visitas, SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) as total_conversoes, ROUND(100.0 * SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) / COUNT(*), 2) as taxa_conversao_pct FROM traffic_logs GROUP BY utm_source ORDER BY taxa_conversao_pct DESC;`)">▶️ Executar</button>
