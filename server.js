@@ -3087,7 +3087,7 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 2. GET /api/admin/financeiro/geracao-renda - Relatório Detalhado de Renda & Lucro Teórico
+// 2. GET /api/admin/financeiro/geracao-renda - Relatório Detalhado de Renda & Lucro Teórico (Corrigido e Blindado)
 app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, res) => {
     const client = await pool.connect();
     try {
@@ -3098,21 +3098,21 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             LIMIT 1
         `);
 
-        const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
-        const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00010309;
+        const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.01006036;
+        const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00018609;
 
+        // Histórico excluindo origens administrativas ou estornos de correcao
         const historicoRes = await client.query(`
             SELECT 
                 origem,
                 COUNT(*) as total_acoes,
                 COALESCE(SUM(pontos::numeric), 0) as total_pontos_y
             FROM historico_ganhos
-            WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets', 'criacao_campanha')
+            WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets', 'criacao_campanha', 'correcao', 'estorno_campanha')
             GROUP BY origem
         `);
 
-        // 📊 Receita e Campanhas de Usuários (criacao_campanha)
-        // Soma o custo total cobrado na criação dos pacotes pela tabela campanhas_usuarios
+        // 📊 Campanhas criadas por usuários
         const campanhasRes = await client.query(`
             SELECT COUNT(*) as total_acoes, COALESCE(SUM(custo_total_pontos::numeric), 0) as total_arrecadado_pontos
             FROM campanhas_usuarios
@@ -3120,7 +3120,6 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
         const totalAcoesCampanha = parseInt(campanhasRes.rows[0]?.total_acoes || 0);
         const receitaCampanhasPontos = parseFloat(campanhasRes.rows[0]?.total_arrecadado_pontos || 0);
 
-        // O que foi pago de fato aos usuários que clicaram nas campanhas (geralmente registrado na origem 'tarefa' ou equivalente)
         const pagoCampanhasRes = await client.query(`
             SELECT COALESCE(SUM(pontos::numeric), 0) as total_pago_campanhas
             FROM historico_ganhos
@@ -3128,7 +3127,7 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
         `);
         const pagoCampanhasPontos = parseFloat(pagoCampanhasRes.rows[0]?.total_pago_campanhas || 0);
 
-        // Cálculos da Roleta e Tickets usando as tabelas reais
+        // Cálculos da Roleta e Tickets
         const girosComSaldoRes = await client.query(`SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false`);
         const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
         const receitaGirosPontos = qtdGirosComSaldo * 0.20;
@@ -3150,6 +3149,7 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
         const relatorio = [];
 
         const formatarValores = (pontos) => {
+            // Conversão direta segura baseada na cotação real do ponto
             const usd = pontos * cotacaoUSD;
             const ltc = pontos * cotacaoLTC;
             return {
@@ -3168,11 +3168,11 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             switch (origem) {
                 case 'zerads':
                 case 'moneyrain':
-                    // Casa ganha 100%, repassa 40% (y), logo x = y / 0.40
+                    // Casa ganha 100%, repassa 40% (y), logo a receita bruta em pontos equivalentes é y / 0.40
                     xPontos = yPontos > 0 ? yPontos / 0.40 : 0; 
                     break;
                 case 'anuncio_extra':
-                    // Monetag paga média de $0.00316 USD por clique. Convertemos para pontos para equiparar.
+                    // Monetag paga média exata de $0.00316 USD por clique. Convertemos para pontos equivalentes para manter a tabela coesa.
                     {
                         const receitaUsdPorClique = 0.00316;
                         const receitaTotalUsd = numAcoes * receitaUsdPorClique;
@@ -3180,7 +3180,7 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
                     }
                     break;
                 case 'tarefa':
-                    // Deixado neutro temporariamente ou seguindo regra padrão
+                    // Tarefas padrão internas (mantidas neutras ou equivalentes)
                     xPontos = yPontos;
                     break;
                 case 'indicacao':
@@ -3188,11 +3188,8 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
                 case 'booster_entrada':
                 case 'bau_semanal':
                 case 'bonus_reativacao':
-                    // Custos de aquisição e retenção (Prejuízo direto planejado, x = 0)
+                    // Custos de aquisição e retenção pura (Investimento da casa, x = 0)
                     xPontos = 0;
-                    break;
-                case 'correcao':
-                    xPontos = yPontos;
                     break;
                 default:
                     xPontos = yPontos;
@@ -3209,7 +3206,7 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             });
         }
 
-        // Adiciona a linha de Criação de Campanhas (Usuários queimam pontos vs cliques pagos)
+        // Adiciona a linha de Criação de Campanhas
         relatorio.push({
             origem: 'criacao_campanha',
             acoes: totalAcoesCampanha,
