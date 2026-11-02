@@ -3023,10 +3023,8 @@ const verificarAdminKey = (req, res, next) => {
     next();
 };
 
-// 1. GET /api/financeiro/overview - Visão Geral do Caixa + Cotações Ativas
 app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     try {
-        // Mapeado para o nome real da sua tabela: financeiro_saldos_parceiros
         const saldosParceiros = await pool.query('SELECT * FROM financeiro_saldos_parceiros ORDER BY id ASC');
         
         const totalSaques = await pool.query(`
@@ -3052,6 +3050,21 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
             WHERE status = 'ativa'
         `);
 
+        // Busca despesas registradas nas transações
+        const despesasRes = await pool.query(`
+            SELECT origem_destino as nome_despesa, valor_usd as valor, 'USD' as moeda, observacao, data_registro 
+            FROM financeiro_transacoes 
+            WHERE tipo = 'saida_despesa' 
+            ORDER BY data_registro DESC LIMIT 10
+        `);
+
+        // Busca campanhas de marketing recentes
+        const marketingRes = await pool.query(`
+            SELECT plataforma, tipo_anuncio, utm_source, utm_campaign, valor_investido_usd as valor, 'USD' as moeda, data_inicio as data_registro 
+            FROM financeiro_campanhas_mkt 
+            ORDER BY data_inicio DESC LIMIT 10
+        `);
+
         const cotacaoRes = await pool.query(`
             SELECT valor_ltc, valor_usd, valor_zer, valor_brl, data_registro 
             FROM cotacoes 
@@ -3064,7 +3077,9 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
             saldos_parceiros: saldosParceiros.rows,
             estatisticas_saques_usuarios: totalSaques.rows[0],
             resumo_transacoes: transacoesResumo.rows,
-            resumo_marketing: mktResumo.rows[0]
+            resumo_marketing: mktResumo.rows[0],
+            despesas_recentes: despesasRes.rows,
+            marketing_recente: marketingRes.rows
         });
     } catch (err) {
         console.error("🔥 Erro no overview financeiro:", err);
@@ -3273,19 +3288,33 @@ app.post('/api/admin/financeiro/marketing', verificarAdminKey, async (req, res) 
     }
 });
 
-// 6. POST /api/admin/financeiro/despesas - Registrar Despesa Operacional
+
+// POST /api/admin/financeiro/despesas - Salva despesa operacional na tabela de transações
 app.post('/api/admin/financeiro/despesas', verificarAdminKey, async (req, res) => {
     const { nome_despesa, valor, moeda, observacao } = req.body;
+
+    if (!nome_despesa || valor <= 0) {
+        return res.status(400).json({ success: false, message: "Nome e valor da despesa são obrigatórios." });
+    }
+
     try {
-        const result = await pool.query(
-            `INSERT INTO financeiro_transacoes (tipo, origem_destino, valor_usd, observacao, data_registro)
-             VALUES ('saida_despesa', $1, $2, $3, NOW()) RETURNING *;`,
-            [nome_despesa, valor, `${moeda} - ${observacao}`]
-        );
-        res.json({ success: true, sucesso: true, mensagem: 'Despesa salva com sucesso!', transacao: result.rows[0] });
+        let valorUsd = valor;
+        let valorZer = 0;
+        let valorBrl = 0;
+
+        // Converte para USD com base na cotação atual se necessário, ou armazena direto
+        if (moeda === 'BRL') valorBrl = valor;
+        if (moeda === 'ZER') valorZer = valor;
+
+        await pool.query(`
+            INSERT INTO financeiro_transacoes (tipo, origem_destino, valor_usd, valor_zer, valor_brl, categoria, observacao, data_registro)
+            VALUES ('saida_despesa', $1, $2, $3, $4, 'despesa_operacional', $5, NOW())
+        `, [nome_despesa, valorUsd, valorZer, valorBrl, observacao]);
+
+        return res.json({ success: true, sucesso: true, message: "Despesa registrada com sucesso!" });
     } catch (err) {
-        console.error("🔥 Erro ao registrar despesa:", err);
-        res.status(500).json({ success: false, error: err.message });
+        console.error("Erro ao salvar despesa:", err);
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
