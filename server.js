@@ -3370,49 +3370,57 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Com Debug de Erro)
-// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Seguro)
+// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Corrigido para a v1)
 app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     try {
-        // Pega a chave direto do arquivo .env / variáveis de ambiente do Render de forma segura
         const apiHash = process.env.FAUCETPAY_API_KEY;
         
         if (!apiHash) {
-            throw new Error("FAUCETPAY_API_KEY não configurada nas variáveis de ambiente (.env)");
+            throw new Error("FAUCETPAY_API_KEY não configurada.");
         }
 
         const params = new URLSearchParams();
         params.append('api_key', apiHash);
+        params.append('count', '100'); // Pega os últimos 100 saques
         params.append('currency', 'LTC');
 
         const response = await axios.post('https://faucetpay.io/api/v1/payouts', params, {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
-        if (response.data && (response.data.status === 200 || response.data.status === true || response.data.success === true)) {
-            const pagamentos = response.data.payouts || response.data.data || [];
+        // A documentação oficial v1 retorna os pagamentos na propriedade 'rewards' quando o status é 200
+        if (response.data && response.data.status === 200) {
+            const pagamentos = response.data.rewards || [];
             
             let totalLtc = 0;
             pagamentos.forEach(p => {
-                totalLtc += parseFloat(p.amount || p.amount_sent || 0);
+                // O amount na API v1 vem na menor unidade do coin (satoshis/litoshi)
+                const valorLitoshi = parseFloat(p.amount || 0);
+                totalLtc += valorLitoshi / 100000000; // Converte para LTC inteiro
             });
+
+            // Pega a cotação atual do USD no banco para calcular o equivalente em Dólar
+            const cotRes = await pool.query(`SELECT valor_usd, valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1`);
+            const cotacaoLtcUsd = cotRes.rows.length > 0 ? (parseFloat(cotRes.rows[0].valor_usd) / parseFloat(cotRes.rows[0].valor_ltc)) : 88.5; 
+
+            const totalUsdCalculado = totalLtc * cotacaoLtcUsd;
 
             return res.json({
                 success: true,
                 sucesso: true,
                 fonte_dados: 'API FaucetPay (Ao Vivo)',
                 total_ltc_pago: totalLtc.toFixed(8),
-                total_usd_pago: (totalLtc * 88.5).toFixed(4),
+                total_usd_pago: totalUsdCalculado.toFixed(4),
                 qtd_saques: pagamentos.length
             });
         }
         
-        throw new Error("API FaucetPay retornou status inválido");
+        throw new Error("API FaucetPay retornou status inválido: " + JSON.stringify(response.data));
 
     } catch (err) {
-        console.error("🔥 Erro na API FaucetPay:", err.response?.data || err.message);
-
-        // Fallback para o banco local
+        console.warn("⚠️ Falha ao consultar API FaucetPay ao vivo, usando fallback local:", err.message);
+        
+        // Fallback seguro usando a tabela local 'saques'
         const dbRes = await pool.query(`
             SELECT COUNT(*) as qtd, 
                    COALESCE(SUM(valor_solicitado), 0) as total_ltc 
@@ -3431,7 +3439,6 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
         });
     }
 });
-
 
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
