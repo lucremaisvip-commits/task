@@ -297,7 +297,44 @@
       </tbody>
     </table>
   </div>
+<!-- 💸 TABELA DE HISTÓRICO DE DESPESAS OPERACIONAIS -->
+  <h2>💸 Histórico de Despesas Operacionais</h2>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Nome da Despesa</th>
+          <th>Valor Gasto</th>
+          <th>Moeda</th>
+          <th>Observações</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaDespesasBody">
+        <tr><td colspan="5" style="text-align:center;">Carregando despesas...</td></tr>
+      </tbody>
+    </table>
+  </div>
 
+  <!-- 📢 TABELA DE HISTÓRICO DE MARKETING -->
+  <h2>📢 Histórico de Investimentos em Marketing</h2>
+  <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>Plataforma</th>
+          <th>Tipo</th>
+          <th>UTM Source / Campaign</th>
+          <th>Valor Investido</th>
+          <th>Moeda</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody id="tabelaMarketingBody">
+        <tr><td colspan="6" style="text-align:center;">Carregando marketing...</td></tr>
+      </tbody>
+    </table>
+  </div>
   <!-- Modal de Extração de Dados JSON -->
   <div class="modal-overlay" id="modalExtracao">
     <div class="modal-content" style="max-width: 700px;">
@@ -352,11 +389,56 @@
         listaParceirosGlobal = data.saldos_parceiros || [];
         renderizarTabelaParceiros(listaParceirosGlobal);
 
+        // Renderiza despesas e marketing vindos do overview (caso sua API retorne essas listas)
+        renderizarTabelaDespesas(data.despesas_recentes || []);
+        renderizarTabelaMarketing(data.marketing_recente || []);
+
       } catch (err) {
         alert(err.message);
       }
     }
 
+    function renderizarTabelaDespesas(despesas) {
+      const tbody = document.getElementById("tabelaDespesasBody");
+      tbody.innerHTML = "";
+      if (!despesas || despesas.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Nenhuma despesa registrada.</td></tr>`;
+        return;
+      }
+      despesas.forEach(d => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${d.nome_despesa || d.nome || '-'}</strong></td>
+          <td class="text-danger fw-bold">${parseFloat(d.valor || 0).toFixed(4)}</td>
+          <td>${d.moeda || 'USD'}</td>
+          <td>${d.observacao || '-'}</td>
+          <td>${d.data_registro ? new Date(d.data_registro).toLocaleDateString() : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderizarTabelaMarketing(marketing) {
+      const tbody = document.getElementById("tabelaMarketingBody");
+      tbody.innerHTML = "";
+      if (!marketing || marketing.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhum investimento em marketing registrado.</td></tr>`;
+        return;
+      }
+      marketing.forEach(m => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><strong>${m.plataforma || '-'}</strong></td>
+          <td>${m.tipo_anuncio || '-'}</td>
+          <td><small>${m.utm_source || '-'} / ${m.utm_campaign || '-'}</small></td>
+          <td class="text-success fw-bold">${parseFloat(m.valor || 0).toFixed(4)}</td>
+          <td>${m.moeda || 'USD'}</td>
+          <td>${m.data_registro ? new Date(m.data_registro).toLocaleDateString() : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+    
     async function carregarSaquesFaucetPay() {
       const adminKey = document.getElementById("campoAdminKey").value.trim();
       try {
