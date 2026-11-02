@@ -1346,12 +1346,12 @@ app.post("/api/abrir-bau", async (req, res) => {
             });
         }
 
-        // 3. Calcula o prêmio ajustado para o ciclo de 5 dias
+        // 3. Calcula o prêmio em pontos para o ciclo de 5 dias
         const base = 0.30;
         const fatorNivel = 0.05;
         const teto = 0.60;
         const premioPontos = Math.min(base + (nivel * fatorNivel), teto);
-        const premioTickets = 2; 
+        // (Tickets removidos para proteger a economia da roleta)
 
         // 4. Atualiza Saldo do Usuário
         await client.query(`
@@ -1367,15 +1367,7 @@ app.post("/api/abrir-bau", async (req, res) => {
             VALUES ($1, 'bau_semanal', $2, 'Baú de 5 Dias (Nível ' || $3 || ')', NOW())
         `, [telegram_id, premioPontos, nivel]);
 
-        // 6. Insere os 2 tickets na tabela roleta_tickets
-        await client.query(`
-            INSERT INTO roleta_tickets (telegram_id, usado, data_registro) 
-            VALUES 
-            ($1, false, CURRENT_DATE),
-            ($1, false, CURRENT_DATE)
-        `, [telegram_id]);
-
-        // 7. Atualiza o status do baú na tabela streaks
+        // 6. Atualiza o status do baú na tabela streaks
         await client.query(`
             UPDATE usuarios_streaks 
             SET bau_disponivel = FALSE 
@@ -1387,8 +1379,7 @@ app.post("/api/abrir-bau", async (req, res) => {
         res.json({
             success: true,
             mensagem: "🎉 Baú de 5 dias aberto com sucesso!",
-            premioPontos: premioPontos.toFixed(8),
-            premioTickets: premioTickets
+            premioPontos: premioPontos.toFixed(8)
         });
 
     } catch (err) {
@@ -1399,6 +1390,7 @@ app.post("/api/abrir-bau", async (req, res) => {
         client.release();
     }
 });
+
 
 app.post("/api/limpar-aviso-reset", async (req, res) => {
     const { telegram_id } = req.body;
@@ -1900,10 +1892,10 @@ app.get('/api/status-usuario', async (req, res) => {
 // Tabela de Níveis e Benefícios (Configuração Mestre)
 const TABELA_NIVEIS = {
     1: { xp_min: 0, titulo: "Novato", limite_saque: 1, giros: 5, tempo_ad: 15 },
-    2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 1 } },
-    3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 2, escudo: 1 } },
-    4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 3 } },
-    5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 5 } }
+    2: { xp_min: 100, titulo: "Explorador", limite_saque: 2, giros: 6, tempo_ad: 14, premios: { tickets: 0 } }, // Reduzido de 1 para 0
+    3: { xp_min: 300, titulo: "Caçador", limite_saque: 3, giros: 7, tempo_ad: 13, premios: { tickets: 1, escudo: 1 } }, // Reduzido de 2 para 1
+    4: { xp_min: 600, titulo: "Mestre", limite_saque: 4, giros: 8, tempo_ad: 10, premios: { tickets: 1 } }, // Reduzido de 3 para 1
+    5: { xp_min: 1000, titulo: "Lenda", limite_saque: 5, giros: 10, tempo_ad: 8, premios: { tickets: 2 } } // Reduzido de 5 para 2
 };
 
 // Função para processar ganho de XP e verificar Level UP
