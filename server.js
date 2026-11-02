@@ -3014,10 +3014,10 @@ app.get('/admin/historico-dados', async (req, res) => {
 });
 
 // =========================================================================
-// 💰 MÓDULO FINANCEIRO (Com Cotação em Tempo Real & Saques Reais)
+// 💰 MÓDULO FINANCEIRO UNIFICADO & DEFINITIVO
 // =========================================================================
 
-// Middleware simples de validação da ADMIN_KEY (opcional, ou use a validação da rota)
+// Middleware simples de validação da ADMIN_KEY
 const verificarAdminKey = (req, res, next) => {
     const key = req.headers['x-admin-key'] || req.query.key;
     if (!key || key !== process.env.ADMIN_KEY) {
@@ -3029,10 +3029,8 @@ const verificarAdminKey = (req, res, next) => {
 // 1. GET /api/financeiro/overview - Visão Geral do Caixa + Cotações Ativas
 app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     try {
-        // Saldos acumulados nos parceiros externos
-        const saldosParceiros = await pool.query('SELECT * FROM financeiro_saldos_parceiros ORDER BY parceiro ASC');
+        const saldosParceiros = await pool.query('SELECT * FROM saldos_parceiros ORDER BY id ASC');
         
-        // Total real pago em saques (status = 'ok')
         const totalSaques = await pool.query(`
             SELECT COALESCE(SUM(valor_solicitado), 0) as total_pago,
                    COALESCE(SUM(pontos_solicitados), 0) as total_pontos,
@@ -3041,7 +3039,6 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
             WHERE LOWER(status) = 'ok'
         `);
 
-        // Resumo de movimentações internas por tipo
         const transacoesResumo = await pool.query(`
             SELECT tipo, 
                    COALESCE(SUM(valor_usd), 0) as total_usd, 
@@ -3050,15 +3047,13 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
             GROUP BY tipo
         `);
         
-        // Investimentos em Marketing
         const mktResumo = await pool.query(`
             SELECT COALESCE(SUM(valor_investido_usd), 0) as total_mkt_usd, 
                    COALESCE(SUM(valor_investido_zer), 0) as total_mkt_zer 
             FROM financeiro_campanhas_mkt 
-            WHERE status = 'ativa'
+            WHERE status = 'ativo'
         `);
 
-        // Cotação ativa do dia (da tabela cotacoes)
         const cotacaoRes = await pool.query(`
             SELECT valor_ltc, valor_usd, valor_zer, valor_brl, data_registro 
             FROM cotacoes 
@@ -3079,7 +3074,120 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 2. GET /api/financeiro/transacoes - Histórico de Transações
+// 2. GET /api/admin/financeiro/geracao-renda - Relatório Detalhado de Renda & Lucro Teórico
+app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const cotacaoRes = await client.query(`
+            SELECT valor_usd, valor_ltc 
+            FROM cotacoes 
+            ORDER BY data_registro DESC, id DESC 
+            LIMIT 1
+        `);
+
+        const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
+        const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00010309;
+
+        const historicoRes = await client.query(`
+            SELECT 
+                origem,
+                COUNT(*) as total_acoes,
+                COALESCE(SUM(pontos::numeric), 0) as total_pontos_y
+            FROM historico_ganhos
+            WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets')
+            GROUP BY origem
+        `);
+
+        // Cálculos da Roleta e Tickets
+        const girosComSaldoRes = await client.query(`SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false`);
+        const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
+        const receitaGirosPontos = qtdGirosComSaldo * 0.20;
+
+        const compraTicketsRes = await client.query(`
+            SELECT COALESCE(SUM(ABS(pontos::numeric)), 0) as total_compras_tickets
+            FROM historico_ganhos WHERE origem = 'compra_tickets'
+        `);
+        const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
+
+        const roletaGirosPremiosRes = await client.query(`
+            SELECT COUNT(*) as total_acoes_roleta, COALESCE(SUM(pontos_ganhos::numeric), 0) as total_pago_roleta
+            FROM roleta_giros
+        `);
+        const acoesRoletaTotal = parseInt(roletaGirosPremiosRes.rows[0]?.total_acoes_roleta || 0);
+        const pagoRoletaPontos = parseFloat(roletaGirosPremiosRes.rows[0]?.total_pago_roleta || 0);
+        const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
+
+        const relatorio = [];
+
+        const formatarValores = (pontos) => {
+            const usd = pontos * cotacaoUSD;
+            const ltc = pontos * cotacaoLTC;
+            return {
+                pontos: pontos.toFixed(4),
+                usd: usd.toFixed(4),
+                ltc: ltc.toFixed(8)
+            };
+        };
+
+        for (const row of historicoRes.rows) {
+            const origem = row.origem;
+            const numAcoes = parseInt(row.total_acoes);
+            const yPontos = parseFloat(row.total_pontos_y);
+            let xPontos = 0;
+
+            switch (origem) {
+                case 'zerads':
+                case 'moneyrain':
+                case 'tarefa':
+                case 'anuncio_extra':
+                    xPontos = yPontos > 0 ? yPontos / 0.40 : 0; // Regra dos 40%
+                    break;
+                case 'indicacao':
+                case 'bonus_indicado':
+                case 'booster_entrada':
+                case 'bau_semanal':
+                case 'correcao':
+                    xPontos = origem === 'correcao' ? yPontos : 0;
+                    break;
+                default:
+                    xPontos = yPontos;
+                    break;
+            }
+
+            relatorio.push({
+                origem,
+                acoes: numAcoes,
+                pontos_totais: yPontos,
+                receita_x: formatarValores(xPontos),
+                pago_y: formatarValores(yPontos),
+                lucro_teorico: formatarValores(xPontos - yPontos)
+            });
+        }
+
+        relatorio.push({
+            origem: 'roleta',
+            acoes: acoesRoletaTotal,
+            pontos_totais: pagoRoletaPontos,
+            receita_x: formatarValores(receitaRoletaPontos),
+            pago_y: formatarValores(pagoRoletaPontos),
+            lucro_teorico: formatarValores(receitaRoletaPontos - pagoRoletaPontos)
+        });
+
+        res.json({
+            sucesso: true,
+            cotacao_atual: { valor_usd: cotacaoUSD, valor_ltc: cotacaoLTC },
+            dados: relatorio
+        });
+
+    } catch (err) {
+        console.error("🔥 Erro ao gerar relatório financeiro:", err);
+        res.status(500).json({ success: false, erro: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// 3. GET /api/financeiro/transacoes - Histórico de Transações
 app.get('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     try {
         const { limit = 50, offset = 0 } = req.query;
@@ -3094,7 +3202,7 @@ app.get('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 3. POST /api/financeiro/transacoes - Lança Transação com Split Automático (30/30/20/20)
+// 4. POST /api/financeiro/transacoes - Lança Transação com Split Automático (30/30/20/20)
 app.post('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     const { 
         tipo, origem_destino, valor_usd = 0, valor_zer = 0, 
@@ -3121,8 +3229,8 @@ app.post('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
 
         const query = `
             INSERT INTO financeiro_transacoes 
-            (tipo, origem_destino, valor_usd, valor_zer, valor_brl, cotacao_usd_zer, split_faucetpay, split_lucro, split_reserva, split_mkt, categoria, referencia_id, observacao)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *;
+            (tipo, origem_destino, valor_usd, valor_zer, valor_brl, cotacao_usd_zer, split_faucetpay, split_lucro, split_reserva, split_mkt, categoria, referencia_id, observacao, data_registro)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) RETURNING *;
         `;
         
         const values = [
@@ -3144,8 +3252,47 @@ app.post('/api/financeiro/transacoes', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 4. POST /api/financeiro/saldos-parceiros - Atualiza Saldo nos Parceiros Externos
-app.post('/api/financeiro/saldos-parceiros', verificarAdminKey, async (req, res) => {
+// 5. POST /api/admin/financeiro/marketing - Registrar Investimento com UTMs e Tipo de Anúncio
+app.post('/api/admin/financeiro/marketing', verificarAdminKey, async (req, res) => {
+    const { plataforma, utm_source, utm_campaign, tipo_anuncio, valor, moeda } = req.body;
+    
+    try {
+        const valorUsd = (moeda === 'USD' || moeda === 'LTC' || moeda === 'BRL') ? valor : 0;
+        const valorZer = moeda === 'ZER' ? valor : 0;
+        const nomeCampanha = `${utm_source || 'geral'} - ${utm_campaign || 'padrao'}`;
+
+        const result = await pool.query(
+            `INSERT INTO financeiro_campanhas_mkt 
+             (plataforma, nome_campanha, utm_source, utm_campaign, tipo_anuncio, valor_investido_usd, valor_investido_zer, status, data_inicio)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'ativo', NOW()) RETURNING *;`,
+            [plataforma, nomeCampanha, utm_source, utm_campaign, tipo_anuncio, valorUsd, valorZer]
+        );
+
+        res.json({ success: true, sucesso: true, mensagem: 'Investimento detalhado salvo com sucesso!', campanha: result.rows[0] });
+    } catch (err) {
+        console.error("🔥 Erro ao registrar marketing:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 6. POST /api/admin/financeiro/despesas - Registrar Despesa Operacional
+app.post('/api/admin/financeiro/despesas', verificarAdminKey, async (req, res) => {
+    const { nome_despesa, valor, moeda, observacao } = req.body;
+    try {
+        const result = await pool.query(
+            `INSERT INTO financeiro_transacoes (tipo, origem_destino, valor_usd, observacao, data_registro)
+             VALUES ('saida_despesa', $1, $2, $3, NOW()) RETURNING *;`,
+            [nome_despesa, valor, `${moeda} - ${observacao}`]
+        );
+        res.json({ success: true, sucesso: true, mensagem: 'Despesa salva com sucesso!', transacao: result.rows[0] });
+    } catch (err) {
+        console.error("🔥 Erro ao registrar despesa:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 7. POST /api/saldos-parceiros - Atualizar Saldos dos Parceiros Externos
+app.post('/api/saldos-parceiros', verificarAdminKey, async (req, res) => {
     const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao } = req.body;
     
     if (!parceiro) {
@@ -3153,11 +3300,10 @@ app.post('/api/financeiro/saldos-parceiros', verificarAdminKey, async (req, res)
     }
 
     try {
-        const query = `
-            INSERT INTO financeiro_saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao, data_atualizacao)
+        await pool.query(`
+            INSERT INTO saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao, data_atualizacao)
             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-            ON CONFLICT (parceiro) 
-            DO UPDATE SET 
+            ON CONFLICT (parceiro) DO UPDATE SET 
                 saldo_pendente_usd = EXCLUDED.saldo_pendente_usd,
                 saldo_pendente_zer = EXCLUDED.saldo_pendente_zer,
                 cliques_disponiveis = EXCLUDED.cliques_disponiveis,
@@ -3165,9 +3311,7 @@ app.post('/api/financeiro/saldos-parceiros', verificarAdminKey, async (req, res)
                 status_saque = EXCLUDED.status_saque,
                 observacao = EXCLUDED.observacao,
                 data_atualizacao = NOW()
-            RETURNING *;
-        `;
-        const values = [
+        `, [
             parceiro, 
             saldo_pendente_usd || 0, 
             saldo_pendente_zer || 0, 
@@ -3175,165 +3319,103 @@ app.post('/api/financeiro/saldos-parceiros', verificarAdminKey, async (req, res)
             previsao_saque || null, 
             status_saque || 'acumulando', 
             observacao || ''
-        ];
-        
-        const resultado = await pool.query(query, values);
-        res.json({ success: true, saldo: resultado.rows[0] });
+        ]);
 
+        res.json({ success: true, message: 'Parceiro atualizado com sucesso!' });
     } catch (err) {
         console.error("🔥 Erro ao atualizar saldo do parceiro:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 5. POST /api/financeiro/campanhas - Registra e Atualiza Campanhas MKT
-app.post('/api/financeiro/campanhas', verificarAdminKey, async (req, res) => {
-    const { plataforma, nome_campanha, valor_investido_zer, valor_investido_usd, cliques_comprados, cpc_estimado_usd, status, observacao } = req.body;
-
+// 8. GET /api/financeiro/kpis-cac-ltv - Cálculo Automático de CAC e LTV
+app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     try {
-        const query = `
-            INSERT INTO financeiro_campanhas_mkt 
-            (plataforma, nome_campanha, valor_investido_zer, valor_investido_usd, cliques_comprados, cpc_estimado_usd, status, observacao, data_inicio)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *;
-        `;
-        const values = [
-            plataforma || 'ZerAds',
-            nome_campanha,
-            valor_investido_zer || 0,
-            valor_investido_usd || 0,
-            cliques_comprados || 0,
-            cpc_estimado_usd || 0,
-            status || 'ativa',
-            observacao || ''
-        ];
+        const mktRes = await pool.query(`
+            SELECT COALESCE(SUM(valor_investido_usd), 0) as total_investido 
+            FROM financeiro_campanhas_mkt
+        `);
+        const totalInvestidoUsd = parseFloat(mktRes.rows[0].total_investido || 0);
 
-        const result = await pool.query(query, values);
-        res.json({ success: true, campanha: result.rows[0] });
+        const usuariosRes = await pool.query(`SELECT COUNT(*) as total FROM usuarios`);
+        const totalUsuarios = parseInt(usuariosRes.rows[0].total || 1);
+
+        const receitaRes = await pool.query(`
+            SELECT COALESCE(SUM(pontos::numeric), 0) as total_pontos_pagos 
+            FROM historico_ganhos 
+            WHERE origem IN ('zerads', 'moneyrain', 'tarefa', 'anuncio_extra')
+        `);
+        
+        const cotRes = await pool.query(`SELECT valor_usd FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1`);
+        const cotacaoUsd = cotRes.rows.length > 0 ? parseFloat(cotRes.rows[0].valor_usd) : 0.00909091;
+
+        const totalPontosPagos = parseFloat(receitaRes.rows[0].total_pontos_pagos || 0);
+        const receitaBrutaExternaUsd = (totalPontosPagos / 0.40) * cotacaoUsd;
+
+        const cac = totalInvestidoUsd / totalUsuarios;
+        const ltvBruto = receitaBrutaExternaUsd / totalUsuarios;
+        const ltvLucroLiquido = ltvBruto * 0.60;
+
+        res.json({
+            success: true,
+            cac: cac.toFixed(4),
+            ltv_bruto: ltvBruto.toFixed(4),
+            ltv_lucro: ltvLucroLiquido.toFixed(4),
+            total_usuarios: totalUsuarios,
+            total_investido_mkt: totalInvestidoUsd.toFixed(4)
+        });
+
     } catch (err) {
-        console.error("🔥 Erro ao registrar campanha:", err);
+        console.error("🔥 Erro ao calcular CAC e LTV:", err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-app.get("/api/admin/financeiro/geracao-renda", async (req, res) => {
-  const client = await pool.connect();
-  try {
-    // 1. Busca a cotação mais recente
-    const cotacaoRes = await client.query(`
-      SELECT valor_usd, valor_ltc 
-      FROM cotacoes 
-      ORDER BY data_registro DESC, id DESC 
-      LIMIT 1
-    `);
+// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via API FaucetPay (com Fallback Local)
+app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
+    try {
+        const apiHash = process.env.FAUCETPAY_API_KEY;
+        
+        const response = await axios.post('https://faucetpay.io/api/v1/payouts', {
+            api_key: apiHash,
+            currency: 'LTC'
+        });
 
-    const cotacaoUSD = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_usd) : 0.00909091;
-    const cotacaoLTC = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00014950;
+        if (response.data && response.data.status === 200) {
+            const pagamentos = response.data.data || [];
+            let totalLtc = 0;
+            pagamentos.forEach(p => totalLtc += parseFloat(p.amount_sent || 0));
 
-    // 2. Agrupa o histórico do banco
-    const historicoRes = await client.query(`
-      SELECT 
-        origem,
-        COUNT(*) as total_acoes,
-        COALESCE(SUM(pontos::numeric), 0) as total_pontos_y
-      FROM historico_ganhos
-      WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets')
-      GROUP BY origem
-    `);
-
-    // 3. Cálculos da Roleta unificada
-    const girosComSaldoRes = await client.query(`
-      SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false
-    `);
-    const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
-    const receitaGirosPontos = qtdGirosComSaldo * 0.20;
-
-    const compraTicketsRes = await client.query(`
-      SELECT COALESCE(SUM(ABS(pontos::numeric)), 0) as total_compras_tickets
-      FROM historico_ganhos WHERE origem = 'compra_tickets'
-    `);
-    const receitaTicketsPontos = parseFloat(compraTicketsRes.rows[0]?.total_compras_tickets || 0);
-
-    const roletaGirosPremiosRes = await client.query(`
-      SELECT COUNT(*) as total_acoes_roleta, COALESCE(SUM(pontos_ganhos::numeric), 0) as total_pago_roleta
-      FROM roleta_giros
-    `);
-    const acoesRoletaTotal = parseInt(roletaGirosPremiosRes.rows[0]?.total_acoes_roleta || 0);
-    const pagoRoletaPontos = parseFloat(roletaGirosPremiosRes.rows[0]?.total_pago_roleta || 0);
-    const receitaRoletaPontos = receitaGirosPontos + receitaTicketsPontos;
-
-    const relatorio = [];
-
-    const formatarValores = (pontos) => {
-      const usd = pontos * cotacaoUSD;
-      const ltc = pontos * cotacaoLTC;
-      return {
-        pontos: pontos.toFixed(4),
-        usd: usd.toFixed(4),
-        ltc: ltc.toFixed(8)
-      };
-    };
-
-    // Processa cada origem do histórico
-    for (const row of historicoRes.rows) {
-      const origem = row.origem;
-      const numAcoes = parseInt(row.total_acoes);       // Quantidade exata de ações (COUNT)
-      const yPontos = parseFloat(row.total_pontos_y);  // Total pago ao usuário em pontos (Y)
-      let xPontos = 0;                                 // Receita gerada em pontos (X)
-
-      switch (origem) {
-        case 'zerads':
-        case 'moneyrain':
-        case 'tarefa':
-        case 'anuncio_extra':
-          // Se o usuário ganha 40% (Y), a receita bruta gerada (X) é Y / 0.40
-          xPontos = yPontos > 0 ? yPontos / 0.40 : 0;
-          break;
-
-        case 'indicacao':
-        case 'bonus_indicado':
-        case 'booster_entrada':
-        case 'bau_semanal':
-        case 'correcao':
-          // Bonificações e correções não geram receita externa direta (X = 0 ou X acompanha Y se for estorno)
-          xPontos = origem === 'correcao' ? yPontos : 0;
-          break;
-
-        default:
-          xPontos = yPontos;
-          break;
-      }
-
-      relatorio.push({
-        origem,
-        acoes: numAcoes, // Garante que exibe o número inteiro de ações
-        receita_x: formatarValores(xPontos),
-        pago_y: formatarValores(yPontos),
-        lucro_teorico: formatarValores(xPontos - yPontos)
-      });
+            return res.json({
+                success: true,
+                sucesso: true,
+                fonte_dados: 'API FaucetPay (Ao Vivo)',
+                total_ltc_pago: (totalLtc / 100000000).toFixed(8),
+                total_usd_pago: ((totalLtc / 100000000) * 88.5).toFixed(4),
+                qtd_saques: pagamentos.length
+            });
+        }
+        throw new Error("API FaucetPay retornou status inválido");
+    } catch (err) {
+        const dbRes = await pool.query(`
+            SELECT COUNT(*) as qtd, 
+                   COALESCE(SUM(valor_ltc), 0) as total_ltc 
+            FROM saques_realizados 
+            WHERE LOWER(status) = 'pago'
+        `);
+        
+        const totalLtcLocal = parseFloat(dbRes.rows[0].total_ltc || 0);
+        return res.json({
+            success: true,
+            sucesso: true,
+            fonte_dados: 'Banco Local (Fallback)',
+            total_ltc_pago: totalLtcLocal.toFixed(8),
+            total_usd_pago: (totalLtcLocal * 88.5).toFixed(4),
+            qtd_saques: parseInt(dbRes.rows[0].qtd || 0)
+        });
     }
-
-    // Adiciona a Roleta
-    relatorio.push({
-      origem: 'roleta',
-      acoes: acoesRoletaTotal,
-      receita_x: formatarValores(receitaRoletaPontos),
-      pago_y: formatarValores(pagoRoletaPontos),
-      lucro_teorico: formatarValores(receitaRoletaPontos - pagoRoletaPontos)
-    });
-
-    res.json({
-      sucesso: true,
-      cotacao_atual: { valor_usd: cotacaoUSD, valor_ltc: cotacaoLTC },
-      dados: relatorio
-    });
-
-  } catch (err) {
-    console.error("Erro ao gerar relatório financeiro:", err);
-    res.status(500).json({ erro: "Erro interno do servidor" });
-  } finally {
-    client.release();
-  }
 });
+
 
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
