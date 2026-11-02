@@ -2192,6 +2192,59 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
       }
     }
 
+    // 🛡️ TRAVA CENTRALIZADA DE CHAVE FAUCETPAY / PIX
+    const fpControleCheck = await client.query(
+      `SELECT telegram_id_original, status FROM faucetpay_controle WHERE chave_faucetpay = $1`,
+      [emailLimpo]
+    );
+
+    if (fpControleCheck.rows.length > 0) {
+      const registroFp = fpControleCheck.rows[0];
+
+      // 1. Se a chave estiver bloqueada por fraude anterior
+      if (registroFp.status === 'bloqueado') {
+        console.warn(`🚨 [SAQUE BLOQUEADO] Tentativa com chave FaucetPay banida: ${emailLimpo} na conta ${telegram_id}`);
+        throw new Error("CHAVE_FAUCETPAY_BLOQUEADA");
+      }
+
+      // 2. Se a chave já pertence a OUTRO telegram_id (Tentativa de Multi-conta / Farm)
+      if (registroFp.telegram_id_original.toString() !== telegram_id.toString()) {
+        console.warn(`🚨 [FARM DETECTADA] A chave FaucetPay ${emailLimpo} da conta original ${registroFp.telegram_id_original} foi tentada pela conta ${telegram_id}`);
+
+        // Atualiza para 'bloqueado' e soma a tentativa na tabela unificada
+        await client.query(
+          `UPDATE faucetpay_controle 
+           SET status = 'bloqueado', 
+               motivo_bloqueio = $1, 
+               vezes_tentadas = vezes_tentadas + 1,
+               data_ultimo_uso = NOW() 
+           WHERE chave_faucetpay = $2`,
+          [`Uso cruzado entre contas (${registroFp.telegram_id_original} e ${telegram_id})`, emailLimpo]
+        );
+
+        // 🔔 ALERTA NO TELEGRAM PARA O ADMINISTRADOR
+        const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+        if (adminId && typeof bot !== 'undefined' && bot.telegram) {
+          const mensagemAlerta = `🚨 **ALERTA: FRAUDE DE CHAVE FAUCETPAY COMPARTILHADA!**\n\n` +
+            `👤 **Conta Tentando Sacar:** \`${telegram_id}\`\n` +
+            `🔗 **Dono Original da Chave:** \`${registroFp.telegram_id_original}\`\n` +
+            `💳 **Chave/E-mail:** \`${emailLimpo}\`\n\n` +
+            `🔒 *A chave foi bloqueada automaticamente e o saque impedido.*`;
+          
+          await bot.telegram.sendMessage(adminId, mensagemAlerta, { parse_mode: "Markdown" }).catch(() => {});
+        }
+
+        throw new Error("CHAVE_FAUCETPAY_DUPLICADA");
+      }
+    } else {
+      // Se a chave nunca foi usada, cadastra ela vinculada a este usuário pela primeira vez
+      await client.query(
+        `INSERT INTO faucetpay_controle (chave_faucetpay, telegram_id_original, status, data_primeiro_uso, data_ultimo_uso)
+         VALUES ($1, $2, 'ativo', NOW(), NOW())`,
+        [emailLimpo, telegram_id]
+      );
+    }
+
     // 🔒 TRAVA ANTI-DUPLICAÇÃO: Impede novo saque se houver pendente ('Aguardando Chat' ou 'Waiting')
     const saquePendenteRes = await client.query(
       `SELECT id FROM saques 
@@ -2294,6 +2347,10 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
       msg = isEn 
         ? "Security restriction: This device has already been linked to another payout account." 
         : "Restrição de segurança: Este dispositivo já está vinculado a outra conta de pagamento.";
+    } else if (err.message === "CHAVE_FAUCETPAY_BLOQUEADA" || err.message === "CHAVE_FAUCETPAY_DUPLICADA") {
+      msg = isEn 
+        ? "Security restriction: This payment email is already linked to another account or restricted." 
+        : "Restrição de segurança: Este e-mail de pagamento já está vinculado a outra conta ou possui restrições.";
     } else if (err.message === "USUARIO_NAO_ENCONTRADO") {
       msg = isEn ? "User not found." : "Usuário não encontrado.";
     } else if (err.message === "USUARIO_BANIDO") {
@@ -2309,6 +2366,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     client.release();
   }
 });
+
 
 app.get("/api/saques", async (req, res) => {
   const { telegram_id } = req.query;
