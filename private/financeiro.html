@@ -4,191 +4,39 @@
   <meta charset="UTF-8" />
   <title>Admin - Módulo Financeiro Global</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Biblioteca Chart.js para Renderização de Gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 20px;
-      max-width: 1200px;
-      margin: auto;
-    }
-    nav {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    nav a {
-      background: #2a8f43;
-      color: white;
-      padding: 10px 16px;
-      text-decoration: none;
-      border-radius: 5px;
-      font-weight: bold;
-    }
-    nav a:hover {
-      background: #1e6e34;
-    }
-    h2 {
-      color: #2a8f43;
-      margin-top: 25px;
-    }
-    .auth-card, .action-card, .cotacao-card, .card {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    .auth-card, .action-card, .cotacao-card {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      align-items: center;
-    }
-    .cotacao-card {
-      border-left: 5px solid #2a8f43;
-      background: #eef9f0;
-    }
-    .filter-group {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      flex: 1;
-      min-width: 200px;
-    }
-    .filter-group label {
-      font-size: 12px;
-      font-weight: bold;
-      color: #555;
-    }
-    input, select, textarea, button {
-      padding: 8px 12px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-      font-size: 14px;
-    }
-    button.btn-primary {
-      background: #2a8f43;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      border: none;
-    }
-    button.btn-primary:hover {
-      background: #1e6e34;
-    }
-    button.btn-extract {
-      background: #9c27b0;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      border: none;
-    }
-    button.btn-extract:hover {
-      background: #7b1fa2;
-    }
-    button.btn-edit {
-      background: #2196f3;
-      color: white;
-      border: none;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: 12px;
-    }
-    button.btn-edit:hover {
-      background: #1976d2;
-    }
-    .kpi-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 15px;
-      margin-bottom: 20px;
-    }
-    .kpi-card {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      text-align: center;
-      border-left: 5px solid #2a8f43;
-    }
-    .kpi-card h3 {
-      margin: 0;
-      font-size: 12px;
-      color: #666;
-      text-transform: uppercase;
-    }
-    .kpi-card p {
-      margin: 10px 0 0;
-      font-size: 16px;
-      font-weight: bold;
-      color: #333;
-    }
-    .sub-eq {
-      font-size: 11px;
-      color: #666;
-      font-weight: normal;
-      margin-top: 4px;
-      display: block;
-    }
-    .chart-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-    .chart-card {
-      background: #fff;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-      margin-top: 10px;
-    }
-    th, td {
-      padding: 10px;
-      text-align: left;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-    th {
-      background: #2a8f43;
-      color: white;
-    }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; max-width: 1200px; margin: auto; }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    nav a { background: #2a8f43; color: white; padding: 10px 16px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+    nav a:hover { background: #1e6e34; }
+    h2 { color: #2a8f43; margin-top: 25px; }
+    .auth-card, .action-card, .cotacao-card, .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .auth-card, .action-card, .cotacao-card { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+    .cotacao-card { border-left: 5px solid #2a8f43; background: #eef9f0; }
+    .filter-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+    .filter-group label { font-size: 12px; font-weight: bold; color: #555; }
+    input, select, textarea, button { padding: 8px 12px; border-radius: 5px; border: 1px solid #ccc; font-size: 14px; }
+    button.btn-primary { background: #2a8f43; color: white; font-weight: bold; cursor: pointer; border: none; }
+    button.btn-primary:hover { background: #1e6e34; }
+    button.btn-extract { background: #9c27b0; color: white; font-weight: bold; cursor: pointer; border: none; }
+    button.btn-extract:hover { background: #7b1fa2; }
+    button.btn-edit { background: #2196f3; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; }
+    .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .kpi-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); text-align: center; border-left: 5px solid #2a8f43; }
+    .kpi-card h3 { margin: 0; font-size: 12px; color: #666; text-transform: uppercase; }
+    .kpi-card p { margin: 10px 0 0; font-size: 16px; font-weight: bold; color: #333; }
+    .sub-eq { font-size: 11px; color: #666; font-weight: normal; margin-top: 4px; display: block; }
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(480px, 1fr)); gap: 20px; margin-bottom: 20px; }
+    .chart-card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+    th { background: #2a8f43; color: white; }
     .text-success { color: #28a745 !important; }
     .text-danger { color: #dc3545 !important; }
     .fw-bold { font-weight: bold !important; }
-
-    /* Modal de Edição / Extração */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top:0; left:0; width:100%; height:100%;
-      background: rgba(0,0,0,0.5);
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: #fff;
-      padding: 20px;
-      border-radius: 8px;
-      max-width: 600px;
-      width: 90%;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
+    .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #fff; padding: 20px; border-radius: 8px; max-width: 600px; width: 90%; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
   </style>
 </head>
 <body>
@@ -225,74 +73,136 @@
   <!-- Banner de Cotações Ativas -->
   <div class="cotacao-card" id="cardCotacoes">
     <div style="width: 100%;">
-      <strong style="color: #2a8f43;">💱 Cotação Ativa no Banco de Dados (Sincronizada via CoinGecko):</strong>
+      <strong style="color: #2a8f43;">💱 Cotação Ativa no Banco de Dados:</strong>
       <div id="infoCotacaoTexto" style="margin-top: 5px; font-size: 13px; color: #444;">
         Carregando taxas oficiais...
       </div>
     </div>
   </div>
 
-  <h2>📊 Visão Geral do Caixa (KPIs)</h2>
+  <h2>📊 Visão Geral do Caixa (KPIs com FaucetPay API)</h2>
   <div class="kpi-container">
     <div class="kpi-card">
-      <h3>Total Pago aos Usuários</h3>
+      <h3>Total Pago (API FaucetPay)</h3>
       <p id="kpiTotalSaques">0.00000000 LTC</p>
       <span class="sub-eq" id="kpiTotalSaquesEq">(Equivalente: $0.00 USD)</span>
     </div>
     <div class="kpi-card" style="border-left-color: #f0ad4e;">
       <h3>Qtd. Saques Efetivados</h3>
       <p id="kpiQtdSaques">0</p>
+      <span class="sub-eq" id="kpiOrigemSaques">(Sincronizado via API)</span>
     </div>
     <div class="kpi-card" style="border-left-color: #5bc0de;">
-      <h3>Investimento MKT Ativo</h3>
+      <h3>Investimento MKT Total</h3>
       <p id="kpiInvestimentoMkt">$0.00 USD</p>
-      <span class="sub-eq" id="kpiInvestimentoMktEq">(0.00000000 LTC)</span>
+      <span class="sub-eq" id="kpiInvestimentoMktEq">(0.00 ZER)</span>
     </div>
   </div>
 
-  <!-- Módulo de Geração de Renda & Lucro Teórico -->
+  <!-- Módulo de Geração de Renda & Lucro Teórico em Pontos -->
   <div class="card shadow mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
-      <h6 class="m-0 font-weight-bold text-primary" style="color: #2a8f43; margin: 0;">📊 Visão Geral de Geração de Renda & Lucro Teórico</h6>
+      <h6 class="m-0 font-weight-bold text-primary" style="color: #2a8f43; margin: 0;">📊 Visão Geral de Geração de Renda (Base: Pontos)</h6>
     </div>
     <div class="card-body" style="padding-top: 15px;">
-      <div class="table-responsive">
-        <table class="table table-bordered align-middle" id="tabelaFinanceiroDetalhado" width="100%" cellspacing="0">
-          <thead class="thead-light">
+      <div style="overflow-x:auto;">
+        <table class="table table-bordered align-middle" id="tabelaFinanceiroDetalhado">
+          <thead>
             <tr>
               <th>Origem / Atividade</th>
-              <th class="text-center">Ações Realizadas</th>
-              <th>Receita Gerada (X)</th>
-              <th>Pago aos Usuários (Y)</th>
-              <th>Lucro Teórico (X - Y)</th>
+              <th style="text-align:center;">Ações</th>
+              <th>Total em Pontos</th>
+              <th>Receita Gerada (USD | LTC)</th>
+              <th>Pago Usuários (USD | LTC)</th>
+              <th>Lucro Teórico (USD | LTC)</th>
             </tr>
           </thead>
           <tbody id="corpoTabelaFinanceira">
-            <tr><td colspan="5" style="text-align:center;">Carregando dados financeiros...</td></tr>
+            <tr><td colspan="6" style="text-align:center;">Carregando dados financeiros...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <h2>📈 Análise Gráfica do Caixa</h2>
-  <div class="chart-grid">
-    <div class="chart-card">
-      <canvas id="chartTransacoes"></canvas>
+  <!-- REGISTRO DE INVESTIMENTO EM MARKETING COM UTMs E TIPO -->
+  <h2>📢 Registrar Investimento em Marketing</h2>
+  <div class="action-card" style="border-left: 5px solid #9c27b0; background: #fdf8ff;">
+    <div class="filter-group">
+      <label>Plataforma / Canal</label>
+      <input type="text" id="mktPlataforma" placeholder="Ex: ZerAds, MoneyRain..." />
     </div>
-    <div class="chart-card">
-      <canvas id="chartSaldosParceiros"></canvas>
+    <div class="filter-group">
+      <label>UTM Source</label>
+      <input type="text" id="mktUtmSource" placeholder="Ex: zerads, easyhits4u..." />
+    </div>
+    <div class="filter-group">
+      <label>UTM Campaign</label>
+      <input type="text" id="mktUtmCampaign" placeholder="Ex: banner_01, faucet_v2..." />
+    </div>
+    <div class="filter-group">
+      <label>Tipo de Anúncio</label>
+      <select id="mktTipoAnuncio">
+        <option value="PTC">PTC (Paid to Click)</option>
+        <option value="Banner">Banner / Display</option>
+        <option value="Surfs">Auto Surf / Traffic Exchange</option>
+        <option value="Social">Redes Sociais / Telegram</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Valor Investido</label>
+      <input type="number" step="0.00000001" id="mktValor" value="0.00" />
+    </div>
+    <div class="filter-group">
+      <label>Moeda</label>
+      <select id="mktMoeda">
+        <option value="USD">Dólar ($ USD)</option>
+        <option value="ZER">ZerCoin (ZER)</option>
+        <option value="LTC">Litecoin (LTC)</option>
+        <option value="BRL">Real (R$ BRL)</option>
+      </select>
+    </div>
+    <div class="filter-group" style="flex: 0; align-self: flex-end;">
+      <button class="btn-primary" style="background:#9c27b0;" onclick="salvarInvestimentoMkt()">📢 Salvar Marketing</button>
     </div>
   </div>
 
-  <!-- 🧮 CALCULADORA & CONVERSOR DE MOEDAS EM TEMPO REAL -->
-  <h2>🧮 Conversor Universal de Moedas (Base: Tabela Cotações)</h2>
+  <!-- REGISTRO DE DESPESAS GERAIS OPERACIONAIS -->
+  <h2>💸 Registrar Despesa Operacional / Custo Geral</h2>
+  <div class="action-card" style="border-left: 5px solid #dc3545; background: #fff8f8;">
+    <div class="filter-group">
+      <label>Nome / Identificação da Despesa</label>
+      <input type="text" id="despesaNome" placeholder="Ex: Servidor Render, Domínio..." />
+    </div>
+    <div class="filter-group">
+      <label>Valor Gasto</label>
+      <input type="number" step="0.00000001" id="despesaValor" value="0.00" />
+    </div>
+    <div class="filter-group">
+      <label>Moeda do Pagamento</label>
+      <select id="despesaMoeda">
+        <option value="USD">Dólar ($ USD)</option>
+        <option value="BRL">Real (R$ BRL)</option>
+        <option value="LTC">Litecoin (LTC)</option>
+        <option value="ZER">ZerCoin (ZER)</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Observações / Detalhes</label>
+      <input type="text" id="despesaObs" placeholder="Ex: Manutenção mensal..." />
+    </div>
+    <div class="filter-group" style="flex: 0; align-self: flex-end;">
+      <button class="btn-primary" style="background:#dc3545;" onclick="salvarDespesaOperacional()">💸 Salvar Despesa</button>
+    </div>
+  </div>
+
+  <!-- 🧮 CALCULADORA & CONVERSOR DE MOEDAS -->
+  <h2>🧮 Conversor Universal de Moedas</h2>
   <div class="action-card" style="border-left: 5px solid #2196f3; background: #f4f9ff;">
     <div class="filter-group">
       <label>Valor para Converter</label>
       <input type="number" step="0.00000001" id="convValorInput" placeholder="Ex: 100" value="10" />
     </div>
-
     <div class="filter-group">
       <label>Moeda de Origem</label>
       <select id="convMoedaSelect">
@@ -303,25 +213,17 @@
         <option value="BRL">Real (R$ BRL)</option>
       </select>
     </div>
-
     <div class="filter-group" style="flex: 0; align-self: flex-end;">
       <button class="btn-primary" style="background: #2196f3;" onclick="calcularConversaoDireta()">🧮 Converter Moeda</button>
     </div>
 
-    <!-- Resultado em Caixas Destacadas -->
     <div id="resultadoConversaoBox" style="width: 100%; margin-top: 10px; display: none; padding: 12px; background: #fff; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
       <strong style="color: #2196f3; font-size: 13px;">📊 Resultado da Conversão:</strong>
-      <div id="resultadoConversaoConteudo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 8px;">
-        <!-- Preenchido via JavaScript -->
-      </div>
+      <div id="resultadoConversaoConteudo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 8px;"></div>
     </div>
   </div>
 
-  <div style="display:flex; justify-content:space-between; align-items:center;">
-    <h2>📋 Saldos nos Parceiros Externos</h2>
-    <button class="btn-primary" onclick="abrirModalParceiro()">➕ Novo Parceiro</button>
-  </div>
-  
+  <h2>📋 Saldos nos Parceiros Externos</h2>
   <div style="overflow-x:auto;">
     <table>
       <thead>
@@ -341,140 +243,28 @@
     </table>
   </div>
 
-  <h2>⚙️ Ações Rápidas: Registrar Transação Manual / Aporte</h2>
-  <div class="action-card">
-    <div class="filter-group">
-      <label>Tipo</label>
-      <select id="transTipo">
-        <option value="entrada_parceiro">Entrada de Parceiro (Split 30/30/20/20)</option>
-        <option value="saida_despesa">Saída / Despesa</option>
-        <option value="entrada_avulsa">Entrada Avulsa</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <label>Origem / Destino</label>
-      <input type="text" id="transOrigem" placeholder="Ex: Monetag, Servidor, etc." />
-    </div>
-    <div class="filter-group">
-      <label>Valor USD</label>
-      <input type="number" step="0.0001" id="transUsd" value="0.00" />
-    </div>
-    <div class="filter-group">
-      <label>Observação</label>
-      <input type="text" id="transObs" placeholder="Detalhes..." />
-    </div>
-    <div class="filter-group" style="flex: 0; align-self: flex-end;">
-      <button class="btn-primary" onclick="salvarTransacao()">➕ Adicionar</button>
-    </div>
-  </div>
-
-  <!-- Modal de Adicionar/Editar Parceiro -->
-  <div class="modal-overlay" id="modalParceiro">
-    <div class="modal-content">
-      <h3 id="modalTitulo" style="color:#2a8f43; margin-top:0;">✏️ Editar Saldo do Parceiro</h3>
-      
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <label style="font-size:12px; font-weight:bold;">Nome do Parceiro</label>
-        <input type="text" id="modalParceiroNome" placeholder="Ex: Monetag, ZerAds (Publisher)" />
-
-        <label style="font-size:12px; font-weight:bold;">Saldo USD (Se for em Dólar/USDT)</label>
-        <input type="number" step="0.0001" id="modalSaldoUsd" value="0.0000" />
-
-        <label style="font-size:12px; font-weight:bold;">Saldo ZER (Se for em ZER)</label>
-        <input type="number" step="0.0001" id="modalSaldoZer" value="0.0000" />
-
-        <label style="font-size:12px; font-weight:bold;">Cliques Disponíveis (Anúncios)</label>
-        <input type="number" id="modalCliques" value="0" />
-
-        <label style="font-size:12px; font-weight:bold;">Previsão de Saque</label>
-        <input type="date" id="modalPrevisaoSaque" />
-
-        <label style="font-size:12px; font-weight:bold;">Status do Saque</label>
-        <select id="modalStatusSaque">
-          <option value="acumulando">Acumulando</option>
-          <option value="solicitado">Solicitado</option>
-          <option value="pago">Pago / Recebido</option>
-          <option value="ativo">Ativo (Anúncios)</option>
-        </select>
-
-        <label style="font-size:12px; font-weight:bold;">Observações</label>
-        <input type="text" id="modalObs" placeholder="Ex: Saque mínimo é $5 USD" />
-
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
-          <button style="background:#6c757d; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer;" onclick="fecharModalParceiro()">Cancelar</button>
-          <button class="btn-primary" onclick="salvarModalParceiro()">💾 Salvar Alterações</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal de Extração de Dados JSON -->
   <div class="modal-overlay" id="modalExtracao">
     <div class="modal-content" style="max-width: 700px;">
       <h3 style="color:#9c27b0; margin-top:0;">📤 Extração de Dados do Painel (JSON)</h3>
-      <p style="font-size: 13px; color: #555;">Copie o conteúdo abaixo ou clique no botão para baixar o arquivo JSON completo com o resumo do painel financeiro atual:</p>
-      
       <textarea id="textareaExtracaoJson" style="width: 100%; height: 250px; font-family: monospace; font-size: 12px; padding: 10px; border-radius: 5px; border: 1px solid #ccc;" readonly></textarea>
-
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:15px;">
-        <button class="btn-primary" style="background:#2196f3;" onclick="copiarTextoExtracao()">📋 Copiar para Área de Transferência</button>
+        <button class="btn-primary" style="background:#2196f3;" onclick="copiarTextoExtracao()">📋 Copiar</button>
         <button style="background:#6c757d; color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer;" onclick="fecharModalExtracaoDados()">Fechar</button>
       </div>
     </div>
   </div>
 
   <script>
-    let charts = {};
     let cotacaoGlobal = null;
     let listaParceirosGlobal = [];
-    let ultimoPayloadGlobal = null; // Armazena dados extraídos para o JSON
+    let ultimoPayloadGlobal = null;
 
-    // Preserva a chave na URL
     const params = new URLSearchParams(window.location.search);
     const privateKey = params.get("key");
     if (privateKey) {
       document.getElementById("campoAdminKey").value = privateKey;
-      document.querySelectorAll("nav a").forEach(link => {
-        if (!link.href.includes("key=")) {
-          link.href += (link.href.includes("?") ? "&" : "?") + "key=" + privateKey;
-        }
-      });
-      window.addEventListener("DOMContentLoaded", () => {
-        carregarDadosFinanceiros();
-      });
-    }
-
-    function formatarValoresGlobal(valorNum, tipoMoeda) {
-      const val = parseFloat(valorNum) || 0;
-      
-      const ltcPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_ltc) : 0.00010309;
-      const usdPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_usd) : 0.00909091;
-      const zerPorPonto = cotacaoGlobal ? parseFloat(cotacaoGlobal.valor_zer) : 2.5;
-
-      let eqUsd = 0;
-      let eqLtc = 0;
-
-      if (tipoMoeda === 'USD' || tipoMoeda === 'USDT') {
-        eqUsd = val;
-        const proporcaoLtcUsd = usdPorPonto > 0 ? (ltcPorPonto / usdPorPonto) : 0.00001133;
-        eqLtc = val * proporcaoLtcUsd;
-      } else if (tipoMoeda === 'ZER') {
-        const pts = val / zerPorPonto;
-        eqUsd = pts * usdPorPonto;
-        eqLtc = pts * ltcPorPonto;
-      } else if (tipoMoeda === 'Pts') {
-        eqUsd = val * usdPorPonto;
-        eqLtc = val * ltcPorPonto;
-      } else if (tipoMoeda === 'LTC') {
-        eqLtc = val;
-        const proporcaoUsdLtc = ltcPorPonto > 0 ? (usdPorPonto / ltcPorPonto) : 88.18;
-        eqUsd = val * proporcaoUsdLtc;
-      }
-
-      return {
-        textoNativo: `${val.toFixed(4)} ${tipoMoeda}`,
-        textoEq: `$${eqUsd.toFixed(4)} USD | ${eqLtc.toFixed(8)} LTC`
-      };
+      window.addEventListener("DOMContentLoaded", carregarDadosFinanceiros);
     }
 
     async function carregarDadosFinanceiros() {
@@ -482,385 +272,190 @@
       if (!adminKey) return alert("Por favor, insira sua ADMIN_KEY.");
 
       try {
-        const res = await fetch(`/api/financeiro/overview`, {
-          headers: { "x-admin-key": adminKey }
-        });
-
-        if (!res.ok) throw new Error("ADMIN_KEY inválida ou erro ao buscar dados.");
+        const res = await fetch(`/api/financeiro/overview`, { headers: { "x-admin-key": adminKey } });
+        if (!res.ok) throw new Error("Erro ao carregar visão geral financeira.");
         const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Erro desconhecido");
-
-        ultimoPayloadGlobal = data; // Guarda state bruto para extração
 
         cotacaoGlobal = data.cotacao_atual;
+        ultimoPayloadGlobal = data;
+
         if (cotacaoGlobal) {
           document.getElementById("infoCotacaoTexto").innerHTML = `
-            <strong>1 Ponto:</strong> ${cotacaoGlobal.valor_ltc} LTC | $${cotacaoGlobal.valor_usd} USD | ${cotacaoGlobal.valor_zer} ZER
-            <br/><small style="color:#777;">Data do registro: ${new Date(cotacaoGlobal.data_registro).toLocaleDateString()}</small>
+            <strong>1 Ponto:</strong> ${cotacaoGlobal.valor_ltc} LTC | $${cotacaoGlobal.valor_usd} USD | ${cotacaoGlobal.valor_zer} ZER | R$ ${cotacaoGlobal.valor_brl} BRL
           `;
         }
 
-        const totalPontosPagos = parseFloat(data.estatisticas_saques_usuarios.total_pontos || 0);
-        const eqSaques = formatarValoresGlobal(totalPontosPagos, 'Pts');
+        carregarSaquesFaucetPay();
+        carregarGeracaoRenda();
 
-        document.getElementById("kpiTotalSaques").textContent = eqSaques.textoEq.split('|')[1].trim();
-        document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: ${eqSaques.textoEq.split('|')[0].trim()})`;
-        document.getElementById("kpiQtdSaques").textContent = data.estatisticas_saques_usuarios.qtd_saques || 0;
-
-        const totalMktUsd = parseFloat(data.resumo_marketing.total_mkt_usd || 0);
-        const eqMkt = formatarValoresGlobal(totalMktUsd, 'USD');
+        const totalMktUsd = parseFloat(data.resumo_marketing?.total_mkt_usd || 0);
+        const totalMktZer = parseFloat(data.resumo_marketing?.total_mkt_zer || 0);
         document.getElementById("kpiInvestimentoMkt").textContent = `$${totalMktUsd.toFixed(4)} USD`;
-        document.getElementById("kpiInvestimentoMktEq").textContent = `(${eqMkt.textoEq.split('|')[1].trim()})`;
+        document.getElementById("kpiInvestimentoMktEq").textContent = `(${totalMktZer.toFixed(4)} ZER)`;
 
         listaParceirosGlobal = data.saldos_parceiros || [];
         renderizarTabelaParceiros(listaParceirosGlobal);
-        renderizarGraficoTransacoes(data.resumo_transacoes || []);
-        renderizarGraficoParceiros(listaParceirosGlobal);
-
-        // Dispara o carregamento da tabela de Geração de Renda & Lucro Teórico
-        carregarGeracaoRenda();
 
       } catch (err) {
         alert(err.message);
       }
     }
 
+    async function carregarSaquesFaucetPay() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      try {
+        const res = await fetch("/api/admin/faucetpay/saques", { headers: { "x-admin-key": adminKey } });
+        const data = await res.json();
+        if (data.sucesso) {
+          document.getElementById("kpiTotalSaques").textContent = `${data.total_ltc_pago} LTC`;
+          document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: $${data.total_usd_pago} USD)`;
+          document.getElementById("kpiQtdSaques").textContent = data.qtd_saques;
+          document.getElementById("kpiOrigemSaques").textContent = `Fonte: ${data.fonte_dados}`;
+        }
+      } catch (err) {
+        console.error("Erro ao buscar FaucetPay API:", err);
+      }
+    }
+
     async function carregarGeracaoRenda() {
       const adminKey = document.getElementById("campoAdminKey").value.trim();
-      if (!adminKey) return;
-
       try {
-        const res = await fetch("/api/admin/financeiro/geracao-renda", {
-          headers: { "x-admin-key": adminKey }
-        });
+        const res = await fetch("/api/admin/financeiro/geracao-renda", { headers: { "x-admin-key": adminKey } });
         const json = await res.json();
-
         if (!json.sucesso) return;
-
-        // Anexa ao payload global para exportação completa via JSON
-        if (ultimoPayloadGlobal) {
-          ultimoPayloadGlobal.geracao_renda = json.dados;
-        }
 
         const corpo = document.getElementById("corpoTabelaFinanceira");
         corpo.innerHTML = "";
 
-        if (!json.dados || json.dados.length === 0) {
-          corpo.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:15px;">Nenhum registro encontrado.</td></tr>`;
-          return;
-        }
-
         json.dados.forEach(item => {
-          const eLucroPositivo = parseFloat(item.lucro_teorico.pontos) >= 0;
+          const eLucroPositivo = parseFloat(item.lucro_teorico.pontos || 0) >= 0;
           const classeLucro = eLucroPositivo ? "text-success fw-bold" : "text-danger fw-bold";
 
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td class="text-capitalize font-weight-bold">${item.origem.replace('_', ' ')}</td>
-            <td class="text-center">${item.acoes.toLocaleString('pt-BR')}</td>
-            <td>
-              <div><strong>${item.receita_x.ltc} LTC</strong></div>
-              <small class="text-muted">(Equivalente: $${item.receita_x.usd} USD)</small>
-            </td>
-            <td>
-              <div><strong>${item.pago_y.ltc} LTC</strong></div>
-              <small class="text-muted">(Equivalente: $${item.pago_y.usd} USD)</small>
-            </td>
-            <td class="${classeLucro}">
-              <div><strong>${item.lucro_teorico.ltc} LTC</strong></div>
-              <small>(Equivalente: $${item.lucro_teorico.usd} USD)</small>
-            </td>
+            <td class="text-capitalize fw-bold">${item.origem.replace('_', ' ')}</td>
+            <td style="text-align:center;">${item.acoes.toLocaleString('pt-BR')}</td>
+            <td><strong>${parseFloat(item.pontos_totais || 0).toFixed(2)} Pts</strong></td>
+            <td>$${item.receita_x.usd} USD <br><small class="text-muted">${item.receita_x.ltc} LTC</small></td>
+            <td>$${item.pago_y.usd} USD <br><small class="text-muted">${item.pago_y.ltc} LTC</small></td>
+            <td class="${classeLucro}">$${item.lucro_teorico.usd} USD <br><small>${item.lucro_teorico.ltc} LTC</small></td>
           `;
           corpo.appendChild(tr);
         });
       } catch (err) {
-        console.error("Erro ao carregar tabela financeira:", err);
+        console.error("Erro na geração de renda:", err);
       }
     }
 
-    function abrirModalExtracaoDados() {
-      const modal = document.getElementById("modalExtracao");
-      const textarea = document.getElementById("textareaExtracaoJson");
+    async function salvarInvestimentoMkt() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      const plataforma = document.getElementById("mktPlataforma").value.trim();
+      const utm_source = document.getElementById("mktUtmSource").value.trim();
+      const utm_campaign = document.getElementById("mktUtmCampaign").value.trim();
+      const tipo_anuncio = document.getElementById("mktTipoAnuncio").value;
+      const valor = parseFloat(document.getElementById("mktValor").value) || 0;
+      const moeda = document.getElementById("mktMoeda").value;
 
-      if (!ultimoPayloadGlobal) {
-        textarea.value = JSON.stringify({ erro: "Nenhum dado carregado ainda. Insira a ADMIN_KEY e clique em Carregar Painel primeiro." }, null, 2);
-      } else {
-        textarea.value = JSON.stringify(ultimoPayloadGlobal, null, 2);
-      }
+      if (!adminKey || !plataforma || valor <= 0) return alert("Preencha os campos obrigatórios do marketing.");
 
-      modal.style.display = "flex";
+      try {
+        const res = await fetch('/api/admin/financeiro/marketing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+          body: JSON.stringify({ plataforma, utm_source, utm_campaign, tipo_anuncio, valor, moeda })
+        });
+        const data = await res.json();
+        if (data.sucesso) {
+          alert("✅ Investimento detalhado em marketing salvo com sucesso!");
+          document.getElementById("mktPlataforma").value = "";
+          document.getElementById("mktUtmSource").value = "";
+          document.getElementById("mktUtmCampaign").value = "";
+          document.getElementById("mktValor").value = "0.00";
+          carregarDadosFinanceiros();
+        }
+      } catch (err) { alert(err.message); }
     }
 
-    function fecharModalExtracaoDados() {
-      document.getElementById("modalExtracao").style.display = "none";
-    }
+    async function salvarDespesaOperacional() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      const nome_despesa = document.getElementById("despesaNome").value.trim();
+      const valor = parseFloat(document.getElementById("despesaValor").value) || 0;
+      const moeda = document.getElementById("despesaMoeda").value;
+      const observacao = document.getElementById("despesaObs").value.trim();
 
-    function copiarTextoExtracao() {
-      const textarea = document.getElementById("textareaExtracaoJson");
-      textarea.select();
-      textarea.setSelectionRange(0, 99999);
-      navigator.clipboard.writeText(textarea.value).then(() => {
-        alert("✅ Dados copiados para a área de transferência com sucesso!");
-      }).catch(err => {
-        alert("Erro ao copiar: " + err);
-      });
+      if (!adminKey || !nome_despesa || valor <= 0) return alert("Preencha os campos da despesa.");
+
+      try {
+        const res = await fetch('/api/admin/financeiro/despesas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+          body: JSON.stringify({ nome_despesa, valor, moeda, observacao })
+        });
+        const data = await res.json();
+        if (data.sucesso) {
+          alert("✅ Despesa operacional registrada com sucesso!");
+          document.getElementById("despesaNome").value = "";
+          document.getElementById("despesaValor").value = "0.00";
+          document.getElementById("despesaObs").value = "";
+          carregarDadosFinanceiros();
+        }
+      } catch (err) { alert(err.message); }
     }
 
     function renderizarTabelaParceiros(parceiros) {
       const tbody = document.getElementById("tabelaParceirosBody");
       tbody.innerHTML = "";
-
       if (parceiros.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Nenhum parceiro cadastrado.</td></tr>`;
         return;
       }
-
       parceiros.forEach(p => {
-        let valorDeclarado = 0;
-        let moedaNativa = 'USD';
-
-        if (parseFloat(p.saldo_pendente_zer || 0) > 0) {
-          valorDeclarado = parseFloat(p.saldo_pendente_zer);
-          moedaNativa = 'ZER';
-        } else {
-          valorDeclarado = parseFloat(p.saldo_pendente_usd || 0);
-          moedaNativa = 'USD';
-        }
-
-        const eq = formatarValoresGlobal(valorDeclarado, moedaNativa);
-
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td><strong>${p.parceiro}</strong></td>
-          <td><strong>${eq.textoNativo}</strong></td>
-          <td><span style="font-size:12px; color:#555;">${eq.textoEq}</span></td>
+          <td>${p.saldo_pendente_usd || 0} USD / ${p.saldo_pendente_zer || 0} ZER</td>
+          <td>$${p.saldo_pendente_usd || 0} USD</td>
           <td>${p.cliques_disponiveis || 0}</td>
           <td>${p.previsao_saque ? new Date(p.previsao_saque).toLocaleDateString() : '-'}</td>
-          <td><span style="padding:3px 8px; border-radius:4px; background:#eef; color:#2a8f43; font-weight:bold;">${p.status_saque}</span></td>
-          <td>
-            <button class="btn-edit" onclick="abrirModalParceiro('${p.parceiro}')">✏️ Editar</button>
-          </td>
+          <td>${p.status_saque || 'acumulando'}</td>
+          <td><button class="btn-edit" onclick="alert('Editar via modal de parceiros')">✏️ Editar</button></td>
         `;
         tbody.appendChild(tr);
       });
     }
 
-    function abrirModalParceiro(nomeParceiro = null) {
-      const modal = document.getElementById("modalParceiro");
-      const titulo = document.getElementById("modalTitulo");
-
-      if (nomeParceiro) {
-        const p = listaParceirosGlobal.find(item => item.parceiro === nomeParceiro);
-        if (p) {
-          titulo.textContent = `✏️ Editar Saldo: ${p.parceiro}`;
-          document.getElementById("modalParceiroNome").value = p.parceiro;
-          document.getElementById("modalParceiroNome").disabled = true;
-          document.getElementById("modalSaldoUsd").value = p.saldo_pendente_usd || "0.0000";
-          document.getElementById("modalSaldoZer").value = p.saldo_pendente_zer || "0.0000";
-          document.getElementById("modalCliques").value = p.cliques_disponiveis || 0;
-          document.getElementById("modalPrevisaoSaque").value = p.previsao_saque ? p.previsao_saque.split('T')[0] : "";
-          document.getElementById("modalStatusSaque").value = p.status_saque || "acumulando";
-          document.getElementById("modalObs").value = p.observacao || "";
-        }
-      } else {
-        titulo.textContent = "➕ Cadastrar Novo Parceiro";
-        document.getElementById("modalParceiroNome").value = "";
-        document.getElementById("modalParceiroNome").disabled = false;
-        document.getElementById("modalSaldoUsd").value = "0.0000";
-        document.getElementById("modalSaldoZer").value = "0.0000";
-        document.getElementById("modalCliques").value = "0";
-        document.getElementById("modalPrevisaoSaque").value = "";
-        document.getElementById("modalStatusSaque").value = "acumulando";
-        document.getElementById("modalObs").value = "";
-      }
-
-      modal.style.display = "flex";
-    }
-
-    function fecharModalParceiro() {
-      document.getElementById("modalParceiro").style.display = "none";
-    }
-
-    async function salvarModalParceiro() {
-      const adminKey = document.getElementById("campoAdminKey").value.trim();
-      const parceiro = document.getElementById("modalParceiroNome").value.trim();
-      const saldo_pendente_usd = parseFloat(document.getElementById("modalSaldoUsd").value) || 0;
-      const saldo_pendente_zer = parseFloat(document.getElementById("modalSaldoZer").value) || 0;
-      const cliques_disponiveis = parseInt(document.getElementById("modalCliques").value) || 0;
-      const previsao_saque = document.getElementById("modalPrevisaoSaque").value || null;
-      const status_saque = document.getElementById("modalStatusSaque").value;
-      const observacao = document.getElementById("modalObs").value.trim();
-
-      if (!adminKey) return alert("Insira a ADMIN_KEY.");
-      if (!parceiro) return alert("Informe o nome do parceiro.");
-
-      try {
-        const res = await fetch('/api/financeiro/saldos-parceiros', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': adminKey
-          },
-          body: JSON.stringify({
-            parceiro,
-            saldo_pendente_usd,
-            saldo_pendente_zer,
-            cliques_disponiveis,
-            previsao_saque,
-            status_saque,
-            observacao
-          })
-        });
-
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Erro ao salvar parceiro.");
-
-        alert("✅ Saldo do parceiro atualizado com sucesso!");
-        fecharModalParceiro();
-        carregarDadosFinanceiros();
-
-      } catch (err) {
-        alert("Erro: " + err.message);
-      }
-    }
-
-    function renderizarGraficoTransacoes(transacoes) {
-      const ctx = document.getElementById('chartTransacoes').getContext('2d');
-      if (charts.transacoes) charts.transacoes.destroy();
-
-      charts.transacoes = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: transacoes.map(t => t.tipo),
-          datasets: [{
-            label: 'Total em USD por Tipo',
-            data: transacoes.map(t => t.total_usd),
-            backgroundColor: '#2a8f43'
-          }]
-        },
-        options: {
-          plugins: {
-            title: { display: true, text: 'Resumo de Transações Financeiras (USD)' }
-          }
-        }
-      });
-    }
-
-    function renderizarGraficoParceiros(parceiros) {
-      const ctx = document.getElementById('chartSaldosParceiros').getContext('2d');
-      if (charts.parceiros) charts.parceiros.destroy();
-
-      charts.parceiros = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: parceiros.map(p => p.parceiro),
-          datasets: [{
-            data: parceiros.map(p => p.saldo_pendente_usd || 0),
-            backgroundColor: ['#2a8f43', '#f0ad4e', '#5bc0de', '#d9534f', '#6c757d']
-          }]
-        },
-        options: {
-          plugins: {
-            title: { display: true, text: 'Distribuição de Saldo Pendente nos Parceiros ($USD)' }
-          }
-        }
-      });
-    }
-
-    async function salvarTransacao() {
-      const adminKey = document.getElementById("campoAdminKey").value.trim();
-      const tipo = document.getElementById("transTipo").value;
-      const origem_destino = document.getElementById("transOrigem").value.trim();
-      const valor_usd = parseFloat(document.getElementById("transUsd").value) || 0;
-      const observacao = document.getElementById("transObs").value.trim();
-
-      if (!adminKey) return alert("Insira a ADMIN_KEY.");
-      if (!origem_destino) return alert("Informe a Origem / Destino.");
-
-      try {
-        const res = await fetch('/api/financeiro/transacoes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-admin-key': adminKey
-          },
-          body: JSON.stringify({ tipo, origem_destino, valor_usd, observacao })
-        });
-
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error || "Erro ao salvar transação.");
-
-        alert("✅ Transação registrada com sucesso!");
-        document.getElementById("transOrigem").value = "";
-        document.getElementById("transUsd").value = "0.00";
-        document.getElementById("transObs").value = "";
-        carregarDadosFinanceiros();
-
-      } catch (err) {
-        alert("Erro: " + err.message);
-      }
-    }
-
     function calcularConversaoDireta() {
-      const valorInput = parseFloat(document.getElementById("convValorInput").value) || 0;
-      const moedaOrigem = document.getElementById("convMoedaSelect").value;
-      const boxResultado = document.getElementById("resultadoConversaoBox");
-      const conteudoresultado = document.getElementById("resultadoConversaoConteudo");
+      const val = parseFloat(document.getElementById("convValorInput").value) || 0;
+      const m = document.getElementById("convMoedaSelect").value;
+      if (!cotacaoGlobal) return alert("Cotações não carregadas.");
 
-      if (!cotacaoGlobal) {
-        alert("Cotações ainda não carregadas do banco. Insira a ADMIN_KEY e recarregue.");
-        return;
-      }
+      const u = parseFloat(cotacaoGlobal.valor_usd);
+      const l = parseFloat(cotacaoGlobal.valor_ltc);
+      const z = parseFloat(cotacaoGlobal.valor_zer);
+      const b = parseFloat(cotacaoGlobal.valor_brl);
 
-      const ltcPorPonto = parseFloat(cotacaoGlobal.valor_ltc) || 0.00010309;
-      const usdPorPonto = parseFloat(cotacaoGlobal.valor_usd) || 0.00909091;
-      const zerPorPonto = parseFloat(cotacaoGlobal.valor_zer) || 2.5;
-      const brlPorPonto = parseFloat(cotacaoGlobal.valor_brl) || 0.05;
+      let pts = m === 'Pts' ? val : m === 'USD' ? val/u : m === 'LTC' ? val/l : m === 'ZER' ? val/z : val/b;
 
-      let totalPontosEquivalente = 0;
-
-      if (moedaOrigem === 'Pts') {
-        totalPontosEquivalente = valorInput;
-      } else if (moedaOrigem === 'USD') {
-        totalPontosEquivalente = usdPorPonto > 0 ? (valorInput / usdPorPonto) : 0;
-      } else if (moedaOrigem === 'LTC') {
-        totalPontosEquivalente = ltcPorPonto > 0 ? (valorInput / ltcPorPonto) : 0;
-      } else if (moedaOrigem === 'ZER') {
-        totalPontosEquivalente = zerPorPonto > 0 ? (valorInput / zerPorPonto) : 0;
-      } else if (moedaOrigem === 'BRL') {
-        totalPontosEquivalente = brlPorPonto > 0 ? (valorInput / brlPorPonto) : 0;
-      }
-
-      const resUsd = totalPontosEquivalente * usdPorPonto;
-      const resLtc = totalPontosEquivalente * ltcPorPonto;
-      const resZer = totalPontosEquivalente * zerPorPonto;
-      const resBrl = totalPontosEquivalente * brlPorPonto;
-      const resPts = totalPontosEquivalente;
-
-      conteudoresultado.innerHTML = `
-        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-          <small style="color:#555; font-weight:bold;">💵 DÓLAR (USD)</small><br>
-          <strong style="color:#1e6e34; font-size:15px;">$${resUsd.toFixed(4)} USD</strong>
-        </div>
-        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-          <small style="color:#555; font-weight:bold;">⚡ LITECOIN (LTC)</small><br>
-          <strong style="color:#2196f3; font-size:15px;">${resLtc.toFixed(8)} LTC</strong>
-        </div>
-        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-          <small style="color:#555; font-weight:bold;">🪙 ZERCOIN (ZER)</small><br>
-          <strong style="color:#9c27b0; font-size:15px;">${resZer.toFixed(4)} ZER</strong>
-        </div>
-        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-          <small style="color:#555; font-weight:bold;">🎯 PONTOS (Pts)</small><br>
-          <strong style="color:#ff9800; font-size:15px;">${Math.round(resPts).toLocaleString()} Pts</strong>
-        </div>
-        <div style="background:#eef7ff; padding:8px; border-radius:5px; text-align:center;">
-          <small style="color:#555; font-weight:bold;">🇧🇷 REAL (BRL)</small><br>
-          <strong style="color:#666; font-size:15px;">R$ ${resBrl.toFixed(2)} BRL</strong>
-        </div>
+      document.getElementById("resultadoConversaoConteudo").innerHTML = `
+        <div style="background:#eef7ff; padding:8px; text-align:center;"><strong>$${(pts*u).toFixed(4)} USD</strong></div>
+        <div style="background:#eef7ff; padding:8px; text-align:center;"><strong>${(pts*l).toFixed(8)} LTC</strong></div>
+        <div style="background:#eef7ff; padding:8px; text-align:center;"><strong>${(pts*z).toFixed(4)} ZER</strong></div>
+        <div style="background:#eef7ff; padding:8px; text-align:center;"><strong>${Math.round(pts)} Pts</strong></div>
+        <div style="background:#eef7ff; padding:8px; text-align:center;"><strong>R$ ${(pts*b).toFixed(2)} BRL</strong></div>
       `;
+      document.getElementById("resultadoConversaoBox").style.display = "block";
+    }
 
-      boxResultado.style.display = "block";
+    function abrirModalExtracaoDados() {
+      document.getElementById("textareaExtracaoJson").value = JSON.stringify(ultimoPayloadGlobal || {}, null, 2);
+      document.getElementById("modalExtracao").style.display = "flex";
+    }
+    function fecharModalExtracaoDados() {
+      document.getElementById("modalExtracao").style.display = "none";
+    }
+    function copiarTextoExtracao() {
+      navigator.clipboard.writeText(document.getElementById("textareaExtracaoJson").value);
+      alert("✅ Dados copiados!");
     }
   </script>
 </body>
