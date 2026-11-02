@@ -364,8 +364,12 @@
       if (!adminKey) return alert("Por favor, insira sua ADMIN_KEY.");
 
       try {
-        const res = await fetch(`/api/financeiro/overview`, { headers: { "x-admin-key": adminKey } });
-        if (!res.ok) throw new Error("Erro ao carregar visão geral financeira.");
+        // Envia a chave correta no header x-admin-key para evitar o erro 403
+        const res = await fetch(`/api/financeiro/overview`, { 
+          headers: { "x-admin-key": adminKey } 
+        });
+        
+        if (!res.ok) throw new Error("Acesso negado (403) ou erro ao carregar visão geral. Verifique sua chave.");
         const data = await res.json();
 
         cotacaoGlobal = data.cotacao_atual;
@@ -389,7 +393,7 @@
         listaParceirosGlobal = data.saldos_parceiros || [];
         renderizarTabelaParceiros(listaParceirosGlobal);
 
-        // Renderiza despesas e marketing vindos do overview (caso sua API retorne essas listas)
+        // Renderiza os dados vindos do overview
         renderizarTabelaDespesas(data.despesas_recentes || []);
         renderizarTabelaMarketing(data.marketing_recente || []);
 
@@ -397,7 +401,7 @@
         alert(err.message);
       }
     }
-
+    
     function renderizarTabelaDespesas(despesas) {
       const tbody = document.getElementById("tabelaDespesasBody");
       tbody.innerHTML = "";
