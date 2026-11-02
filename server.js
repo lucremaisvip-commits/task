@@ -3107,9 +3107,26 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
                 COUNT(*) as total_acoes,
                 COALESCE(SUM(pontos::numeric), 0) as total_pontos_y
             FROM historico_ganhos
-            WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets')
+            WHERE origem NOT IN ('teste_admin', 'saque', 'saques', 'roleta', 'compra_tickets', 'criacao_campanha')
             GROUP BY origem
         `);
+
+        // 📊 Receita e Campanhas de Usuários (criacao_campanha)
+        // Soma o custo total cobrado na criação dos pacotes pela tabela campanhas_usuarios
+        const campanhasRes = await client.query(`
+            SELECT COUNT(*) as total_acoes, COALESCE(SUM(custo_total_pontos::numeric), 0) as total_arrecadado_pontos
+            FROM campanhas_usuarios
+        `);
+        const totalAcoesCampanha = parseInt(campanhasRes.rows[0]?.total_acoes || 0);
+        const receitaCampanhasPontos = parseFloat(campanhasRes.rows[0]?.total_arrecadado_pontos || 0);
+
+        // O que foi pago de fato aos usuários que clicaram nas campanhas (geralmente registrado na origem 'tarefa' ou equivalente)
+        const pagoCampanhasRes = await client.query(`
+            SELECT COALESCE(SUM(pontos::numeric), 0) as total_pago_campanhas
+            FROM historico_ganhos
+            WHERE origem = 'tarefa'
+        `);
+        const pagoCampanhasPontos = parseFloat(pagoCampanhasRes.rows[0]?.total_pago_campanhas || 0);
 
         // Cálculos da Roleta e Tickets usando as tabelas reais
         const girosComSaldoRes = await client.query(`SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false`);
@@ -3151,16 +3168,31 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             switch (origem) {
                 case 'zerads':
                 case 'moneyrain':
-                case 'tarefa':
+                    // Casa ganha 100%, repassa 40% (y), logo x = y / 0.40
+                    xPontos = yPontos > 0 ? yPontos / 0.40 : 0; 
+                    break;
                 case 'anuncio_extra':
-                    xPontos = yPontos > 0 ? yPontos / 0.40 : 0; // Regra dos 40%
+                    // Monetag paga média de $0.00316 USD por clique. Convertemos para pontos para equiparar.
+                    {
+                        const receitaUsdPorClique = 0.00316;
+                        const receitaTotalUsd = numAcoes * receitaUsdPorClique;
+                        xPontos = cotacaoUSD > 0 ? receitaTotalUsd / cotacaoUSD : 0;
+                    }
+                    break;
+                case 'tarefa':
+                    // Deixado neutro temporariamente ou seguindo regra padrão
+                    xPontos = yPontos;
                     break;
                 case 'indicacao':
                 case 'bonus_indicado':
                 case 'booster_entrada':
                 case 'bau_semanal':
+                case 'bonus_reativacao':
+                    // Custos de aquisição e retenção (Prejuízo direto planejado, x = 0)
+                    xPontos = 0;
+                    break;
                 case 'correcao':
-                    xPontos = origem === 'correcao' ? yPontos : 0;
+                    xPontos = yPontos;
                     break;
                 default:
                     xPontos = yPontos;
@@ -3177,6 +3209,17 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             });
         }
 
+        // Adiciona a linha de Criação de Campanhas (Usuários queimam pontos vs cliques pagos)
+        relatorio.push({
+            origem: 'criacao_campanha',
+            acoes: totalAcoesCampanha,
+            pontos_totais: pagoCampanhasPontos,
+            receita_x: formatarValores(receitaCampanhasPontos),
+            pago_y: formatarValores(pagoCampanhasPontos),
+            lucro_teorico: formatarValores(receitaCampanhasPontos - pagoCampanhasPontos)
+        });
+
+        // Adiciona a linha da Roleta
         relatorio.push({
             origem: 'roleta',
             acoes: acoesRoletaTotal,
