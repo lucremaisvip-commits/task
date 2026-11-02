@@ -2125,11 +2125,15 @@ app.get("/api/ltc-hoje", async (req, res) => {
 });
 
 app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
-  const { telegram_id, chave_pix } = req.body;
+  // 🛡️ Captura o fingerprint enviado pelo frontend no corpo da requisição e o IP real
+  const { telegram_id, chave_pix, fingerprint } = req.body;
   
   if (!telegram_id) {
     return res.status(401).json({ error: "User identification missing / Identificação do usuário ausente." });
   }
+
+  const rawIP = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+  const ip = rawIP.split(",")[0].trim();
 
   const emailLimpo = chave_pix ? chave_pix.trim().toLowerCase() : "";
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -2156,6 +2160,37 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     
     const { pontos, vip, lang, nivel, total_moneyrain, total_saques_anteriores } = user;
     const isEn = lang === 'en';
+
+    // 🛡️ TRAVA DE SEGURANÇA: Verificar se o Dispositivo (Fingerprint) ou IP já foi usado por OUTRA conta para sacar
+    if (fingerprint || ip) {
+      const farmCheck = await client.query(
+        `SELECT telegram_id FROM saques_dispositivos 
+         WHERE (fingerprint = $1 AND fingerprint IS NOT NULL AND fingerprint != '') 
+            OR (ip = $2 AND ip IS NOT NULL AND ip != '')`,
+        [fingerprint, ip]
+      );
+
+      // Se encontrou um registro e o telegram_id associado é DIFERENTE do usuário atual
+      if (farmCheck.rows.length > 0 && farmCheck.rows[0].telegram_id.toString() !== telegram_id.toString()) {
+        const contaOriginal = farmCheck.rows[0].telegram_id;
+        console.warn(`🚨 [TESTE DE SEGURANÇA] Dispositivo/IP compartilhado detectado! Tentativa de saque na conta ${telegram_id} vinculada à conta original ${contaOriginal}`);
+
+        // 🔔 NOTIFICAÇÃO AO ADMIN NO TELEGRAM (Apenas avisa e barra o saque, SEM bloquear a conta)
+        const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+        if (adminId && typeof bot !== 'undefined' && bot.telegram) {
+          const mensagemAlerta = `🚨 **ALERTA: DISPOSITIVO DUPLICADO EM SAQUE!**\n\n` +
+            `👤 **Conta Tentando Sacar:** \`${telegram_id}\`\n` +
+            `🔗 **Conta Original do Aparelho:** \`${contaOriginal}\`\n` +
+            `💻 **Fingerprint:** \`${fingerprint || 'N/D'}\`\n` +
+            `🌐 **IP:** \`${ip}\`\n\n` +
+            `⚠️ *O saque foi impedido pelo sistema de segurança.*`;
+          
+          await bot.telegram.sendMessage(adminId, mensagemAlerta, { parse_mode: "Markdown" }).catch(() => {});
+        }
+
+        throw new Error("DISPOSITIVO_DUPLICADO");
+      }
+    }
 
     // 🔒 TRAVA ANTI-DUPLICAÇÃO: Impede novo saque se houver pendente ('Aguardando Chat' ou 'Waiting')
     const saquePendenteRes = await client.query(
@@ -2201,6 +2236,18 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
 
     const saqueId = saqueInsert.rows[0].id;
 
+    // Registra ou atualiza o vínculo deste telegram_id com este fingerprint/IP na tabela de controle
+    if (fingerprint || ip) {
+      await client.query(
+        `INSERT INTO saques_dispositivos (telegram_id, fingerprint, ip, data_registro)
+         VALUES ($1, $2, $3, NOW())
+         ON CONFLICT (telegram_id) 
+         DO UPDATE SET fingerprint = COALESCE(EXCLUDED.fingerprint, saques_dispositivos.fingerprint),
+                       ip = COALESCE(EXCLUDED.ip, saques_dispositivos.ip)`,
+        [telegram_id, fingerprint, ip]
+      );
+    }
+
     await client.query("COMMIT");
 
     const mensagemTexto = isEn
@@ -2243,6 +2290,10 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
       msg = isEn 
         ? "You already have a pending withdrawal request. Complete or cancel it before requesting a new one." 
         : "Você já possui um pedido de saque pendente. Conclua ou cancele o anterior antes de solicitar um novo.";
+    } else if (err.message === "DISPOSITIVO_DUPLICADO") {
+      msg = isEn 
+        ? "Security restriction: This device has already been linked to another payout account." 
+        : "Restrição de segurança: Este dispositivo já está vinculado a outra conta de pagamento.";
     } else if (err.message === "USUARIO_NAO_ENCONTRADO") {
       msg = isEn ? "User not found." : "Usuário não encontrado.";
     } else if (err.message === "USUARIO_BANIDO") {
@@ -2258,6 +2309,7 @@ app.post("/api/solicitar-saque", saqueLimiter, async (req, res) => {
     client.release();
   }
 });
+
 app.get("/api/saques", async (req, res) => {
   const { telegram_id } = req.query;
 
