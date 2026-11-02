@@ -3014,10 +3014,9 @@ app.get('/admin/historico-dados', async (req, res) => {
 });
 
 // =========================================================================
-// 💰 MÓDULO FINANCEIRO UNIFICADO & DEFINITIVO
+// 💰 MÓDULO FINANCEIRO - ADAPTADO À ESTRUTURA REAL DO BANCO
 // =========================================================================
 
-// Middleware simples de validação da ADMIN_KEY
 const verificarAdminKey = (req, res, next) => {
     const key = req.headers['x-admin-key'] || req.query.key;
     if (!key || key !== process.env.ADMIN_KEY) {
@@ -3029,14 +3028,15 @@ const verificarAdminKey = (req, res, next) => {
 // 1. GET /api/financeiro/overview - Visão Geral do Caixa + Cotações Ativas
 app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
     try {
-        const saldosParceiros = await pool.query('SELECT * FROM saldos_parceiros ORDER BY id ASC');
+        // Mapeado para o nome real da sua tabela: financeiro_saldos_parceiros
+        const saldosParceiros = await pool.query('SELECT * FROM financeiro_saldos_parceiros ORDER BY id ASC');
         
         const totalSaques = await pool.query(`
             SELECT COALESCE(SUM(valor_solicitado), 0) as total_pago,
                    COALESCE(SUM(pontos_solicitados), 0) as total_pontos,
                    COUNT(*) as qtd_saques 
             FROM saques 
-            WHERE LOWER(status) = 'ok'
+            WHERE LOWER(status) = 'ok' OR LOWER(status) = 'pago'
         `);
 
         const transacoesResumo = await pool.query(`
@@ -3051,7 +3051,7 @@ app.get('/api/financeiro/overview', verificarAdminKey, async (req, res) => {
             SELECT COALESCE(SUM(valor_investido_usd), 0) as total_mkt_usd, 
                    COALESCE(SUM(valor_investido_zer), 0) as total_mkt_zer 
             FROM financeiro_campanhas_mkt 
-            WHERE status = 'ativo'
+            WHERE status = 'ativa'
         `);
 
         const cotacaoRes = await pool.query(`
@@ -3098,7 +3098,7 @@ app.get('/api/admin/financeiro/geracao-renda', verificarAdminKey, async (req, re
             GROUP BY origem
         `);
 
-        // Cálculos da Roleta e Tickets
+        // Cálculos da Roleta e Tickets usando as tabelas reais
         const girosComSaldoRes = await client.query(`SELECT COUNT(*) as qtd_giros_saldo FROM roleta_giros WHERE gratis = false`);
         const qtdGirosComSaldo = parseInt(girosComSaldoRes.rows[0]?.qtd_giros_saldo || 0);
         const receitaGirosPontos = qtdGirosComSaldo * 0.20;
@@ -3264,7 +3264,7 @@ app.post('/api/admin/financeiro/marketing', verificarAdminKey, async (req, res) 
         const result = await pool.query(
             `INSERT INTO financeiro_campanhas_mkt 
              (plataforma, nome_campanha, utm_source, utm_campaign, tipo_anuncio, valor_investido_usd, valor_investido_zer, status, data_inicio)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'ativo', NOW()) RETURNING *;`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'ativa', NOW()) RETURNING *;`,
             [plataforma, nomeCampanha, utm_source, utm_campaign, tipo_anuncio, valorUsd, valorZer]
         );
 
@@ -3291,7 +3291,7 @@ app.post('/api/admin/financeiro/despesas', verificarAdminKey, async (req, res) =
     }
 });
 
-// 7. POST /api/saldos-parceiros - Atualizar Saldos dos Parceiros Externos
+// 7. POST /api/saldos-parceiros - Atualizar Saldos (Usando financeiro_saldos_parceiros)
 app.post('/api/saldos-parceiros', verificarAdminKey, async (req, res) => {
     const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao } = req.body;
     
@@ -3301,7 +3301,7 @@ app.post('/api/saldos-parceiros', verificarAdminKey, async (req, res) => {
 
     try {
         await pool.query(`
-            INSERT INTO saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao, data_atualizacao)
+            INSERT INTO financeiro_saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, previsao_saque, status_saque, observacao, data_atualizacao)
             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
             ON CONFLICT (parceiro) DO UPDATE SET 
                 saldo_pendente_usd = EXCLUDED.saldo_pendente_usd,
@@ -3328,7 +3328,7 @@ app.post('/api/saldos-parceiros', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 8. GET /api/financeiro/kpis-cac-ltv - Cálculo Automático de CAC e LTV
+// 8. GET /api/financeiro/kpis-cac-ltv - Cálculo de CAC e LTV usando a tabela 'usuarios'
 app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     try {
         const mktRes = await pool.query(`
@@ -3337,6 +3337,7 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
         `);
         const totalInvestidoUsd = parseFloat(mktRes.rows[0].total_investido || 0);
 
+        // Contando os usuários na sua tabela real 'usuarios'
         const usuariosRes = await pool.query(`SELECT COUNT(*) as total FROM usuarios`);
         const totalUsuarios = parseInt(usuariosRes.rows[0].total || 1);
 
@@ -3371,7 +3372,7 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via API FaucetPay (com Fallback Local)
+// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API
 app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     try {
         const apiHash = process.env.FAUCETPAY_API_KEY;
@@ -3399,9 +3400,9 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     } catch (err) {
         const dbRes = await pool.query(`
             SELECT COUNT(*) as qtd, 
-                   COALESCE(SUM(valor_ltc), 0) as total_ltc 
-            FROM saques_realizados 
-            WHERE LOWER(status) = 'pago'
+                   COALESCE(SUM(valor_solicitado), 0) as total_ltc 
+            FROM saques 
+            WHERE LOWER(status) = 'ok' OR LOWER(status) = 'pago'
         `);
         
         const totalLtcLocal = parseFloat(dbRes.rows[0].total_ltc || 0);
@@ -3415,7 +3416,6 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
         });
     }
 });
-
 
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
