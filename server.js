@@ -16,8 +16,6 @@ const pool = require("./db");
 const { Telegraf } = require("telegraf");
 const cron = require("node-cron");
 const axios = require("axios");
-
-const FAUCETPAY_API_KEY = "651358d8dd7a03537c613db2c33bb8c79ac2961bb824f6985eab53b3a92a8a0d"; 
 console.log("🚀 Bot rodando com chave de TESTE");
 
 const app = express();
@@ -1595,7 +1593,7 @@ app.post("/api/faucettask/solicitar-saque", async (req, res) => {
     const amountEmSatoshis = Math.round((parseFloat(pontos) * TAXA_PONTO_LTC) * 100000000);
 
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: FAUCETPAY_API_KEY, 
+      api_key: process.env.FAUCETPAY_API_KEY, 
       amount: amountEmSatoshis,
       to: emailLimpo,       
       currency: "LTC"
@@ -2830,7 +2828,7 @@ app.post("/api/pagar-saque", async (req, res) => {
     const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
 
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: FAUCETPAY_API_KEY, 
+      api_key: process.env.FAUCETPAY_API_KEY, 
       amount: amountEmSatoshis,
       to: saque.chave_pix,       
       currency: "LTC"
@@ -3373,11 +3371,16 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
 });
 
 // 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Com Debug de Erro)
+// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Seguro)
 app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     try {
+        // Pega a chave direto do arquivo .env / variáveis de ambiente do Render de forma segura
         const apiHash = process.env.FAUCETPAY_API_KEY;
         
-        // Usando URLSearchParams caso o FaucetPay exija form-urlencoded
+        if (!apiHash) {
+            throw new Error("FAUCETPAY_API_KEY não configurada nas variáveis de ambiente (.env)");
+        }
+
         const params = new URLSearchParams();
         params.append('api_key', apiHash);
         params.append('currency', 'LTC');
@@ -3386,14 +3389,11 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
-        // Aceita tanto status 200 quanto status: true/200 no corpo da resposta do FaucetPay
         if (response.data && (response.data.status === 200 || response.data.status === true || response.data.success === true)) {
-            // O FaucetPay pode retornar em 'payouts' ou 'data'
             const pagamentos = response.data.payouts || response.data.data || [];
             
             let totalLtc = 0;
             pagamentos.forEach(p => {
-                // Compatível com 'amount' ou 'amount_sent'
                 totalLtc += parseFloat(p.amount || p.amount_sent || 0);
             });
 
@@ -3403,18 +3403,14 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
                 fonte_dados: 'API FaucetPay (Ao Vivo)',
                 total_ltc_pago: totalLtc.toFixed(8),
                 total_usd_pago: (totalLtc * 88.5).toFixed(4),
-                qtd_saques: pagamentos.length,
-                dados_brutos_api: pagamentos.slice(0, 3) // Mostra os 3 primeiros para conferência
+                qtd_saques: pagamentos.length
             });
         }
         
-        throw new Error("Resposta inválida da API: " + JSON.stringify(response.data));
+        throw new Error("API FaucetPay retornou status inválido");
 
     } catch (err) {
-        console.error("🔥 Erro detalhado FaucetPay API:", err.response?.data || err.message);
-
-        // Se quiser ver o erro exato na tela ao testar, ative esta linha temporariamente:
-        // return res.status(500).json({ success: false, erro_faucetpay: err.response?.data || err.message });
+        console.error("🔥 Erro na API FaucetPay:", err.response?.data || err.message);
 
         // Fallback para o banco local
         const dbRes = await pool.query(`
@@ -3431,11 +3427,11 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
             fonte_dados: 'Banco Local (Fallback)',
             total_ltc_pago: totalLtcLocal.toFixed(8),
             total_usd_pago: (totalLtcLocal * 88.5).toFixed(4),
-            qtd_saques: parseInt(dbRes.rows[0].qtd || 0),
-            detalhe_falha_api: err.response?.data || err.message
+            qtd_saques: parseInt(dbRes.rows[0].qtd || 0)
         });
     }
 });
+
 
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
@@ -3620,7 +3616,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
 
       try {
         const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-          api_key: FAUCETPAY_API_KEY, 
+          api_key: process.env.FAUCETPAY_API_KEY, 
           amount: amountEmSatoshis,
           to: saque.chave_pix,       
           currency: "LTC"
@@ -3865,7 +3861,7 @@ bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
     const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * ltcPorPonto) * 100000000);
 
     const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: FAUCETPAY_API_KEY, 
+      api_key: process.env.FAUCETPAY_API_KEY, 
       amount: amountEmSatoshis,
       to: saque.chave_pix,       
       currency: "LTC"
