@@ -1317,7 +1317,7 @@ app.post("/api/abrir-bau", async (req, res) => {
                 us.streak_atual, 
                 u.nivel,
                 (
-                    SELECT COUNT(DISTINCT DATE(h.data_registro)) 
+                    SELECT COUNT(DISTINCT (h.data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date) 
                     FROM historico_ganhos h 
                     WHERE h.telegram_id = $1
                 ) as dias_ativos
@@ -1337,7 +1337,41 @@ app.post("/api/abrir-bau", async (req, res) => {
         const bauDisponivel = dadosUsuario.bau_disponivel;
         const nivel = dadosUsuario.nivel;
 
-        // Validação rigorosa: exige pelo menos 5 dias distintos reais E streak atual >= 5
+        // 2. NOVA TRAVA DE SEGURANÇA: Verificar data da última abertura de baú no histórico
+        const ultimaAberturaBauRes = await client.query(`
+            SELECT data_registro 
+            FROM historico_ganhos 
+            WHERE telegram_id = $1 AND origem = 'bau_semanal' 
+            ORDER BY data_registro DESC 
+            LIMIT 1
+        `, [telegram_id]);
+
+        if (ultimaAberturaBauRes.rows.length > 0) {
+            const ultimaData = new Date(ultimaAberturaBauRes.rows[0].data_registro);
+            const agora = new Date();
+            const diferencaDias = (agora - ultimaData) / (1000 * 60 * 60 * 24);
+
+            // Se tentou abrir com menos de 5 dias da última abertura, é fraude/exploit!
+            if (diferencaDias < 5) {
+                const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+                if (adminId && typeof bot !== 'undefined' && bot.telegram) {
+                    const alertaFraude = `🚨 **ALERTA DE SEGURANÇA: TENTATIVA DE EXPLOIT EM BAÚ!**\n\n` +
+                        `👤 **Usuário ID:** \`${telegram_id}\`\n` +
+                        `⏱️ **Intervalo Suspeito:** Último baú aberto há apenas ${diferencaDias.toFixed(2)} dias.\n` +
+                        `⚠️ *A ação foi bloqueada automaticamente pelo servidor.*`;
+                    
+                    await bot.telegram.sendMessage(adminId, alertaFraude, { parse_mode: "Markdown" }).catch(()=>{});
+                }
+
+                await client.query("ROLLBACK");
+                return res.status(400).json({ 
+                    success: false, 
+                    error: "Ação bloqueada por segurança: Intervalo mínimo entre baús não respeitado." 
+                });
+            }
+        }
+
+        // 3. Validação rigorosa padrão: exige pelo menos 5 dias distintos reais E streak atual >= 5
         if (!bauDisponivel || diasAtivos < 5 || streakAtual < 5) {
             await client.query("ROLLBACK");
             return res.status(400).json({ 
@@ -1346,31 +1380,30 @@ app.post("/api/abrir-bau", async (req, res) => {
             });
         }
 
-        // 3. Calcula o prêmio em pontos para o ciclo de 5 dias
+        // 4. Calcula o prêmio em pontos para o ciclo de 5 dias
         const base = 0.30;
         const fatorNivel = 0.05;
         const teto = 0.60;
         const premioPontos = Math.min(base + (nivel * fatorNivel), teto);
-        // (Tickets removidos para proteger a economia da roleta)
 
-        // 4. Atualiza Saldo do Usuário
+        // 5. Atualiza Saldo do Usuário
         await client.query(`
             UPDATE usuarios 
             SET pontos = pontos + $1 
             WHERE telegram_id = $2
         `, [premioPontos, telegram_id]);
 
-        // 5. Insere no Histórico de Ganhos
+        // 6. Insere no Histórico de Ganhos
         await client.query(`
             INSERT INTO historico_ganhos 
             (telegram_id, origem, pontos, nome_tarefa, data_registro) 
             VALUES ($1, 'bau_semanal', $2, 'Baú de 5 Dias (Nível ' || $3 || ')', NOW())
         `, [telegram_id, premioPontos, nivel]);
 
-        // 6. Atualiza o status do baú na tabela streaks
+        // 7. Atualiza o status do baú na tabela streaks e reseta o streak para o próximo ciclo
         await client.query(`
             UPDATE usuarios_streaks 
-            SET bau_disponivel = FALSE 
+            SET bau_disponivel = FALSE, streak_atual = 0 
             WHERE telegram_id = $1
         `, [telegram_id]);
 
@@ -1390,7 +1423,6 @@ app.post("/api/abrir-bau", async (req, res) => {
         client.release();
     }
 });
-
 
 app.post("/api/limpar-aviso-reset", async (req, res) => {
     const { telegram_id } = req.body;
@@ -1649,7 +1681,7 @@ app.get("/api/status-checklist", async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        // 1. Busca dados do usuário, streaks e soma dos pontos ganhos hoje (fuso de Brasília)
+        // 1. Busca dados do usuário, streaks, data de criação e pontos de hoje usando hora confiável do banco
         const result = await client.query(`
             SELECT 
                 u.data_registro::date as data_criacao,
@@ -1662,7 +1694,7 @@ app.get("/api/status-checklist", async (req, res) => {
                 us.meta_cumprida_hoje,
                 us.ultima_data_checkin,
                 COALESCE((
-                    SELECT SUM(pontos) 
+                    SELECT SUM(pontos::numeric) 
                     FROM historico_ganhos 
                     WHERE telegram_id = u.telegram_id 
                     AND (data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date
@@ -1688,67 +1720,104 @@ app.get("/api/status-checklist", async (req, res) => {
 
         const pontosHoje = parseFloat(data.pontos_hoje) || 0;
         const metaDiariaAlvo = 0.30;
-        
-        // A meta diária é batida se acumulou >= 0.30 pts hoje
         const metaBatidaHoje = pontosHoje >= metaDiariaAlvo || data.meta_cumprida_hoje === true;
 
         // =========================================================================
-        // 🔄 VIRADA DE DIA E CONTROLE DE STREAK (5 DIAS)
+        // 🛡️ TRAVAS DE SEGURANÇA MESTRES CONTRA MANIPULAÇÃO DE STREAK E RELÓGIO
         // =========================================================================
-        const hojeBr = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
-        const ultimaDataCheckinBr = data.ultima_data_checkin 
-            ? new Date(data.ultima_data_checkin).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }) 
-            : null;
 
         let streakAtual = parseInt(data.streak_atual || 0);
+
+        // A. Trava Absoluta da Idade da Conta (Anti-Fake Streak)
+        const diasDeVidaContaRes = await client.query(`SELECT EXTRACT(DAY FROM (NOW() - $1::timestamp))::int as dias`, [data.data_criacao]);
+        const diasDeVidaConta = Math.max(0, parseInt(diasDeVidaContaRes.rows[0]?.dias || 0));
+
+        if (streakAtual > (diasDeVidaConta + 1)) {
+            console.warn(`🚨 [ALERTA DE FRAUDE] Usuário ${telegram_id} tentou burlar streak! Streak: ${streakAtual}, Dias de vida: ${diasDeVidaConta}`);
+            streakAtual = Math.min(streakAtual, diasDeVidaConta + 1);
+            
+            // Notifica o Admin no Telegram sobre a tentativa de fraude
+            const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
+            if (adminId && typeof bot !== 'undefined' && bot.telegram) {
+                const alertaFraude = `🚨 **TENTATIVA DE FRAUDE DETECTADA (STREAK)**\n\n` +
+                    `👤 **Usuário ID:** \`${telegram_id}\`\n` +
+                    `⚠️ *O streak foi corrigido à força para o limite real de vida da conta (${diasDeVidaConta} dias).*`;
+                await bot.telegram.sendMessage(adminId, alertaFraude, { parse_mode: "Markdown" }).catch(()=>{});
+            }
+        }
+
+        // B. Horário Confiável Oficial do Servidor PostgreSQL (NOW())
+        const horaOficialRes = await client.query(`SELECT NOW() AT TIME ZONE 'America/Sao_Paulo' as agora_oficial`);
+        const hojeBr = new Date(horaOficialRes.rows[0].agora_oficial).toLocaleDateString('sv-SE');
+        
+        const ultimaDataCheckinBr = data.ultima_data_checkin 
+            ? new Date(data.ultima_data_checkin).toLocaleDateString('sv-SE') 
+            : null;
+
         let streakQuebrado = data.streak_quebrado || false;
         let bauDisponivel = data.bau_disponivel || false;
         let metaCumpridaHojeBanco = data.meta_cumprida_hoje || false;
 
-        // Se mudou o dia em relação à última visita
+        // =========================================================================
+        // 🔄 VIRADA DE DIA E AUDITORIA RETROSPECTIVA
+        // =========================================================================
         if (ultimaDataCheckinBr && ultimaDataCheckinBr < hojeBr) {
-            const bateuMetaOntem = data.meta_cumprida_hoje;
+            
+            // Auditoria Retrospectiva Cega: Soma o que o usuário REALMENTE fez no dia anterior no histórico
+            const auditoriaDiaAnterior = await client.query(`
+                SELECT COALESCE(SUM(pontos::numeric), 0) as total_dia
+                FROM historico_ganhos
+                WHERE telegram_id = $1 
+                  AND (data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date = $2::date
+            `, [telegram_id, ultimaDataCheckinBr]);
+
+            const pontosReaisOntem = parseFloat(auditoriaDiaAnterior.rows[0].total_dia);
+            const bateuMetaRealOntem = pontosReaisOntem >= 0.30;
             const escudosAtuais = parseInt(data.escudos || 0);
 
-            if (bateuMetaOntem) {
-                streakAtual += 1; // Incrementa o streak apenas AQUI na virada do dia
+            if (bateuMetaRealOntem) {
+                streakAtual += 1; // Incrementa apenas se o extrato comprovar a meta real
             } else if (escudosAtuais > 0) {
-                // Protege com escudo caso não tenha feito tarefas ontem
                 await client.query(`UPDATE usuarios SET escudos = escudos - 1 WHERE telegram_id = $1`, [telegram_id]);
             } else {
-                // Zera o streak se não fez tarefas e não tinha escudo
                 streakAtual = 0;
                 streakQuebrado = true;
             }
 
-            // Libera o baú se alcançou 5 dias
+            // Validação de dias distintos reais para liberação do Baú
             if (streakAtual >= 5) {
-                bauDisponivel = true;
+                const diasComAtividadeRes = await client.query(`
+                    SELECT COUNT(DISTINCT (data_registro AT TIME ZONE 'UTC' AT TIME ZONE 'America/Sao_Paulo')::date) as dias_validos
+                    FROM historico_ganhos
+                    WHERE telegram_id = $1
+                      AND data_registro >= CURRENT_DATE - INTERVAL '6 days'
+                `, [telegram_id]);
+
+                const diasValidosReais = parseInt(diasComAtividadeRes.rows[0].dias_validos || 0);
+                bauDisponivel = (diasValidosReais >= 5);
             }
 
-            metaCumpridaHojeBanco = false; // Reseta a flag para o novo dia
+            metaCumpridaHojeBanco = false; 
 
-            // Atualiza a tabela de streaks para o novo dia
+            // Atualiza o banco com os dados auditados
             await client.query(`
                 UPDATE usuarios_streaks 
                 SET streak_atual = $1,
                     meta_cumprida_hoje = $2,
-                    ultima_data_checkin = CURRENT_DATE,
-                    streak_quebrado = $3,
-                    bau_disponivel = $4
-                WHERE telegram_id = $5
-            `, [streakAtual, metaCumpridaHojeBanco, streakQuebrado, bauDisponivel, telegram_id]);
+                    ultima_data_checkin = $3,
+                    streak_quebrado = $4,
+                    bau_disponivel = $5
+                WHERE telegram_id = $6
+            `, [streakAtual, metaCumpridaHojeBanco, hojeBr, streakQuebrado, bauDisponivel, telegram_id]);
             
         } else if (!ultimaDataCheckinBr) {
-            // Inicializa a data caso esteja nula
             await client.query(`
                 UPDATE usuarios_streaks 
-                SET ultima_data_checkin = CURRENT_DATE 
-                WHERE telegram_id = $1
-            `, [telegram_id]);
+                SET ultima_data_checkin = $1 
+                WHERE telegram_id = $2
+            `, [hojeBr, telegram_id]);
         }
 
-        // Se ele atingiu a meta HOJE e o banco ainda não tinha registrado
         if (metaBatidaHoje && !metaCumpridaHojeBanco) {
             await client.query(`
                 UPDATE usuarios_streaks 
@@ -1757,9 +1826,6 @@ app.get("/api/status-checklist", async (req, res) => {
             `, [telegram_id]);
         }
 
-        // =========================================================================
-        // 🔍 CONSULTAR ALERTAS JÁ VISTOS HOJE (CONTROLE CENTRALIZADO)
-        // =========================================================================
         const notifRes = await client.query(`
             SELECT tipo_alerta FROM usuarios_notificacoes_vistas 
             WHERE telegram_id = $1 AND referencia_data = CURRENT_DATE
@@ -1769,11 +1835,9 @@ app.get("/api/status-checklist", async (req, res) => {
 
         await client.query("COMMIT");
 
-        // Missão de Entrada: Concluída se tem pelo menos 1 MoneyRain no histórico
         const totalMoneyRain = parseInt(data.total_moneyrain) || 0;
         const missaoEntradaConcluida = totalMoneyRain >= 1 || data.booster_usado === true;
 
-        // Define quais alertas precisam ser exibidos ao front (caso ainda não tenham sido vistos hoje)
         const alertasPendentes = {
             streak_perdido: streakQuebrado && !vistasHoje.includes('streak_perdido'),
             meta_concluida: metaBatidaHoje && !vistasHoje.includes('meta_concluida'),
