@@ -3372,32 +3372,51 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API
+// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Com Debug de Erro)
 app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     try {
         const apiHash = process.env.FAUCETPAY_API_KEY;
         
-        const response = await axios.post('https://faucetpay.io/api/v1/payouts', {
-            api_key: apiHash,
-            currency: 'LTC'
+        // Usando URLSearchParams caso o FaucetPay exija form-urlencoded
+        const params = new URLSearchParams();
+        params.append('api_key', apiHash);
+        params.append('currency', 'LTC');
+
+        const response = await axios.post('https://faucetpay.io/api/v1/payouts', params, {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
         });
 
-        if (response.data && response.data.status === 200) {
-            const pagamentos = response.data.data || [];
+        // Aceita tanto status 200 quanto status: true/200 no corpo da resposta do FaucetPay
+        if (response.data && (response.data.status === 200 || response.data.status === true || response.data.success === true)) {
+            // O FaucetPay pode retornar em 'payouts' ou 'data'
+            const pagamentos = response.data.payouts || response.data.data || [];
+            
             let totalLtc = 0;
-            pagamentos.forEach(p => totalLtc += parseFloat(p.amount_sent || 0));
+            pagamentos.forEach(p => {
+                // Compatível com 'amount' ou 'amount_sent'
+                totalLtc += parseFloat(p.amount || p.amount_sent || 0);
+            });
 
             return res.json({
                 success: true,
                 sucesso: true,
                 fonte_dados: 'API FaucetPay (Ao Vivo)',
-                total_ltc_pago: (totalLtc / 100000000).toFixed(8),
-                total_usd_pago: ((totalLtc / 100000000) * 88.5).toFixed(4),
-                qtd_saques: pagamentos.length
+                total_ltc_pago: totalLtc.toFixed(8),
+                total_usd_pago: (totalLtc * 88.5).toFixed(4),
+                qtd_saques: pagamentos.length,
+                dados_brutos_api: pagamentos.slice(0, 3) // Mostra os 3 primeiros para conferência
             });
         }
-        throw new Error("API FaucetPay retornou status inválido");
+        
+        throw new Error("Resposta inválida da API: " + JSON.stringify(response.data));
+
     } catch (err) {
+        console.error("🔥 Erro detalhado FaucetPay API:", err.response?.data || err.message);
+
+        // Se quiser ver o erro exato na tela ao testar, ative esta linha temporariamente:
+        // return res.status(500).json({ success: false, erro_faucetpay: err.response?.data || err.message });
+
+        // Fallback para o banco local
         const dbRes = await pool.query(`
             SELECT COUNT(*) as qtd, 
                    COALESCE(SUM(valor_solicitado), 0) as total_ltc 
@@ -3412,7 +3431,8 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
             fonte_dados: 'Banco Local (Fallback)',
             total_ltc_pago: totalLtcLocal.toFixed(8),
             total_usd_pago: (totalLtcLocal * 88.5).toFixed(4),
-            qtd_saques: parseInt(dbRes.rows[0].qtd || 0)
+            qtd_saques: parseInt(dbRes.rows[0].qtd || 0),
+            detalhe_falha_api: err.response?.data || err.message
         });
     }
 });
