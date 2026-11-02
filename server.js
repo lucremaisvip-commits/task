@@ -3440,6 +3440,38 @@ app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
     }
 });
 
+// POST /api/admin/financeiro/parceiros - Cadastra ou atualiza saldo de parceiros externos
+app.post('/api/admin/financeiro/parceiros', verificarAdminKey, async (req, res) => {
+    const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, status_saque, observacao } = req.body;
+
+    if (!parceiro) {
+        return res.status(400).json({ success: false, message: "Nome do parceiro é obrigatório." });
+    }
+
+    try {
+        // Verifica se o parceiro já existe para atualizar, ou insere um novo (Upsert lógico)
+        const check = await pool.query(`SELECT id FROM financeiro_saldos_parceiros WHERE LOWER(parceiro) = LOWER($1)`, [parceiro]);
+
+        if (check.rows.length > 0) {
+            await pool.query(`
+                UPDATE financeiro_saldos_parceiros 
+                SET saldo_pendente_usd = $1, saldo_pendente_zer = $2, cliques_disponiveis = $3, status_saque = $4, observacao = $5, data_atualizacao = NOW()
+                WHERE LOWER(parceiro) = LOWER($6)
+            `, [saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, status_saque, observacao, parceiro]);
+        } else {
+            await pool.query(`
+                INSERT INTO financeiro_saldos_parceiros (parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, status_saque, observacao, data_atualizacao)
+                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            `, [parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, status_saque, observacao]);
+        }
+
+        return res.json({ success: true, sucesso: true, message: "Parceiro salvo com sucesso!" });
+    } catch (err) {
+        console.error("Erro ao salvar parceiro financeiro:", err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
 // =========================================================================
 // 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
 // =========================================================================
