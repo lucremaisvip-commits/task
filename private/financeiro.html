@@ -99,6 +99,25 @@
     </div>
   </div>
 
+  <h2>📈 Métricas de Escala (CAC vs LTV)</h2>
+  <div class="kpi-container">
+    <div class="kpi-card" style="border-left-color: #d9534f;">
+      <h3>CAC (Custo de Aquisição)</h3>
+      <p id="kpiCac">$0.0000 USD</p>
+      <span class="sub-eq">Custo médio por usuário</span>
+    </div>
+    <div class="kpi-card" style="border-left-color: #f0ad4e;">
+      <h3>LTV Bruto (Receita / Usuário)</h3>
+      <p id="kpiLtvBruto">$0.0000 USD</p>
+      <span class="sub-eq">Receita gerada por usuário</span>
+    </div>
+    <div class="kpi-card" style="border-left-color: #2a8f43;">
+      <h3>LTV Líquido (Lucro / Usuário)</h3>
+      <p id="kpiLtvLucro">$0.0000 USD</p>
+      <span class="sub-eq">Lucro real da casa por usuário</span>
+    </div>
+  </div>
+
   <!-- Módulo de Geração de Renda & Lucro Teórico em Pontos -->
   <div class="card shadow mb-4">
     <div class="card-header py-3 d-flex justify-content-between align-items-center">
@@ -287,6 +306,7 @@
 
         carregarSaquesFaucetPay();
         carregarGeracaoRenda();
+        carregarCacLtv();
 
         const totalMktUsd = parseFloat(data.resumo_marketing?.total_mkt_usd || 0);
         const totalMktZer = parseFloat(data.resumo_marketing?.total_mkt_zer || 0);
@@ -306,7 +326,7 @@
       try {
         const res = await fetch("/api/admin/faucetpay/saques", { headers: { "x-admin-key": adminKey } });
         const data = await res.json();
-        if (data.sucesso) {
+        if (data.sucesso || data.success) {
           document.getElementById("kpiTotalSaques").textContent = `${data.total_ltc_pago} LTC`;
           document.getElementById("kpiTotalSaquesEq").textContent = `(Equivalente: $${data.total_usd_pago} USD)`;
           document.getElementById("kpiQtdSaques").textContent = data.qtd_saques;
@@ -322,28 +342,49 @@
       try {
         const res = await fetch("/api/admin/financeiro/geracao-renda", { headers: { "x-admin-key": adminKey } });
         const json = await res.json();
-        if (!json.sucesso) return;
+        if (!json.sucesso && !json.success) return;
 
         const corpo = document.getElementById("corpoTabelaFinanceira");
         corpo.innerHTML = "";
 
-        json.dados.forEach(item => {
-          const eLucroPositivo = parseFloat(item.lucro_teorico.pontos || 0) >= 0;
+        const dados = json.dados || [];
+        if (dados.length === 0) {
+          corpo.innerHTML = `<tr><td colspan="6" style="text-align:center;">Nenhum registro encontrado.</td></tr>`;
+          return;
+        }
+
+        dados.forEach(item => {
+          const eLucroPositivo = parseFloat(item.lucro_teorico?.pontos || 0) >= 0;
           const classeLucro = eLucroPositivo ? "text-success fw-bold" : "text-danger fw-bold";
 
           const tr = document.createElement("tr");
           tr.innerHTML = `
             <td class="text-capitalize fw-bold">${item.origem.replace('_', ' ')}</td>
-            <td style="text-align:center;">${item.acoes.toLocaleString('pt-BR')}</td>
+            <td style="text-align:center;">${(item.acoes || 0).toLocaleString('pt-BR')}</td>
             <td><strong>${parseFloat(item.pontos_totais || 0).toFixed(2)} Pts</strong></td>
-            <td>$${item.receita_x.usd} USD <br><small class="text-muted">${item.receita_x.ltc} LTC</small></td>
-            <td>$${item.pago_y.usd} USD <br><small class="text-muted">${item.pago_y.ltc} LTC</small></td>
-            <td class="${classeLucro}">$${item.lucro_teorico.usd} USD <br><small>${item.lucro_teorico.ltc} LTC</small></td>
+            <td>$${item.receita_x?.usd || '0.0000'} USD <br><small class="text-muted">${item.receita_x?.ltc || '0.00000000'} LTC</small></td>
+            <td>$${item.pago_y?.usd || '0.0000'} USD <br><small class="text-muted">${item.pago_y?.ltc || '0.00000000'} LTC</small></td>
+            <td class="${classeLucro}">$${item.lucro_teorico?.usd || '0.0000'} USD <br><small>${item.lucro_teorico?.ltc || '0.00000000'} LTC</small></td>
           `;
           corpo.appendChild(tr);
         });
       } catch (err) {
         console.error("Erro na geração de renda:", err);
+      }
+    }
+
+    async function carregarCacLtv() {
+      const adminKey = document.getElementById("campoAdminKey").value.trim();
+      try {
+        const res = await fetch('/api/financeiro/kpis-cac-ltv', { headers: { "x-admin-key": adminKey } });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById("kpiCac").textContent = `$${data.cac} USD`;
+          document.getElementById("kpiLtvBruto").textContent = `$${data.ltv_bruto} USD`;
+          document.getElementById("kpiLtvLucro").textContent = `$${data.ltv_lucro} USD`;
+        }
+      } catch (err) {
+        console.error("Erro ao carregar CAC e LTV:", err);
       }
     }
 
@@ -365,7 +406,7 @@
           body: JSON.stringify({ plataforma, utm_source, utm_campaign, tipo_anuncio, valor, moeda })
         });
         const data = await res.json();
-        if (data.sucesso) {
+        if (data.sucesso || data.success) {
           alert("✅ Investimento detalhado em marketing salvo com sucesso!");
           document.getElementById("mktPlataforma").value = "";
           document.getElementById("mktUtmSource").value = "";
@@ -392,7 +433,7 @@
           body: JSON.stringify({ nome_despesa, valor, moeda, observacao })
         });
         const data = await res.json();
-        if (data.sucesso) {
+        if (data.sucesso || data.success) {
           alert("✅ Despesa operacional registrada com sucesso!");
           document.getElementById("despesaNome").value = "";
           document.getElementById("despesaValor").value = "0.00";
