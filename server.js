@@ -1468,199 +1468,6 @@ app.post('/api/marcar-alerta-visto', async (req, res) => {
 });
 
 // =========================================================================
-// 🔹 ROTAS DO PROJETO PARALELO: FAUCETTASK (Identificado por E-mail FaucetPay)
-// =========================================================================
-
-// 1. Login / Cadastro por E-mail
-app.post("/api/faucettask/login", async (req, res) => {
-    const { faucetpay_email } = req.body;
-    if (!faucetpay_email) return res.status(400).json({ success: false, error: "E-mail obrigatório" });
-
-    const emailLimpo = faucetpay_email.trim().toLowerCase();
-    const client = await pool.connect();
-    try {
-        let result = await client.query("SELECT * FROM usuarios_faucettask WHERE faucetpay_email = $1", [emailLimpo]);
-        
-        if (result.rows.length === 0) {
-            result = await client.query(
-                "INSERT INTO usuarios_faucettask (faucetpay_email, pontos) VALUES ($1, 0) RETURNING *",
-                [emailLimpo]
-            );
-        }
-        res.json({ success: true, data: result.rows[0] });
-    } catch (err) {
-        console.error("Erro no login FaucetTask:", err);
-        res.status(500).json({ success: false, error: "Erro no servidor" });
-    } finally {
-        client.release();
-    }
-});
-
-// 2. Consultar dados do usuário no FaucetTask
-app.get("/api/faucettask/usuarios/:email", async (req, res) => {
-    const email = req.params.email.trim().toLowerCase();
-    try {
-        const { rows } = await pool.query("SELECT * FROM usuarios_faucettask WHERE faucetpay_email = $1", [email]);
-        if (rows.length === 0) {
-            return res.status(404).json({ success: false, error: "Usuário não encontrado" });
-        }
-        res.json({ success: true, data: rows[0] });
-    } catch (err) {
-        console.error("Erro ao buscar usuário FaucetTask:", err);
-        res.status(500).json({ success: false, error: "Erro interno" });
-    }
-});
-
-// 3. Listar histórico de saques do FaucetTask
-app.get("/api/faucettask/saques", async (req, res) => {
-    const { faucetpay_email } = req.query;
-    if (!faucetpay_email) return res.status(400).json({ error: "E-mail obrigatório" });
-
-    try {
-        const { rows } = await pool.query(
-            "SELECT id, valor_solicitado, status, comprovante, data_solicitacao FROM saques_faucettask WHERE faucetpay_email = $1 ORDER BY data_solicitacao DESC",
-            [faucetpay_email.trim().toLowerCase()]
-        );
-        res.json(rows);
-    } catch (err) {
-        console.error("Erro histórico FaucetTask:", err);
-        res.status(500).json({ error: "Erro ao buscar histórico" });
-    }
-});
-
-// 4. Callback do ZerAds para o FaucetTask
-app.get("/faucettask-callback", async (req, res) => {
-  const { pwd, user, amount, clicks } = req.query; 
-
-  const rawIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || "";
-  const realIP = rawIP.split(',')[0]?.trim();
-  const allowedIP = "162.0.208.108"; 
-
-  if (pwd !== "NewPassword" || realIP !== allowedIP) {
-    return res.status(403).send("acesso negado");
-  }
-
-  const client = await pool.connect();
-  try {
-    const valorZER = parseFloat(amount || 0);
-    if (valorZER <= 0) return res.send("ok");
-
-    await client.query("BEGIN");
-
-    const cotacaoRes = await client.query(
-      "SELECT valor_zer FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
-    );
-    const valorZerPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_zer) : 2.5;
-
-    const pontosCalculados = (valorZER / valorZerPorPonto) * 0.40;
-    const pontosFinal = pontosCalculados.toFixed(8);
-    const emailUsuario = user ? user.trim().toLowerCase() : "";
-
-    const updateResult = await client.query(
-      "UPDATE usuarios_faucettask SET pontos = COALESCE(pontos, 0) + CAST($1 AS NUMERIC) WHERE faucetpay_email = $2",
-      [pontosFinal, emailUsuario]
-    );
-
-    if (updateResult.rowCount === 0) {
-      await client.query(
-        "INSERT INTO usuarios_faucettask (faucetpay_email, pontos) VALUES ($1, CAST($2 AS NUMERIC)) ON CONFLICT (faucetpay_email) DO UPDATE SET pontos = usuarios_faucettask.pontos + CAST($2 AS NUMERIC)",
-        [emailUsuario, pontosFinal]
-      );
-    }
-
-    await client.query("COMMIT");
-    console.log(`✅ [FaucetTask] Créditos ZerAds: ${pontosFinal} pts para o e-mail: ${emailUsuario}`);
-    res.send("ok");
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error("🔥 Erro FaucetTask Callback:", err);
-    res.status(500).send("erro");
-  } finally {
-    client.release();
-  }
-});
-
-// 5. Solicitação de Saque do FaucetTask
-app.post("/api/faucettask/solicitar-saque", async (req, res) => {
-  const { faucetpay_email } = req.body;
-  
-  if (!faucetpay_email) {
-    return res.status(401).json({ success: false, error: "E-mail ausente." });
-  }
-
-  const emailLimpo = faucetpay_email.trim().toLowerCase();
-  const client = await pool.connect();
-  
-  try {
-    await client.query("BEGIN");
-
-    const userResult = await client.query(
-      "SELECT pontos FROM usuarios_faucettask WHERE faucetpay_email = $1 FOR UPDATE", 
-      [emailLimpo]
-    );
-
-    if (userResult.rows.length === 0) throw new Error("USUARIO_NAO_ENCONTRADO");
-    
-    const { pontos } = userResult.rows[0];
-    const PONTOS_MINIMOS_SAQUE = 10.00; 
-
-    if (parseFloat(pontos) < PONTOS_MINIMOS_SAQUE) throw new Error("PONTOS_INSUFICIENTES");
-
-    const saqueInsert = await client.query(`
-      INSERT INTO saques_faucettask (faucetpay_email, valor_solicitado, status, data_solicitacao)
-      VALUES ($1, $2, 'pendente', NOW()) RETURNING id
-    `, [emailLimpo, pontos]);
-
-    const saqueId = saqueInsert.rows[0].id;
-
-    const TAXA_PONTO_LTC = 0.000001; 
-    const amountEmSatoshis = Math.round((parseFloat(pontos) * TAXA_PONTO_LTC) * 100000000);
-
-    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: process.env.FAUCETPAY_API_KEY, 
-      amount: amountEmSatoshis,
-      to: emailLimpo,       
-      currency: "LTC"
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    if (response.data.status === 200) {
-      const payoutId = response.data.payout_id;
-
-      await client.query(
-        "UPDATE saques_faucettask SET status = 'ok', comprovante = $1 WHERE id = $2",
-        [payoutId, saqueId]
-      );
-
-      await client.query(
-        "UPDATE usuarios_faucettask SET pontos = pontos - $1 WHERE faucetpay_email = $2",
-        [pontos, emailLimpo]
-      );
-
-      await client.query("COMMIT");
-      return res.json({ success: true, message: "Saque pago com sucesso!", valor: pontos, tx: payoutId });
-
-    } else {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, error: "Erro FaucetPay: " + response.data.message });
-    }
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(`[ERRO SAQUE FAUCETTASK]`, err.message);
-    const msg = err.message === "USUARIO_NAO_ENCONTRADO" ? "Usuário não encontrado." :
-                err.message === "PONTOS_INSUFICIENTES" ? "Pontos insuficientes (Mínimo: 10 pts)." :
-                "Erro interno ao processar saque.";
-    res.status(400).json({ success: false, error: msg });
-  } finally {
-    client.release();
-  }
-});
-
-
-
-// =========================================================================
 // 🔹 4. Rotas de Usuário & Mini App Health Check
 // =========================================================================
 app.get("/", (req, res) => {
@@ -2971,7 +2778,7 @@ app.post("/api/pagar-saque", async (req, res) => {
   const { saque_id } = req.body;
 
   if (!senhaEnviada || senhaEnviada !== process.env.ADMIN_KEY) {
-    console.log("❌ Tentativa de pagamento sem autorização");
+    console.log("❌ Tentativa de aprovação sem autorização");
     return res.status(403).send("❌ Acesso negado");
   }
 
@@ -2989,52 +2796,33 @@ app.post("/api/pagar-saque", async (req, res) => {
     
     const saque = saqueResult.rows[0];
     const isEn = saque.lang === 'en';
+    const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
 
-    const TAXA_PONTO_LTC = 0.000001; 
-    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * TAXA_PONTO_LTC) * 100000000);
+    // Atualiza o status no banco informando que foi aprovado/pago manualmente (sem ID de transação)
+    await pool.query(
+      "UPDATE saques SET status = 'ok', data_aprovacao = NOW() WHERE id = $1",
+      [saque_id]
+    );
 
-    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: process.env.FAUCETPAY_API_KEY, 
-      amount: amountEmSatoshis,
-      to: saque.chave_pix,       
-      currency: "LTC"
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
+    // Mensagem de notificação limpa para o usuário
+    const mensagemSucesso = isEn
+      ? `🎉 **Withdrawal Approved!**\n\nYour payout of **${pontosFormatados} Pts** has been successfully sent/approved by the admin.`
+      : `🎉 **Saque Aprovado!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi processado e enviado com sucesso pela administração.`;
 
-    if (response.data.status === 200) {
-      const payoutId = response.data.payout_id;
-
-      await pool.query(
-        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
-        [payoutId, saque_id]
-      );
-      
-      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
-      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
-
-      const mensagemSucesso = isEn
-        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
-        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
-
-      try {
-        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucesso, {
-          parse_mode: "Markdown",
-          disable_web_page_preview: true
-        });
-      } catch (telegramErr) {
-        console.error(`⚠️ Erro ao enviar aviso de pagamento no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
-      }
-
-      res.json({ success: true, tx: payoutId });
-    } else {
-      console.error("❌ Erro FaucetPay:", response.data.message);
-      res.status(400).json({ error: "Erro FaucetPay: " + response.data.message });
+    try {
+      await bot.telegram.sendMessage(saque.telegram_id, mensagemSucesso, {
+        parse_mode: "Markdown",
+        disable_web_page_preview: true
+      });
+    } catch (telegramErr) {
+      console.error(`⚠️ Erro ao enviar aviso de aprovação no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
     }
 
+    res.json({ success: true, message: "Saque marcado como aprovado com sucesso." });
+
   } catch (err) {
-    console.error("❌ Erro fatal ao pagar saque:", err.message);
-    res.status(500).json({ error: "Erro interno do servidor ao processar pagamento." });
+    console.error("❌ Erro fatal ao aprovar saque:", err.message);
+    res.status(500).json({ error: "Erro interno do servidor ao processar aprovação." });
   }
 });
 
@@ -3605,76 +3393,51 @@ app.get('/api/financeiro/kpis-cac-ltv', verificarAdminKey, async (req, res) => {
     }
 });
 
-// 9. GET /api/admin/faucetpay/saques - Histórico de Saques via FaucetPay API (Corrigido para a v1)
+// 9. GET /api/admin/faucetpay/saques - Totais de Saques Aprovados (Banco Local)
 app.get('/api/admin/faucetpay/saques', verificarAdminKey, async (req, res) => {
-    try {
-        const apiHash = process.env.FAUCETPAY_API_KEY;
-        
-        if (!apiHash) {
-            throw new Error("FAUCETPAY_API_KEY não configurada.");
-        }
+  try {
+    // Busca o total e a quantidade de saques aprovados/pagos no banco local
+    const dbRes = await pool.query(`
+      SELECT 
+        COUNT(*) as qtd, 
+        COALESCE(SUM(valor_solicitado), 0) as total_usd,
+        COALESCE(SUM(pontos_solicitados), 0) as total_pontos
+      FROM saques 
+      WHERE LOWER(status) IN ('ok', 'aprovado', 'pago')
+    `);
 
-        const params = new URLSearchParams();
-        params.append('api_key', apiHash);
-        params.append('count', '100'); // Pega os últimos 100 saques
-        params.append('currency', 'LTC');
+    const totalUsdLocal = parseFloat(dbRes.rows[0].total_usd || 0);
+    const totalPontosLocal = parseFloat(dbRes.rows[0].total_pontos || 0);
+    const qtdSaques = parseInt(dbRes.rows[0].qtd || 0);
 
-        const response = await axios.post('https://faucetpay.io/api/v1/payouts', params, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
+    // Busca a cotação do LTC para calcular o equivalente estimado
+    const cotRes = await pool.query(`
+      SELECT valor_usd, valor_ltc 
+      FROM cotacoes 
+      ORDER BY data_registro DESC, id DESC 
+      LIMIT 1
+    `);
+    
+    const cotacaoLtcUsd = cotRes.rows.length > 0 ? (parseFloat(cotRes.rows[0].valor_usd) / parseFloat(cotRes.rows[0].valor_ltc)) : 88.5;
+    const totalLtcEquivalente = cotacaoLtcUsd > 0 ? (totalUsdLocal / cotacaoLtcUsd) : 0;
 
-        // A documentação oficial v1 retorna os pagamentos na propriedade 'rewards' quando o status é 200
-        if (response.data && response.data.status === 200) {
-            const pagamentos = response.data.rewards || [];
-            
-            let totalLtc = 0;
-            pagamentos.forEach(p => {
-                // O amount na API v1 vem na menor unidade do coin (satoshis/litoshi)
-                const valorLitoshi = parseFloat(p.amount || 0);
-                totalLtc += valorLitoshi / 100000000; // Converte para LTC inteiro
-            });
+    return res.json({
+      success: true,
+      sucesso: true,
+      fonte_dados: 'Banco de Dados Local (Saques Aprovados)',
+      qtd_saques: qtdSaques,
+      total_usd_pago: totalUsdLocal.toFixed(4),
+      total_pontos_pago: totalPontosLocal.toFixed(2),
+      total_ltc_pago: totalLtcEquivalente.toFixed(8)
+    });
 
-            // Pega a cotação atual do USD no banco para calcular o equivalente em Dólar
-            const cotRes = await pool.query(`SELECT valor_usd, valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1`);
-            const cotacaoLtcUsd = cotRes.rows.length > 0 ? (parseFloat(cotRes.rows[0].valor_usd) / parseFloat(cotRes.rows[0].valor_ltc)) : 88.5; 
-
-            const totalUsdCalculado = totalLtc * cotacaoLtcUsd;
-
-            return res.json({
-                success: true,
-                sucesso: true,
-                fonte_dados: 'API FaucetPay (Ao Vivo)',
-                total_ltc_pago: totalLtc.toFixed(8),
-                total_usd_pago: totalUsdCalculado.toFixed(4),
-                qtd_saques: pagamentos.length
-            });
-        }
-        
-        throw new Error("API FaucetPay retornou status inválido: " + JSON.stringify(response.data));
-
-    } catch (err) {
-        console.warn("⚠️ Falha ao consultar API FaucetPay ao vivo, usando fallback local:", err.message);
-        
-        // Fallback seguro usando a tabela local 'saques'
-        const dbRes = await pool.query(`
-            SELECT COUNT(*) as qtd, 
-                   COALESCE(SUM(valor_solicitado), 0) as total_ltc 
-            FROM saques 
-            WHERE LOWER(status) = 'ok' OR LOWER(status) = 'pago'
-        `);
-        
-        const totalLtcLocal = parseFloat(dbRes.rows[0].total_ltc || 0);
-        return res.json({
-            success: true,
-            sucesso: true,
-            fonte_dados: 'Banco Local (Fallback)',
-            total_ltc_pago: totalLtcLocal.toFixed(8),
-            total_usd_pago: (totalLtcLocal * 88.5).toFixed(4),
-            qtd_saques: parseInt(dbRes.rows[0].qtd || 0)
-        });
-    }
+  } catch (err) {
+    console.error("❌ Erro ao calcular totais de saques aprovados:", err.message);
+    return res.status(500).json({ 
+      error: "Erro interno ao consultar histórico de saques aprovados." 
+    });
+  }
 });
-
 // POST /api/admin/financeiro/parceiros - Cadastra ou atualiza saldo de parceiros externos
 app.post('/api/admin/financeiro/parceiros', verificarAdminKey, async (req, res) => {
     const { parceiro, saldo_pendente_usd, saldo_pendente_zer, cliques_disponiveis, status_saque, observacao } = req.body;
@@ -3782,7 +3545,7 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
 });
 
 // =========================================================================
-// 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO + MOTOR HÍBRIDO DE SEGURANÇA
+// 🔹 FLUXO DE CONFIRMAÇÃO DE SAQUE PELO USUÁRIO + MOTOR DE ALERTA INTELIGENTE
 // =========================================================================
 
 bot.action(/conf_saque_(\d+)/, async (ctx) => {
@@ -3829,7 +3592,7 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     }
 
     // =========================================================================
-    // 🛡️ AVALIAÇÃO DE SEGURANÇA (NOVO PADRÃO: TOLERÂNCIA A LOTES + HISTÓRICO)
+    // 🛡️ AVALIAÇÃO DE SEGURANÇA (HISTÓRICO + VELOCIDADE)
     // =========================================================================
     const analiseSeguranca = await client.query(`
       WITH tarefas_usuario AS (
@@ -3844,7 +3607,6 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
       metricas AS (
           SELECT 
               COALESCE(SUM(pontos), 0) AS total_pontos_historico,
-              -- Conta apenas eventos com intervalos menores que 1 segundo em tarefas manuais/PTC (evita falso-positivo de lote)
               COUNT(CASE 
                   WHEN (EXTRACT(EPOCH FROM (data_registro - data_anterior)) < 1.0) 
                        AND origem IN ('zerads', 'moneyrain', 'tarefa') 
@@ -3863,99 +3625,54 @@ bot.action(/conf_saque_(\d+)/, async (ctx) => {
     const acoesExtremas = parseInt(risco.acoes_extrema_velocidade || 0);
 
     // =========================================================================
-    // ⚙️ NOVO TETO DE SAQUE AUTOMÁTICO (ALTERADO PARA 1.00 PONTO - AJUSTÁVEL)
+    // ⚙️ TETO DE SAQUE AUTOMÁTICO (AJUSTADO PARA 1.00 PONTO)
     // =========================================================================
     const TETO_SAQUE_AUTOMATICO = 1.00; 
 
-    const passouNoFiltro = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= TETO_SAQUE_AUTOMATICO;
+    // Verifica se o saque está dentro dos parâmetros normais
+    const dentroDosParametros = acoesExtremas <= 5 && totalHistorico >= pontosSolicitados && pontosSolicitados <= TETO_SAQUE_AUTOMATICO;
 
-    if (passouNoFiltro) {
-      // ✅ TUDO CERTO (Caminho Verde): Debita, aprova e paga direto via FaucetPay
-      await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
-      
-      await client.query(`
-        INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
-        VALUES ($1, 'saque', $2, 'Saque Automático Aprovado', $3, NOW())
-      `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
+    // Debita os pontos do usuário preventivamente e coloca o status como 'Waiting' para revisão no saques.html
+    await client.query("UPDATE usuarios SET pontos = pontos - $1 WHERE telegram_id = $2", [pontosSolicitados, telegram_id]);
+    
+    await client.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, nome_tarefa, referencia_id, data_registro)
+      VALUES ($1, 'saque', $2, 'Solicitação de Saque', $3, NOW())
+    `, [telegram_id, -Math.abs(pontosSolicitados), saqueId]);
 
-      await client.query("UPDATE saques SET status = 'ok', data_aprovacao = NOW() WHERE id = $1", [saqueId]);
-      await client.query("COMMIT");
-
-      // Puxa cotação atual do banco para converter Pontos -> LTC na hora de pagar
-      const cotacaoRes = await pool.query(
-        "SELECT valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
-      );
-      const ltcPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00017390;
-      const amountEmSatoshis = Math.round((pontosSolicitados * ltcPorPonto) * 100000000);
-
-      try {
-        const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-          api_key: process.env.FAUCETPAY_API_KEY, 
-          amount: amountEmSatoshis,
-          to: saque.chave_pix,       
-          currency: "LTC"
-        }).toString(), {
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-
-        if (response.data.status === 200) {
-          const payoutId = response.data.payout_id;
-          await pool.query("UPDATE saques SET comprovante = $1 WHERE id = $2", [payoutId, saqueId]);
-
-          const pontosFormatados = pontosSolicitados.toFixed(2);
-          
-          const mensagemSucesso = isEn
-            ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🆔 **TX ID:** \`${payoutId}\``
-            : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🆔 **ID da Transação:** \`${payoutId}\``;
-          
-          await bot.telegram.sendMessage(telegram_id, mensagemSucesso, { parse_mode: "Markdown", disable_web_page_preview: true });
-        }
-      } catch (payErr) {
-        console.error("Erro no pagamento automático FaucetPay:", payErr.message);
-      }
-
-      return ctx.editMessageText(isEn ? "✅ Withdrawal approved and paid successfully!" : "✅ Saque aprovado e pago automaticamente com sucesso!");
-    }
-
-    // ❌ ALGO SUSPEITO OU ACIMA DO TETO (Caminho Vermelho): Manda notificação para o Admin avaliar
-    await client.query("UPDATE saques SET status = 'Waiting' WHERE id = $1", [saqueId]);
+    await client.query("UPDATE saques SET status = 'Waiting', data_aprovacao = NULL WHERE id = $1", [saqueId]);
     await client.query("COMMIT");
 
+    // =========================================================================
+    // 🚨 SISTEMA DE ALERTA INTELIGENTE (DISPARA SÓ SE HOUVER ANOMALIA)
+    // =========================================================================
     const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
-    if (adminId && typeof bot !== 'undefined') {
+
+    if (!dentroDosParametros && adminId && typeof bot !== 'undefined') {
       const motivoAlerta = acoesExtremas > 5 
-        ? `⚠️ *Alerta:* Alta frequência de cliques extremos detectada (${acoesExtremas} ações < 1s).` 
-        : `⚠️ *Alerta:* Saque acima do teto automático (${pontosSolicitados} Pts) ou revisão de histórico.`;
+        ? `⚠️ *Alerta de Anomalia:* Alta frequência de cliques extremos detectada (${acoesExtremas} ações < 1s).` 
+        : `⚠️ *Alerta de Teto:* Saque acima do teto automático (${pontosSolicitados} Pts) ou histórico sob revisão.`;
       
-      const mensagemAdmin = `🚨 **SAQUE ENVIADO PARA REVISÃO MANUAL!**\n\n` +
+      const mensagemAdmin = `🚨 **ATENÇÃO: SAQUE SUSPEITO / ACIMA DO TETO!**\n\n` +
         `${motivoAlerta}\n` +
         `🆔 **ID do Saque:** #${saqueId}\n` +
         `👤 **Usuário ID:** \`${telegram_id}\`\n` +
         `💰 **Pontos Solicitados:** ${pontosSolicitados} Pts\n` +
-        `💵 **Valor em BRL:** R$ ${saque.valor_solicitado}\n` +
-        `📧 **FaucetPay:** \`${saque.chave_pix}\`\n\n` +
-        `*Escolha uma opção abaixo:*`;
-
-      const tecladoAdmin = {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: "🔍 Checar Atividades", callback_data: `admin_checar_${telegram_id}` }],
-            [
-              { text: "✅ Aprovar", callback_data: `admin_aprovar_${saqueId}` },
-              { text: "❌ Recusar", callback_data: `admin_recusar_${saqueId}` }
-            ]
-          ]
-        }
-      };
+        `💵 **Valor em USD/LRL:** $ ${saque.valor_solicitado}\n` +
+        `📧 **Chave / FaucetPay:** \`${saque.chave_pix}\`\n\n` +
+        `👉 _Acesse o painel saques.html para analisar e pagar manualmente._`;
 
       try {
-        await bot.telegram.sendMessage(adminId, mensagemAdmin, { parse_mode: "Markdown", ...tecladoAdmin });
-      } catch (e) {}
+        await bot.telegram.sendMessage(adminId, mensagemAdmin, { parse_mode: "Markdown", disable_web_page_preview: true });
+      } catch (e) {
+        console.error("Erro ao enviar alerta para o admin:", e.message);
+      }
     }
 
+    // Resposta padrão ao usuário (informando que o pedido entrou na fila de análise/processamento)
     await ctx.editMessageText(isEn 
-      ? `✅ **Withdrawal Confirmed!**\n\nYour request is under security review and will be processed soon.`
-      : `✅ **Saque Confirmado!**\n\nSeu pedido passou pela confirmação e está em análise de segurança pela administração.`
+      ? `✅ **Withdrawal Confirmed!**\n\nYour request has been registered and will be processed by the administration soon.`
+      : `✅ **Saque Confirmado!**\n\nSeu pedido foi registrado com sucesso e será processado em breve pela administração.`
     );
 
   } catch (err) {
@@ -4007,223 +3724,6 @@ bot.action(/canc_saque_(\d+)/, async (ctx) => {
     console.error("Erro ao cancelar saque via chat:", err);
   } finally {
     client.release();
-  }
-});
-// =========================================================================
-// 🔹 AÇÕES DO ADMINISTRADOR DITO PELO TELEGRAM (BOTÕES INTERATIVOS)
-// =========================================================================
-
-// 1. Botão: Checar Atividades Recentes do Usuário
-bot.action(/admin_checar_(\d+)/, async (ctx) => {
-  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
-  if (ctx.from.id.toString() !== adminId) {
-    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
-  }
-
-  const telegramId = ctx.match[1];
-  try {
-    await ctx.answerCbQuery("Buscando auditoria completa...");
-
-    const resIndicador = await pool.query(
-      `SELECT origem, nome_tarefa, pontos, data_registro 
-       FROM historico_ganhos 
-       WHERE telegram_id = $1 
-       ORDER BY data_registro DESC LIMIT 10`,
-      [telegramId]
-    );
-
-    const resIndicados = await pool.query(
-      `SELECT id_indicado, data_registro, pontos_ativados 
-       FROM indicacoes 
-       WHERE id_indicador = $1 
-       ORDER BY data_registro DESC`,
-      [telegramId]
-    );
-
-    let relatorio = `📊 **AUDITORIA DE ATIVIDADES & FRAUDE**\n`;
-    let relatorioIndicados = "";
-
-    if (resIndicados.rows.length > 0) {
-      relatorioIndicados += `\n👥 **Usuários Indicados (${resIndicados.rows.length}):**\n`;
-      
-      for (const ind of resIndicados.rows) {
-        const dataIndFormatada = new Date(ind.data_registro).toLocaleString('pt-BR');
-        relatorioIndicados += `- ID Indicado: \`${ind.id_indicado}\` (Ativado: ${ind.pontos_ativados ? 'Sim' : 'Não'})\n  Data: ${dataIndFormatada}\n`;
-
-        const resAtividadesIndicado = await pool.query(
-          `SELECT origem, nome_tarefa, pontos, data_registro 
-           FROM historico_ganhos 
-           WHERE telegram_id = $1 
-           ORDER BY data_registro DESC LIMIT 10`,
-          [ind.id_indicado]
-        );
-
-        if (resAtividadesIndicado.rows.length > 0) {
-          relatorioIndicados += `  👉 *Últimas ações do indicado ${ind.id_indicado}:*\n`;
-          resAtividadesIndicado.rows.forEach((ativInd) => {
-            const dataAtivInd = new Date(ativInd.data_registro).toLocaleString('pt-BR');
-            relatorioIndicados += `    • [${ativInd.origem.toUpperCase()}] ${ativInd.nome_tarefa || 'N/A'} (${dataAtivInd})\n`;
-          });
-        } else {
-          relatorioIndicados += `  👉 *O indicado não possui registros no histórico de ganhos.*\n`;
-        }
-        relatorioIndicados += `\n`;
-      }
-    } else {
-      relatorioIndicados = `\n👥 **Indicados:** Este usuário não possui indicações registradas.\n`;
-    }
-
-    let relatorioPrincipal = `\n👤 **Indicador Principal:** \`${telegramId}\`\n`;
-    let saldoRecenteTotal = 0;
-
-    if (resIndicador.rows.length === 0) {
-      relatorioPrincipal += `⚠️ Nenhuma atividade recente encontrada.\n`;
-    } else {
-      resIndicador.rows.forEach((row, index) => {
-        const dataFormatada = new Date(row.data_registro).toLocaleString('pt-BR');
-        const nomeAcao = row.nome_tarefa || row.origem;
-        relatorioPrincipal += `${index + 1}. [${row.origem.toUpperCase()}] ${nomeAcao}\n`;
-        relatorioPrincipal += `   Pts: ${row.pontos} | 🕒 ${dataFormatada}\n`;
-        saldoRecenteTotal += parseFloat(row.pontos);
-      });
-      relatorioPrincipal += `-----------------------------------\n`;
-      relatorioPrincipal += `🔹 Balanço (10 ações): ${saldoRecenteTotal.toFixed(2)} Pts\n`;
-    }
-
-    const mensagemFinal = relatorio + relatorioPrincipal + relatorioIndicados;
-
-    if (mensagemFinal.length > 4000) {
-      await ctx.reply(mensagemFinal.substring(0, 3900) + "\n\n[Relatório cortado por limite de tamanho]");
-    } else {
-      await ctx.reply(mensagemFinal);
-    }
-
-  } catch (err) {
-    console.error("Erro ao checar atividades via chat:", err);
-    await ctx.reply("❌ Erro ao consultar o banco de dados.");
-  }
-});
-
-// 2. Botão: Aprovar e Pagar o Saque Direto pela FaucetPay (Admin)
-bot.action(/admin_aprovar_(\d+)/, async (ctx) => {
-  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
-  if (ctx.from.id.toString() !== adminId) {
-    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
-  }
-
-  const saqueId = ctx.match[1];
-  try {
-    await ctx.answerCbQuery("Processando pagamento via FaucetPay...");
-
-    const saqueRes = await pool.query(
-      `SELECT s.*, u.lang FROM saques s JOIN usuarios u ON s.telegram_id = u.telegram_id WHERE s.id = $1 AND s.status = 'Waiting'`,
-      [saqueId]
-    );
-
-    if (saqueRes.rows.length === 0) {
-      return ctx.editMessageText("⚠️ Este saque já foi processado ou não está mais pendente.");
-    }
-
-    const saque = saqueRes.rows[0];
-    const isEn = saque.lang === 'en';
-
-    // Puxa cotação atual do banco dinamicamente
-    const cotacaoRes = await pool.query(
-      "SELECT valor_ltc FROM cotacoes ORDER BY data_registro DESC, id DESC LIMIT 1"
-    );
-    const ltcPorPonto = cotacaoRes.rows.length > 0 ? parseFloat(cotacaoRes.rows[0].valor_ltc) : 0.00017390;
-    const amountEmSatoshis = Math.round((parseFloat(saque.pontos_solicitados) * ltcPorPonto) * 100000000);
-
-    const response = await axios.post("https://faucetpay.io/api/v1/send", new URLSearchParams({
-      api_key: process.env.FAUCETPAY_API_KEY, 
-      amount: amountEmSatoshis,
-      to: saque.chave_pix,       
-      currency: "LTC"
-    }).toString(), {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-    });
-
-    if (response.data.status === 200) {
-      const payoutId = response.data.payout_id;
-
-      await pool.query(
-        "UPDATE saques SET status = 'ok', comprovante = $1, data_aprovacao = NOW() WHERE id = $2",
-        [payoutId, saqueId]
-      );
-
-      const linkComprovante = `https://faucetpay.io/payout/${payoutId}`;
-      const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
-
-      const mensagemSucessoUser = isEn
-        ? `🎉 **Withdrawal Paid Successfully!**\n\nYour payout of **${pontosFormatados} Pts** has been sent to your FaucetPay account.\n\n🔗 [View Receipt on FaucetPay](${linkComprovante})`
-        : `🎉 **Saque Pago com Sucesso!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi enviado para a sua conta FaucetPay.\n\n🔗 [Ver Comprovante na FaucetPay](${linkComprovante})`;
-
-      try {
-        await bot.telegram.sendMessage(saque.telegram_id, mensagemSucessoUser, {
-          parse_mode: "Markdown",
-          disable_web_page_preview: true
-        });
-      } catch (e) {}
-
-      await ctx.editMessageText(`✅ **Saque #${saqueId} APROVADO E PAGO COM SUCESSO!**\n\nTX: \`${payoutId}\`\n🔗 [Ver no FaucetPay](${linkComprovante})`, {
-        parse_mode: "Markdown",
-        disable_web_page_preview: true
-      });
-
-    } else {
-      console.error("❌ Erro FaucetPay:", response.data.message);
-      await ctx.reply(`❌ Erro FaucetPay: ${response.data.message}`);
-    }
-
-  } catch (err) {
-    console.error("Erro ao aprovar saque via chat:", err);
-    await ctx.reply("❌ Erro interno ao processar o pagamento.");
-  }
-});
-
-// 3. Botão: Recusar o Saque Diretamente pelo Chat (Admin)
-bot.action(/admin_recusar_(\d+)/, async (ctx) => {
-  const adminId = process.env.ADMIN_TELEGRAM_ID || "1677694125";
-  if (ctx.from.id.toString() !== adminId) {
-    return ctx.answerCbQuery("⚠️ Acesso não autorizado!", { show_alert: true });
-  }
-
-  const saqueId = ctx.match[1];
-  try {
-    await ctx.answerCbQuery("Recusando saque...");
-
-    const saqueRes = await pool.query(
-      `SELECT s.*, u.lang FROM saques s JOIN usuarios u ON s.telegram_id = u.telegram_id WHERE s.id = $1 AND s.status = 'Waiting'`,
-      [saqueId]
-    );
-
-    if (saqueRes.rows.length === 0) {
-      return ctx.editMessageText("⚠️ Este saque já foi processado ou não está mais pendente.");
-    }
-
-    const saque = saqueRes.rows[0];
-    const isEn = saque.lang === 'en';
-
-    await pool.query(
-      "UPDATE saques SET status = 'Recusado', data_aprovacao = NOW() WHERE id = $1",
-      [saqueId]
-    );
-
-    const mensagemRecusaUser = isEn
-      ? `❌ **Withdrawal Declined**\n\nYour withdrawal request #${saqueId} has been reviewed and declined by administration.`
-      : `❌ **Saque Recusado**\n\nSeu pedido de saque #${saqueId} foi analisado e recusado pela administração.`;
-
-    try {
-      await bot.telegram.sendMessage(saque.telegram_id, mensagemRecusaUser, { parse_mode: "Markdown" });
-    } catch (e) {}
-
-    await ctx.editMessageText(`❌ **Saque #${saqueId} RECUSADO com sucesso.**\nO usuário foi notificado.`, {
-      parse_mode: "Markdown"
-    });
-
-  } catch (err) {
-    console.error("Erro ao recusar saque via chat:", err);
-    await ctx.reply("❌ Erro interno ao processar a recusa.");
   }
 });
 
