@@ -89,13 +89,13 @@
     </div>
   </div>
 
-  <h1 id="mainHeading">💰 Manage Pending Withdrawals</h1>
+  <h1 id="mainHeading">💰 Gerenciamento de Saques Pendentes</h1>
   <table id="tabela-saques">
     <thead>
       <tr>
         <th>ID</th>
         <th>Telegram ID</th>
-        <th>Pix / Carteira</th>
+        <th>Pix / Chave FaucetPay</th>
         <th>Valor / Pontos</th>
         <th>Status</th>
         <th>Ações</th>
@@ -110,7 +110,6 @@
     let chaveAdmin = "";
     let ultimaCotacaoGlobal = null;
     
-    // Valor base de referência inicial dos cálculos
     const VALOR_BASE_ADMIN = {
       valor_ltc: 0.00010309,
       valor_usd: 0.00909091,
@@ -163,7 +162,6 @@
             diffEl.innerHTML = `<span>0.00% (Igual à base)</span>`;
           }
 
-          // Fator para reajustar pontos/valores se necessário
           const fator = VALOR_BASE_ADMIN.valor_ltc / ltcAtual;
           document.getElementById("fatorCorrecao").innerText = fator.toFixed(4);
         } else {
@@ -175,7 +173,6 @@
       }
     }
 
-    // Inserção manual de cotação utilizando a rota /admin/sql que você já possui
     async function inserirCotacaoManual() {
       const ltc = document.getElementById("manualLtc").value;
       const usd = document.getElementById("manualUsd").value;
@@ -208,7 +205,6 @@
       }
     }
 
-    // Simula o cálculo de correção para proteger contra prejuízos nos saques pendentes
     async function calcularCorrecaoSaques() {
       if (!ultimaCotacaoGlobal || !ultimaCotacaoGlobal.valor_ltc) {
         alert("Carregue as cotações primeiro!");
@@ -241,7 +237,6 @@
       }
     }
 
-    // Aplica o fator de correção nos saques pendentes ('Waiting') atualizando o banco
     async function aplicarFatorCorrecao() {
       if (!ultimaCotacaoGlobal || !ultimaCotacaoGlobal.valor_ltc) {
         alert("Carregue as cotações primeiro!");
@@ -251,11 +246,10 @@
       const ltcAtual = parseFloat(ultimaCotacaoGlobal.valor_ltc);
       const fator = VALOR_BASE_ADMIN.valor_ltc / ltcAtual;
 
-      if (!confirm(`⚠️ ATENÇÃO: Deseja aplicar o fator de correção (${fator.toFixed(4)}) em TODOS os saques com status 'Waiting'? Isso ajustará os pontos solicitados para evitar prejuízo.`)) {
+      if (!confirm(`⚠️ ATENÇÃO: Deseja aplicar o fator de correção (${fator.toFixed(4)}) em TODOS os saques com status 'Waiting'?`)) {
         return;
       }
 
-      // Atualiza os pontos utilizando cálculo proporcional direto no SQL do Postgres
       const sql = `UPDATE saques SET pontos_solicitados = ROUND(pontos_solicitados * ${fator}) WHERE status = 'Waiting'`;
 
       try {
@@ -291,7 +285,7 @@
             <td>#${saque.id}</td>
             <td><code>${saque.telegram_id}</code></td>
             <td>${saque.chave_pix}</td>
-            <td>${(Number(saque.pontos_solicitados) * 0.000001).toFixed(8)} LTC (${saque.pontos_solicitados} Pts)</td>
+            <td>${saque.valor_solicitado} USD (${saque.pontos_solicitados} Pts)</td>
             <td>${saque.status}</td>
             <td>
               <button class="aprovar" onclick="processarPagamento(${saque.id})">Aprovar</button>
@@ -306,21 +300,24 @@
       }
     }
 
+    // 🔹 MODIFICADO: Agora aprova manualmente e notifica o usuário, sem depender de API automática externa
     async function processarPagamento(id) {
-      if (!confirm("Confirmar pagamento via FaucetPay?")) return;
+      if (!confirm("Confirmar aprovação deste saque? (Certifique-se de que já realizou o pagamento por fora).")) return;
       try {
         const res = await secureFetch('/api/pagar-saque', {
           method: 'POST',
           body: JSON.stringify({ saque_id: id })
         });
         const data = await res.json();
-        if (data.success) {
-          alert("✅ Pago com sucesso! TX: " + data.tx);
+        if (data.success || data.sucesso) {
+          alert("✅ Saque aprovado e usuário notificado com sucesso!");
           carregarSaques();
         } else {
           alert("❌ Erro: " + (data.error || "Erro desconhecido"));
         }
-      } catch (err) { alert("Erro na comunicação."); }
+      } catch (err) { 
+        alert("Erro na comunicação com o servidor."); 
+      }
     }
 
     async function atualizarStatus(id, novoStatus) {
@@ -333,7 +330,7 @@
       } catch (err) { alert("Erro ao atualizar status."); }
     }
 
-async function checarTarefas(telegramId) {
+    async function checarTarefas(telegramId) {
       const sql = `SELECT origem, COUNT(*) as total_acoes, SUM(pontos) as total_pontos FROM historico_ganhos WHERE telegram_id = '${telegramId}' GROUP BY origem ORDER BY total_acoes DESC`;
       
       try {
@@ -352,9 +349,9 @@ async function checarTarefas(telegramId) {
         data.forEach(row => {
           const origem = row.origem || 'Desconhecida';
           const acoes = parseInt(row.total_acoes) || 0;
-          const pontos = parseInt(row.total_pontos) || 0;
+          const pontos = parseFloat(row.total_pontos) || 0;
 
-          relatorio += `• Origem: ${origem}\n  Ações: ${acoes}x | Pontos: ${pontos} Pts\n\n`;
+          relatorio += `• Origem: ${origem}\n  Ações: ${acoes}x | Pontos: ${pontos.toFixed(2)} Pts\n\n`;
           
           totalGeralAcoes += acoes;
           totalGeralPontos += pontos;
@@ -362,7 +359,7 @@ async function checarTarefas(telegramId) {
 
         relatorio += `-----------------------------------\n`;
         relatorio += `🔹 Total de Ações: ${totalGeralAcoes}\n`;
-        relatorio += `🔹 Total Acumulado: ${totalGeralPontos} Pts`;
+        relatorio += `🔹 Total Acumulado: ${totalGeralPontos.toFixed(2)} Pts`;
 
         alert(relatorio);
       } catch (err) {
@@ -371,17 +368,16 @@ async function checarTarefas(telegramId) {
       }
     }
  
-   const params = new URLSearchParams(window.location.search);
-  const key = params.get("key");
+    const params = new URLSearchParams(window.location.search);
+    const key = params.get("key");
 
-  if (key) {
-    document.querySelectorAll("a").forEach(link => {
-      if (!link.href.includes("key=")) {
-        link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
-      }
-    });
-  }   
-    
+    if (key) {
+      document.querySelectorAll("a").forEach(link => {
+        if (!link.href.includes("key=")) {
+          link.href += (link.href.includes("?") ? "&" : "?") + "key=" + key;
+        }
+      });
+    }   
   </script>
 </body>
 </html>
