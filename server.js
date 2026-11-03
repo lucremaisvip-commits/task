@@ -2783,6 +2783,7 @@ app.post("/api/pagar-saque", async (req, res) => {
   }
 
   try {
+    // Busca o saque pendente e o idioma do usuário
     const saqueResult = await pool.query(`
       SELECT s.*, u.lang 
       FROM saques s
@@ -2798,13 +2799,24 @@ app.post("/api/pagar-saque", async (req, res) => {
     const isEn = saque.lang === 'en';
     const pontosFormatados = parseFloat(saque.pontos_solicitados).toFixed(2);
 
-    // Atualiza o status no banco informando que foi aprovado/pago manualmente (sem ID de transação)
+    // 1️⃣ Atualiza o status do saque para 'ok' no banco
     await pool.query(
       "UPDATE saques SET status = 'ok', data_aprovacao = NOW() WHERE id = $1",
       [saque_id]
     );
 
-    // Mensagem de notificação limpa para o usuário
+    // 2️⃣ REGISTRO DE AUDITORIA: Salva o débito no historico_ganhos (com pontos negativos e ID de referência)
+    await pool.query(`
+      INSERT INTO historico_ganhos (telegram_id, origem, pontos, referencia_id, nome_tarefa, data_registro)
+      VALUES ($1, 'saque', $2, $3, $4, NOW())
+    `, [
+      saque.telegram_id, 
+      -Math.abs(parseFloat(saque.pontos_solicitados)), // Garante que fica negativo
+      saque.id, 
+      "Saque Aprovado Manualmente"
+    ]);
+
+    // Mensagem de notificação para o usuário no Telegram
     const mensagemSucesso = isEn
       ? `🎉 **Withdrawal Approved!**\n\nYour payout of **${pontosFormatados} Pts** has been successfully sent/approved by the admin.`
       : `🎉 **Saque Aprovado!**\n\nSeu pagamento de **${pontosFormatados} Pts** foi processado e enviado com sucesso pela administração.`;
@@ -2818,13 +2830,14 @@ app.post("/api/pagar-saque", async (req, res) => {
       console.error(`⚠️ Erro ao enviar aviso de aprovação no chat do usuário ${saque.telegram_id}:`, telegramErr.message);
     }
 
-    res.json({ success: true, message: "Saque marcado como aprovado com sucesso." });
+    res.json({ success: true, message: "Saque marcado como aprovado e auditado com sucesso." });
 
   } catch (err) {
     console.error("❌ Erro fatal ao aprovar saque:", err.message);
     res.status(500).json({ error: "Erro interno do servidor ao processar aprovação." });
   }
 });
+
 
 // 🔹 Endpoint de Dados para o Painel de Histórico (Com Multi-Campanha A/B)
 app.get('/admin/historico-dados', async (req, res) => {
