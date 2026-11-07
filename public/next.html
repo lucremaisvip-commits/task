@@ -381,6 +381,30 @@
       </div>
 
     </div>
+
+<script>
+fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+  .then(response => response.text())
+  .then(data => {
+    const elements = document.querySelectorAll('[id="ZerAds728"]');
+    for (const element of elements) {
+        if (element.style.display === 'none') {
+        element.style.display = 'inline-block';
+        if(data.includes("*BLANK*") == false) {
+        data = data.replace('<meta http-equiv="refresh" content="280">', '');
+        element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+        element.querySelector('iframe').srcdoc = data;
+        } else {
+        element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+        }
+        break;
+        }
+    }
+  });
+</script>
+<div id="ZerAds728" style="display: none;"></div>
+
+    
   </section>
 
   <!-- CTA FINAL -->
