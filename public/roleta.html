@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
   <title id="pageTitle">🎰 Lucky Wheel</title>
@@ -10,7 +12,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js" defer></script>
 
   <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 100px; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; max-width: 600px; margin: auto; padding: 20px; padding-bottom: 120px; }
 
     /* MENU INFERIOR FIXO */
     .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; display: flex; justify-content: space-around; padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.3); z-index: 9999; }
@@ -68,48 +70,64 @@
     /* TEXTOS */
     #resultado { text-align: center; font-weight: bold; font-size: 18px; margin: 15px 0; color: #00ff88; }
     .descricao { font-size: 14px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px; text-align: center; }
-    
-    /* GRID */
-    .grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
-  }
 
-  .grid .banner {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #fff;
-    margin: 0;
-  }
+    /* ESTILO CONTAINER PUBLICIDADE (IDÊNTICO À FOTO) */
+    .ads-container-box {
+      background: #0d090a;
+      border: 1px solid #2a1f22;
+      border-radius: 12px;
+      padding: 15px 10px;
+      margin: 25px 0;
+      text-align: center;
+      overflow-x: auto;
+    }
+    .ads-title {
+      font-size: 11px;
+      color: #7a6b6e;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 15px;
+      font-weight: 600;
+    }
+    .ads-grid-flex {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+    }
+    .ads-column-right {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
   </style>
 </head>
 <body>
 
   <h1 id="mainTitle" style="text-align: center; margin-top: 20px;">🎰 Lucky Wheel</h1>
   
-<div class="descricao" id="mainDescription" style="text-align: left; font-size: 14px; color: #94a3b8;">
-    <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
-        🎡 <strong>Sorte ao seu alcance!</strong><br>
-        Transforme seus pontos em prêmios instantâneos com nossa Roleta.
-    </p>
-    <ul style="padding-left: 20px; line-height: 1.6;">
-        <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
-        <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
-        <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
-        <li><strong>Limite diário:</strong> Aumente sua quantidade de giros subindo de nível!</li>
-        <li style="color: #4CAF50; font-weight: bold;">⚡ XP Garantido: Cada giro te dá 30 XP!</li>
-    </ul>
-</div>
+  <div class="descricao" id="mainDescription" style="text-align: left; font-size: 14px; color: #94a3b8;">
+      <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+          🎡 <strong>Sorte ao seu alcance!</strong><br>
+          Transforme seus pontos em prêmios instantâneos com nossa Roleta.
+      </p>
+      <ul style="padding-left: 20px; line-height: 1.6;">
+          <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
+          <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
+          <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
+          <li><strong>Limite diário:</strong> Aumente sua quantidade de giros subindo de nível!</li>
+          <li style="color: #4CAF50; font-weight: bold;">⚡ XP Garantido: Cada giro te dá 30 XP!</li>
+      </ul>
+  </div>
 
-<!-- Painel de Status -->
-<div class="card">
-    <p style="margin: 5px 0;"><span id="labelGiros">🎡 Giros hoje:</span> <span id="girosHoje">0</span> / <span id="limiteDiario">5</span></p>
-    <p style="margin: 5px 0;"><span id="labelTickets">🎟️ Tickets Disponíveis:</span> <span id="ticketsDisponiveis" style="color: #00ff88; font-weight: bold;">0</span></p>
-    <p style="margin: 5px 0;"><span id="labelPontos">⭐ Saldo:</span> <span id="pontos">...</span></p>
-</div>
+  <!-- Painel de Status -->
+  <div class="card">
+      <p style="margin: 5px 0;"><span id="labelGiros">🎡 Giros hoje:</span> <span id="girosHoje">0</span> / <span id="limiteDiario">5</span></p>
+      <p style="margin: 5px 0;"><span id="labelTickets">🎟️ Tickets Disponíveis:</span> <span id="ticketsDisponiveis" style="color: #00ff88; font-weight: bold;">0</span></p>
+      <p style="margin: 5px 0;"><span id="labelPontos">⭐ Saldo:</span> <span id="pontos">...</span></p>
+  </div>
 
   <!-- Loja de Tickets -->
   <div class="card" id="cardLoja">
@@ -127,14 +145,14 @@
   <button id="botaoGirar">🎯 Spin Wheel</button>
   <div id="resultado"></div>
 
-  <!-- Ajuda (Espaçamento superior ajustado para afastar da roleta/resultado) -->
+  <!-- Ajuda -->
   <div style="margin-top: 25px; margin-bottom: 25px;">
-  <button id="btnAjuda" 
-          onclick="window.Telegram.WebApp.openLink(this.dataset.url)"
-          style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%;">
-    ❓ Dúvidas sobre Roleta
-  </button>
-</div>
+    <button id="btnAjuda" 
+            onclick="window.Telegram.WebApp.openLink(this.dataset.url)"
+            style="padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; width: 100%;">
+      ❓ Dúvidas sobre Roleta
+    </button>
+  </div>
 
   <!-- Histórico -->
   <div class="card" id="historico">
@@ -142,6 +160,23 @@
     <ul id="listaGiros" style="padding-left: 20px; font-size: 14px; color: #cbd5e1;">
       <li id="loadingHistory">Carregando histórico...</li>
     </ul>
+  </div>
+
+  <!-- BLROCO DE PUBLICIDADE ZERADS (ESTILO FOTO) -->
+  <div class="ads-container-box">
+    <div class="ads-title">PUBLICIDADE</div>
+    <div class="ads-grid-flex">
+      
+      <!-- Banner Esquerda 300x250 -->
+      <div id="ZerAds300" style="display: none;"></div>
+
+      <!-- Banners Direita Empilhados (728x90 em cima, 468x60 embaixo) -->
+      <div class="ads-column-right">
+        <div id="ZerAds728" style="display: none;"></div>
+        <div id="ZerAds468" style="display: none;"></div>
+      </div>
+
+    </div>
   </div>
 
   <!-- Menu Inferior -->
@@ -153,9 +188,68 @@
     <a href="saque.html" id="navWithdraw"><span>💰</span><span class="txt-nav">Withdraw</span></a>
   </nav>
 
- <script>  
-// --- PARTE 1: Configurações, Traduções e UI ---
+  <!-- SCRIPTS DOS BANNERS ZERADS -->
+  <script>
+    fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+      .then(response => response.text())
+      .then(data => {
+        const elements = document.querySelectorAll('[id="ZerAds728"]');
+        for (const element of elements) {
+            if (element.style.display === 'none') {
+            element.style.display = 'inline-block';
+            if(data.includes("*BLANK*") == false) {
+            data = data.replace('<meta http-equiv="refresh" content="280">', '');
+            element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+            element.querySelector('iframe').srcdoc = data;
+            } else {
+            element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+            }
+            break;
+            }
+        }
+      });
 
+    fetch('https://zerads.com/ad/ad.php?ref=11571&width=468')
+      .then(response => response.text())
+      .then(data => {
+        const elements = document.querySelectorAll('[id="ZerAds468"]');
+        for (const element of elements) {
+            if (element.style.display === 'none') {
+            element.style.display = 'inline-block';
+            if(data.includes("*BLANK*") == false) {
+            data = data.replace('<meta http-equiv="refresh" content="280">', '');
+            element.innerHTML = "<iframe style='border:none;' width='468' height='60'></iframe>";
+            element.querySelector('iframe').srcdoc = data;
+            } else {
+            element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 468px; height: 60px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 30px; top: 17%; left: 28%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+            }
+            break;
+            }
+        }
+      });
+
+    fetch('https://zerads.com/ad/ad.php?ref=11571&width=300')
+      .then(response => response.text())
+      .then(data => {
+        const elements = document.querySelectorAll('[id="ZerAds300"]');
+        for (const element of elements) {
+            if (element.style.display === 'none') {
+            element.style.display = 'inline-block';
+            if(data.includes("*BLANK*") == false) {
+            data = data.replace('<meta http-equiv="refresh" content="280">', '');
+            element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+            element.querySelector('iframe').srcdoc = data;
+            } else {
+            element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 30px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+            }
+            break;
+            }
+        }
+      });
+  </script>
+
+  <!-- SCRIPT PRINCIPAL DA ROLETA -->
+  <script>  
   let telegram_id = String(
       new URLSearchParams(window.location.search).get("id") || 
       window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
@@ -174,325 +268,321 @@
   let rotacaoAtual = 0;
   let usuarioVip = false;
 
-const tradutorPremios = {
-  pt: {
-    pontos: (valor) => `${valor.toFixed(2).replace('.', ',')} Pontos`,
-    nada: "Tente Novamente"
-  },
-  en: {
-    pontos: (valor) => `${valor.toFixed(2)} Points`,
-    nada: "Try Again"
-  }
-};
-
-const linguagens = {
-  pt: {
-    title: "🎰 Roleta da Sorte",
-    mainTitle: "🎰 Roleta da Sorte",
-    description: `
-        <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
-            🎡 <strong>Sorte ao seu alcance!</strong><br>
-            Transforme seus pontos em prêmios instantâneos com nossa Roleta.
-        </p>
-        <ul style="padding-left: 20px; line-height: 1.6;">
-            <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
-            <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
-            <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
-            <li><strong>Limite diário:</strong> Aumente sua quantidade de giros subindo de nível!</li>
-            <li style="color: #4CAF50; font-weight: bold;">⚡ XP Garantido: Cada giro te dá 30 XP!</li>
-        </ul>`,
-    girosHoje: "🎡 Giros hoje:",
-    ticketsText: "🎟️ Tickets Disponíveis:",
-    pointsText: "⭐ Saldo:",
-    lojaTitle: "📦 Loja de Tickets",
-    lojaDesc: "Compre 5 tickets com desconto.",
-    btnComprar: "Comprar 5 Tickets",
-    btnSpin: "🎯 Girar Roleta",
-    linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#roleta",
-    btnHelp: "❓ Dúvidas sobre Roleta",
-    historyTitle: "📜 Histórico de Giros",
-    loadingHistory: "Carregando histórico...",
-    navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque"
-  },
-  en: {
-    title: "🎰 Lucky Wheel",
-    mainTitle: "🎰 Lucky Wheel",
-    description: `
-        <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
-            🎡 <strong>Luck within reach!</strong><br>
-            Turn your points into instant prizes with our Wheel.
-        </p>
-        <ul style="padding-left: 20px; line-height: 1.6;">
-            <li><strong>How it works:</strong> Each spin consumes 1 Ticket. If none, costs 0.20 pts.</li>
-            <li><strong>Users:</strong> Watch a quick ad to unlock your spin.</li>
-            <li><strong>VIP Perks:</strong> No ads and discounts on ticket purchases.</li>
-            <li><strong>Daily limit:</strong> Increase your spin count by leveling up!</li>
-            <li style="color: #4CAF50; font-weight: bold;">⚡ Guaranteed XP: Each spin gives you 30 XP!</li>
-        </ul>`,
-    girosHoje: "🎡 Spins today:",
-    ticketsText: "🎟️ Tickets Available:",
-    pointsText: "⭐ Balance:",
-    lojaTitle: "📦 Ticket Shop",
-    lojaDesc: "Buy 5 tickets at a discount.",
-    btnComprar: "Buy 5 Tickets",
-    btnSpin: "🎯 Spin Wheel",
-    linkAjuda: "https://lucremaistask.netlify.app/help.html#roleta",
-    btnHelp: "❓ Wheel Questions",
-    historyTitle: "📜 Spin History",
-    loadingHistory: "Loading history...",
-    navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw"
-  }
-};
-
-function aplicarTraducoes() {
-  const t = linguagens[userLang];
-  document.getElementById("btnAjuda").dataset.url = t.linkAjuda;
-  const setElText = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
-  const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
-
-  setElText("pageTitle", t.title);
-  setElText("mainTitle", t.mainTitle);
-  setHtml("mainDescription", t.description);
-
-  setElText("labelGiros", t.girosHoje);
-  setElText("labelTickets", t.ticketsText);
-  setElText("labelPontos", t.pointsText);
-
-  const cardLojaH3 = document.querySelector("#cardLoja h3");
-  if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
-  
-  const cardLojaP = document.querySelector("#cardLoja p");
-  if (cardLojaP) cardLojaP.innerText = t.lojaDesc;
-
-  const btnComprar = document.getElementById("btnComprarTickets");
-  if (btnComprar) {
-    btnComprar.innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
-  }
-
-  setElText("botaoGirar", t.btnSpin);
-  setElText("btnAjuda", t.btnHelp);
-  setElText("titleHistory", t.historyTitle);
-  
-  const loading = document.getElementById("loadingHistory");
-  if (loading) loading.innerText = t.loadingHistory;
-
-  const menuMap = {
-    "navHome": t.navHome, "navTasks": t.navTasks, "navInvites": t.navInvites, 
-    "navOfferwalls": t.navOfferwalls, "navWithdraw": t.navWithdraw
+  const tradutorPremios = {
+    pt: {
+      pontos: (valor) => `${valor.toFixed(2).replace('.', ',')} Pontos`,
+      nada: "Tente Novamente"
+    },
+    en: {
+      pontos: (valor) => `${valor.toFixed(2)} Points`,
+      nada: "Try Again"
+    }
   };
 
-  for (const [id, text] of Object.entries(menuMap)) {
-    const el = document.querySelector(`#${id} .txt-nav`);
-    if (el) el.innerText = text;
+  const linguagens = {
+    pt: {
+      title: "🎰 Roleta da Sorte",
+      mainTitle: "🎰 Roleta da Sorte",
+      description: `
+          <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+              🎡 <strong>Sorte ao seu alcance!</strong><br>
+              Transforme seus pontos em prêmios instantâneos com nossa Roleta.
+          </p>
+          <ul style="padding-left: 20px; line-height: 1.6;">
+              <li><strong>Como funciona:</strong> Cada giro consome 1 Ticket. Se não possuir, o custo é de apenas 0,20 pts.</li>
+              <li><strong>Usuários:</strong> Assista a um anúncio rápido para liberar seu giro.</li>
+              <li><strong>Benefícios VIP:</strong> Giros sem anúncios e descontos na compra de tickets.</li>
+              <li><strong>Limite diário:</strong> Aumente sua quantidade de giros subindo de nível!</li>
+              <li style="color: #4CAF50; font-weight: bold;">⚡ XP Garantido: Cada giro te dá 30 XP!</li>
+          </ul>`,
+      girosHoje: "🎡 Giros hoje:",
+      ticketsText: "🎟️ Tickets Disponíveis:",
+      pointsText: "⭐ Saldo:",
+      lojaTitle: "📦 Loja de Tickets",
+      lojaDesc: "Compre 5 tickets com desconto.",
+      btnComprar: "Comprar 5 Tickets",
+      btnSpin: "🎯 Girar Roleta",
+      linkAjuda: "https://lucremaistask.netlify.app/ajuda.html#roleta",
+      btnHelp: "❓ Dúvidas sobre Roleta",
+      historyTitle: "📜 Histórico de Giros",
+      loadingHistory: "Carregando histórico...",
+      navHome: "Início", navTasks: "Tarefas", navInvites: "Indicações", navOfferwalls: "Externas", navWithdraw: "Saque"
+    },
+    en: {
+      title: "🎰 Lucky Wheel",
+      mainTitle: "🎰 Lucky Wheel",
+      description: `
+          <p style="text-align: center; color: #f1f5f9; margin-bottom: 15px;">
+              🎡 <strong>Luck within reach!</strong><br>
+              Turn your points into instant prizes with our Wheel.
+          </p>
+          <ul style="padding-left: 20px; line-height: 1.6;">
+              <li><strong>How it works:</strong> Each spin consumes 1 Ticket. If none, costs 0.20 pts.</li>
+              <li><strong>Users:</strong> Watch a quick ad to unlock your spin.</li>
+              <li><strong>VIP Perks:</strong> No ads and discounts on ticket purchases.</li>
+              <li><strong>Daily limit:</strong> Increase your spin count by leveling up!</li>
+              <li style="color: #4CAF50; font-weight: bold;">⚡ Guaranteed XP: Each spin gives you 30 XP!</li>
+          </ul>`,
+      girosHoje: "🎡 Spins today:",
+      ticketsText: "🎟️ Tickets Available:",
+      pointsText: "⭐ Balance:",
+      lojaTitle: "📦 Ticket Shop",
+      lojaDesc: "Buy 5 tickets at a discount.",
+      btnComprar: "Buy 5 Tickets",
+      btnSpin: "🎯 Spin Wheel",
+      linkAjuda: "https://lucremaistask.netlify.app/help.html#roleta",
+      btnHelp: "❓ Wheel Questions",
+      historyTitle: "📜 Spin History",
+      loadingHistory: "Loading history...",
+      navHome: "Home", navTasks: "Tasks", navInvites: "Invites", navOfferwalls: "Offerwalls", navWithdraw: "Withdraw"
+    }
+  };
+
+  function aplicarTraducoes() {
+    const t = linguagens[userLang];
+    document.getElementById("btnAjuda").dataset.url = t.linkAjuda;
+    const setElText = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+    const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+
+    setElText("pageTitle", t.title);
+    setElText("mainTitle", t.mainTitle);
+    setHtml("mainDescription", t.description);
+
+    setElText("labelGiros", t.girosHoje);
+    setElText("labelTickets", t.ticketsText);
+    setElText("labelPontos", t.pointsText);
+
+    const cardLojaH3 = document.querySelector("#cardLoja h3");
+    if (cardLojaH3) cardLojaH3.innerText = t.lojaTitle;
+    
+    const cardLojaP = document.querySelector("#cardLoja p");
+    if (cardLojaP) cardLojaP.innerText = t.lojaDesc;
+
+    const btnComprar = document.getElementById("btnComprarTickets");
+    if (btnComprar) {
+      btnComprar.innerText = usuarioVip ? t.btnComprar + " (0.70 pts)" : t.btnComprar + " (0.80 pts)";
+    }
+
+    setElText("botaoGirar", t.btnSpin);
+    setElText("btnAjuda", t.btnHelp);
+    setElText("titleHistory", t.historyTitle);
+    
+    const loading = document.getElementById("loadingHistory");
+    if (loading) loading.innerText = t.loadingHistory;
+
+    const menuMap = {
+      "navHome": t.navHome, "navTasks": t.navTasks, "navInvites": t.navInvites, 
+      "navOfferwalls": t.navOfferwalls, "navWithdraw": t.navWithdraw
+    };
+
+    for (const [id, text] of Object.entries(menuMap)) {
+      const el = document.querySelector(`#${id} .txt-nav`);
+      if (el) el.innerText = text;
+    }
   }
-}
 
-// --- PARTE 2: Inicialização e Carregamento de Dados ---
-document.addEventListener("DOMContentLoaded", () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    const langUrl = urlParams.get("lang");
-    if (langUrl === "pt" || langUrl === "en") {
-        userLang = langUrl;
-    } else {
-        userLang = localStorage.getItem("userLang") || "en";
-    }
-    
-    localStorage.setItem("userLang", userLang);
-    document.documentElement.lang = userLang;
-    
-    telegram_id = String(
-        urlParams.get("id") || 
-        window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
-        localStorage.getItem("telegram_id") || 
-        ""
-    );
-
-    if (telegram_id) {
-        localStorage.setItem("telegram_id", telegram_id);
-    }
-
-    document.querySelectorAll(".bottom-nav a").forEach(link => {
-        let baseHref = link.getAttribute("href").split("?")[0];
-        link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
-    });
-
-    aplicarTraducoes();
-
-    if (telegram_id) {
-        carregarDadosUsuario();
-    }
-});
-
-async function carregarDadosUsuario() {
-    if (!telegram_id) return;
-
-    try {
-        const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
-        const data = await res.json();
-        if (data.success) {
-            usuarioVip = data.data.vip;
-            const nivel = data.data.nivel || 1;
-            const limites = { 1: 5, 2: 6, 3: 7, 4: 8, 5: 10 };
-            const el = document.getElementById("limiteDiario");
-            if (el) el.textContent = limites[nivel] || 5;
-        }
-    } catch (e) { console.error("Erro status:", e); }
-
-    try {
-        const res = await fetch(`/api/usuarios/${telegram_id}`);
-        const data = await res.json();
-        if (data.success) {
-            const el = document.getElementById("pontos");
-            if (el) el.textContent = data.data.pontos ?? 0;
-        }
-    } catch (e) { console.error("Erro saldo:", e); }
-
-    try {
-        const res = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
-        const data = await res.json();
-        const elG = document.getElementById("girosHoje");
-        const elT = document.getElementById("ticketsDisponiveis");
-        if (elG) elG.textContent = data.giros ?? 0;
-        if (elT) elT.textContent = data.tickets ?? 0;
-    } catch (e) { console.error("Erro giros:", e); }
-
-    await carregarHistorico();
-    aplicarTraducoes();
-}
-
-// --- PARTE 3: Lógica de Negócio, Roleta e Monetag ---
-
-const roleta = document.getElementById("roleta");
-const botaoGirar = document.getElementById("botaoGirar");
-const resultado = document.getElementById("resultado");
-const fatiasPremios = [
-  "2 Pontos", "5 Pontos", "10 Pontos", "15 Pontos",
-  "20 Pontos", "30 Pontos", "Tente Novamente",
-  "2 Pontos", "5 Pontos", "10 Pontos",
-  "Tente Novamente", "20 Pontos"
-];
-const anguloPorFatia = 360 / 12;
-
-async function comprarTickets() {
-    const btn = document.getElementById("btnComprarTickets");
-    btn.disabled = true;
-    btn.innerText = userLang === 'pt' ? "Processando..." : "Processing...";
-
-    try {
-        const response = await fetch("/api/roleta/comprar-tickets", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ telegram_id })
-        });
-        const data = await response.json();
-
-        if (data.success) {
-            await carregarDadosUsuario();
-            alert(userLang === 'pt' ? "Compra realizada!" : "Purchase successful!");
-        } else {
-            alert(data.erro || "Erro na compra.");
-        }
-    } catch (err) {
-        console.error(err);
-    } finally {
-        btn.disabled = false;
-        aplicarTraducoes();
-    }
-}
-
-async function executarGiro() {
-  const t = linguagens[userLang];
-  botaoGirar.disabled = true;
-  resultado.textContent = userLang === 'pt' ? "Girando..." : "Spinning...";
-
-  try {
-    const res = await fetch("/api/roleta/girar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telegram_id })
-    });
-    const dados = await res.json();
-
-    if (!dados.success) {
-      resultado.textContent = `❌ ${dados.erro || 'Erro'}`;
-      botaoGirar.disabled = false;
-      return;
-    }
-
-    let indice = fatiasPremios.indexOf(dados.premio);
-    if (indice === -1) indice = 0;
-    
-    rotacaoAtual += (5 * 360) + (indice * anguloPorFatia);
-    roleta.style.transform = `rotate(-${rotacaoAtual}deg)`;
-
-    setTimeout(async () => {
-      const tP = tradutorPremios[userLang];
-      resultado.textContent = `🎉 ${dados.tipo === "nada" ? tP.nada : tP.pontos(dados.valor)}`;
-      botaoGirar.disabled = false;
-      await carregarDadosUsuario(); 
-    }, 4000);
-  } catch (err) {
-    resultado.textContent = t.wheelError || "Error";
-    botaoGirar.disabled = false;
-  }
-}
-
-document.getElementById("botaoGirar").addEventListener("click", () => {
-    if (usuarioVip) {
-        executarGiro();
-    } else {
-        show_11315704().then(() => {
-            executarGiro();
-        }).catch(e => {
-            console.log("Anúncio fechado ou erro:", e);
-        });
-    }
-});
-
-async function carregarHistorico() {
-  const tP = tradutorPremios[userLang];
-  
-  try {
-    const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
-    const historico = await res.json();
-    const lista = document.getElementById("listaGiros");
-    
-    lista.innerHTML = "";
-
-    if (!historico || historico.length === 0) {
-      lista.innerHTML = `<li>${userLang === 'pt' ? 'Nenhum giro registrado.' : 'No spins recorded.'}</li>`;
-      return;
-    }
-
-    historico.forEach(giro => {
-      const item = document.createElement("li");
+  document.addEventListener("DOMContentLoaded", () => {
+      const urlParams = new URLSearchParams(window.location.search);
       
-      // Formatação de data otimizada e limpa (Ex: 23/07 às 12:30 ou 07/23 at 12:30 PM)
-      const dataObj = new Date(giro.data_registro);
-      let dataFormatada = "--:--";
-      
-      if (!isNaN(dataObj.getTime())) {
-        const optionsDate = { day: '2-digit', month: '2-digit' };
-        const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: false };
-        
-        const dataStr = dataObj.toLocaleDateString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsDate);
-        const horaStr = dataObj.toLocaleTimeString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsTime);
-        
-        dataFormatada = userLang === 'pt' ? `${dataStr} às ${horaStr}` : `${dataStr} at ${horaStr}`;
+      const langUrl = urlParams.get("lang");
+      if (langUrl === "pt" || langUrl === "en") {
+          userLang = langUrl;
+      } else {
+          userLang = localStorage.getItem("userLang") || "en";
       }
       
-      const valor = parseFloat(giro.pontos_ganhos) || 0;
-      let textoPremio = valor > 0 ? tP.pontos(valor) : tP.nada;
+      localStorage.setItem("userLang", userLang);
+      document.documentElement.lang = userLang;
+      
+      telegram_id = String(
+          urlParams.get("id") || 
+          window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 
+          localStorage.getItem("telegram_id") || 
+          ""
+      );
 
-      item.textContent = `${textoPremio} — ${dataFormatada}`;
-      lista.appendChild(item);
-    });
-  } catch (err) { 
-    console.error("Erro ao carregar histórico:", err);
-    document.getElementById("listaGiros").innerHTML = "<li>Error loading history</li>";
+      if (telegram_id) {
+          localStorage.setItem("telegram_id", telegram_id);
+      }
+
+      document.querySelectorAll(".bottom-nav a").forEach(link => {
+          let baseHref = link.getAttribute("href").split("?")[0];
+          link.href = `${baseHref}?id=${telegram_id}&lang=${userLang}`;
+      });
+
+      aplicarTraducoes();
+
+      if (telegram_id) {
+          carregarDadosUsuario();
+      }
+  });
+
+  async function carregarDadosUsuario() {
+      if (!telegram_id) return;
+
+      try {
+          const res = await fetch(`/api/status-usuario?telegram_id=${telegram_id}`);
+          const data = await res.json();
+          if (data.success) {
+              usuarioVip = data.data.vip;
+              const nivel = data.data.nivel || 1;
+              const limites = { 1: 5, 2: 6, 3: 7, 4: 8, 5: 10 };
+              const el = document.getElementById("limiteDiario");
+              if (el) el.textContent = limites[nivel] || 5;
+          }
+      } catch (e) { console.error("Erro status:", e); }
+
+      try {
+          const res = await fetch(`/api/usuarios/${telegram_id}`);
+          const data = await res.json();
+          if (data.success) {
+              const el = document.getElementById("pontos");
+              if (el) el.textContent = data.data.pontos ?? 0;
+          }
+      } catch (e) { console.error("Erro saldo:", e); }
+
+      try {
+          const res = await fetch(`/api/roleta/hoje?telegram_id=${telegram_id}`);
+          const data = await res.json();
+          const elG = document.getElementById("girosHoje");
+          const elT = document.getElementById("ticketsDisponiveis");
+          if (elG) elG.textContent = data.giros ?? 0;
+          if (elT) elT.textContent = data.tickets ?? 0;
+      } catch (e) { console.error("Erro giros:", e); }
+
+      await carregarHistorico();
+      aplicarTraducoes();
   }
-}
+
+  const roleta = document.getElementById("roleta");
+  const botaoGirar = document.getElementById("botaoGirar");
+  const resultado = document.getElementById("resultado");
+  const fatiasPremios = [
+    "2 Pontos", "5 Pontos", "10 Pontos", "15 Pontos",
+    "20 Pontos", "30 Pontos", "Tente Novamente",
+    "2 Pontos", "5 Pontos", "10 Pontos",
+    "Tente Novamente", "20 Pontos"
+  ];
+  const anguloPorFatia = 360 / 12;
+
+  async function comprarTickets() {
+      const btn = document.getElementById("btnComprarTickets");
+      btn.disabled = true;
+      btn.innerText = userLang === 'pt' ? "Processando..." : "Processing...";
+
+      try {
+          const response = await fetch("/api/roleta/comprar-tickets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ telegram_id })
+          });
+          const data = await response.json();
+
+          if (data.success) {
+              await carregarDadosUsuario();
+              alert(userLang === 'pt' ? "Compra realizada!" : "Purchase successful!");
+          } else {
+              alert(data.erro || "Erro na compra.");
+          }
+      } catch (err) {
+          console.error(err);
+      } finally {
+          btn.disabled = false;
+          aplicarTraducoes();
+      }
+  }
+
+  async function executarGiro() {
+    const t = linguagens[userLang];
+    botaoGirar.disabled = true;
+    resultado.textContent = userLang === 'pt' ? "Girando..." : "Spinning...";
+
+    try {
+      const res = await fetch("/api/roleta/girar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telegram_id })
+      });
+      const dados = await res.json();
+
+      if (!dados.success) {
+        resultado.textContent = `❌ ${dados.erro || 'Erro'}`;
+        botaoGirar.disabled = false;
+        return;
+      }
+
+      let indice = fatiasPremios.indexOf(dados.premio);
+      if (indice === -1) indice = 0;
+      
+      rotacaoAtual += (5 * 360) + (indice * anguloPorFatia);
+      roleta.style.transform = `rotate(-${rotacaoAtual}deg)`;
+
+      setTimeout(async () => {
+        const tP = tradutorPremios[userLang];
+        resultado.textContent = `🎉 ${dados.tipo === "nada" ? tP.nada : tP.pontos(dados.valor)}`;
+        botaoGirar.disabled = false;
+        await carregarDadosUsuario(); 
+      }, 4000);
+    } catch (err) {
+      resultado.textContent = t.wheelError || "Error";
+      botaoGirar.disabled = false;
+    }
+  }
+
+  document.getElementById("botaoGirar").addEventListener("click", () => {
+      if (usuarioVip) {
+          executarGiro();
+      } else {
+          show_11315704().then(() => {
+              executarGiro();
+          }).catch(e => {
+              console.log("Anúncio fechado ou erro:", e);
+          });
+      }
+  });
+
+  async function carregarHistorico() {
+    const tP = tradutorPremios[userLang];
+    
+    try {
+      const res = await fetch(`/api/roleta/historico?telegram_id=${telegram_id}`);
+      const historico = await res.json();
+      const lista = document.getElementById("listaGiros");
+      
+      lista.innerHTML = "";
+
+      if (!historico || historico.length === 0) {
+        lista.innerHTML = `<li>${userLang === 'pt' ? 'Nenhum giro registrado.' : 'No spins recorded.'}</li>`;
+        return;
+      }
+
+      historico.forEach(giro => {
+        const item = document.createElement("li");
+        
+        const dataObj = new Date(giro.data_registro);
+        let dataFormatada = "--:--";
+        
+        if (!isNaN(dataObj.getTime())) {
+          const optionsDate = { day: '2-digit', month: '2-digit' };
+          const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: false };
+          
+          const dataStr = dataObj.toLocaleDateString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsDate);
+          const horaStr = dataObj.toLocaleTimeString(userLang === 'pt' ? 'pt-BR' : 'en-US', optionsTime);
+          
+          dataFormatada = userLang === 'pt' ? `${dataStr} às ${horaStr}` : `${dataStr} at ${horaStr}`;
+        }
+        
+        const valor = parseFloat(giro.pontos_ganhos) || 0;
+        let textoPremio = valor > 0 ? tP.pontos(valor) : tP.nada;
+
+        item.textContent = `${textoPremio} — ${dataFormatada}`;
+        lista.appendChild(item);
+      });
+    } catch (err) { 
+      console.error("Erro ao carregar histórico:", err);
+      document.getElementById("listaGiros").innerHTML = "<li>Error loading history</li>";
+    }
+  }
   </script>
 </body>
 </html>
