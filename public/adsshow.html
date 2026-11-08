@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrackLink - Rewards & Ads Hub</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0b0f19;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 40px;
+        }
+        /* Barra de Progresso no Topo */
+        #progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: #1e293b;
+            z-index: 100000;
+        }
+        #progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #10b981;
+            transition: width 0.1s linear;
+        }
+        #timer-banner {
+            position: fixed;
+            top: 6px;
+            left: 0;
+            width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            border-bottom: 1px solid #334155;
+            padding: 8px 16px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 99999;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            margin-top: 55px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+        .ad-card {
+            width: 100%;
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .ad-card iframe {
+            max-width: 100%;
+            border: none;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            display: block;
+        }
+        .section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            margin-top: 8px;
+            width: 100%;
+            text-align: left;
+            padding-left: 4px;
+            border-left: 3px solid #10b981;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barra de progresso de 10 segundos -->
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+    <div id="timer-banner"><span id="timer-text">Aguarde 10 segundos...</span></div>
+
+    <div class="container">
+
+        <!-- ================= REPETIÇÃO 1 ================= -->
+        <div class="section-title" id="lbl-top">Destaques do Ecossistema (Parte 1)</div>
+
+        <!-- Banner Cash Rain Cross-Promotion -->
+        <div class="ad-card" style="border: 1px solid #10b981; background: #0f172a;">
+            <a href="https://cash-tzgk.onrender.com/?utm_source=lucremaistask&utm_medium=banner&utm_campaign=cross_promo" target="_blank" style="width: 100%;">
+                <img src="https://cash-tzgk.onrender.com/img/CashRainBanner.png" alt="Cash Rain">
+            </a>
+        </div>
+
+        <!-- ZerAds 300x250 Dinâmico -->
+        <div class="section-title">ZerAds Networks</div>
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_1"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+
+        <!-- A-Ads Adaptativo -->
+        <div class="section-title">A-Ads Network</div>
+        <div class="ad-card" style="width: 100%;">
+            <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive' style='border:0; padding:0; width:100%; height:auto; overflow:hidden; display:block;'></iframe>
+        </div>
+
+        <!-- Monetag / Direct Scripts -->
+        <div class="section-title">Monetag & Performance Banners</div>
+        <div class="ad-card">
+            <script>
+              atOptions = {
+                'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
+        </div>
+
+        <div id="ZerAds300_1" class="ad-card" style="display: none;"></div>
+
+        <!-- ZerAds Iframe Fixo 300x250 -->
+        <div class="ad-card">
+            <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" marginwidth="0" marginheight="0" width="300" height="250" scrolling="no" frameborder="0"></iframe>
+        </div>
+
+        <!-- Bônus & Extensão -->
+        <div class="section-title">Bônus & Extensão</div>
+
+        <!-- Repetição FaucetPay -->
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay 2">
+            </a>
+        </div>
+
+        <!-- ZerAds 300x250 Repetido -->
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_1_rep"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+        <div id="ZerAds300_1_rep" class="ad-card" style="display: none;"></div>
+
+        <!-- FaucetPay Banner -->
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay">
+            </a>
+        </div>
+
+        <!-- EasyHits4U Banner -->
+        <div class="ad-card">
+            <a href="https://www.easyhits4u.com/?ref=chensonbh763" target="_blank">
+                <img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="EasyHits4U" style="margin: 0 auto;"/>
+            </a>
+        </div>
+
+
+        <!-- ================= REPETIÇÃO 2 ================= -->
+        <div class="section-title">Destaques do Ecossistema (Parte 2)</div>
+
+        <div class="ad-card" style="border: 1px solid #10b981; background: #0f172a;">
+            <a href="https://cash-tzgk.onrender.com/?utm_source=lucremaistask&utm_medium=banner&utm_campaign=cross_promo" target="_blank" style="width: 100%;">
+                <img src="https://cash-tzgk.onrender.com/img/CashRainBanner.png" alt="Cash Rain">
+            </a>
+        </div>
+
+        <div class="section-title">ZerAds Networks</div>
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_2"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+
+        <div class="section-title">A-Ads Network</div>
+        <div class="ad-card" style="width: 100%;">
+            <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive' style='border:0; padding:0; width:100%; height:auto; overflow:hidden; display:block;'></iframe>
+        </div>
+
+        <div class="section-title">Monetag & Performance Banners</div>
+        <div class="ad-card">
+            <script>
+              atOptions = {
+                'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
+        </div>
+
+        <div id="ZerAds300_2" class="ad-card" style="display: none;"></div>
+
+        <div class="ad-card">
+            <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" marginwidth="0" marginheight="0" width="300" height="250" scrolling="no" frameborder="0"></iframe>
+        </div>
+
+        <div class="section-title">Bônus & Extensão</div>
+
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay 2">
+            </a>
+        </div>
+
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_2_rep"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+        <div id="ZerAds300_2_rep" class="ad-card" style="display: none;"></div>
+
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay">
+            </a>
+        </div>
+
+        <div class="ad-card">
+            <a href="https://www.easyhits4u.com/?ref=chensonbh763" target="_blank">
+                <img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="EasyHits4U" style="margin: 0 auto;"/>
+            </a>
+        </div>
+
+
+        <!-- ================= REPETIÇÃO 3 ================= -->
+        <div class="section-title">Destaques do Ecossistema (Parte 3)</div>
+
+        <div class="ad-card" style="border: 1px solid #10b981; background: #0f172a;">
+            <a href="https://cash-tzgk.onrender.com/?utm_source=lucremaistask&utm_medium=banner&utm_campaign=cross_promo" target="_blank" style="width: 100%;">
+                <img src="https://cash-tzgk.onrender.com/img/CashRainBanner.png" alt="Cash Rain">
+            </a>
+        </div>
+
+        <div class="section-title">ZerAds Networks</div>
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_3"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+
+        <div class="section-title">A-Ads Network</div>
+        <div class="ad-card" style="width: 100%;">
+            <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive' style='border:0; padding:0; width:100%; height:auto; overflow:hidden; display:block;'></iframe>
+        </div>
+
+        <div class="section-title">Monetag & Performance Banners</div>
+        <div class="ad-card">
+            <script>
+              atOptions = {
+                'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
+                'format' : 'iframe',
+                'height' : 250,
+                'width' : 300,
+                'params' : {}
+              };
+            </script>
+            <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
+        </div>
+
+        <div id="ZerAds300_3" class="ad-card" style="display: none;"></div>
+
+        <div class="ad-card">
+            <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" marginwidth="0" marginheight="0" width="300" height="250" scrolling="no" frameborder="0"></iframe>
+        </div>
+
+        <div class="section-title">Bônus & Extensão</div>
+
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay 2">
+            </a>
+        </div>
+
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11354&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_3_rep"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'flex';
+                if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11354' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 24px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+        <div id="ZerAds300_3_rep" class="ad-card" style="display: none;"></div>
+
+        <div class="ad-card">
+            <a href="https://faucetpay.io/?r=998373" target="_blank" rel="noopener">
+                <img src="https://cdn.faucetpay.io/banners/static/1_300x250.png" alt="FaucetPay">
+            </a>
+        </div>
+
+        <div class="ad-card">
+            <a href="https://www.easyhits4u.com/?ref=chensonbh763" target="_blank">
+                <img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="EasyHits4U" style="margin: 0 auto;"/>
+            </a>
+        </div>
+
+    </div>
+
+    <!-- Scripts de Monetização Auxiliares -->
+    <script data-cfasync="false" src="https://bauval.org/14/26b4c7ac2efa237482eb919380645d34"></script>
+    <script>
+    (function(mfokf){
+    var d = document,
+        s = d.createElement('script'),
+        l = d.currentScript || d.scripts[d.scripts.length - 1];
+    s.settings = mfokf || {};
+    s.src = "\/\/quarrelsomebitter.com\/b.XOV\/svdsGClI0kYqWFca\/-eDmN9ruZZ\/UullkBPIT\/YC2JNOTOMM5tNKzkkWtkNQj_Yz1wMtzXkr4LMBAz";
+    s.async = true;
+    s.referrerPolicy = 'no-referrer-when-downgrade';
+    l.parentNode.insertBefore(s, l);
+    })({})
+    </script>
+
+    <!-- Script de Idioma via URL e Timer de 10 Segundos -->
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const lang = urlParams.get('lang') || 'pt';
+
+        const txtElement = document.getElementById('timer-text');
+        const translations = {
+            pt: { wait: "Aguarde", ready: "Pronto! Você já pode fechar ou prosseguir." },
+            en: { wait: "Please wait", ready: "Ready! You can now close or proceed." }
+        };
+
+        const t = translations[lang] || translations['pt'];
+
+        let timeLeft = 10;
+        const progressBar = document.getElementById('progress-bar');
+        const timerBanner = document.getElementById('timer-banner');
+
+        const countdown = setInterval(() => {
+            timeLeft--;
+            let percentage = ((10 - timeLeft) / 10) * 100;
+            progressBar.style.width = percentage + '%';
+
+            if (timeLeft > 0) {
+                txtElement.innerText = `${t.wait} ${timeLeft}s...`;
+            } else {
+                clearInterval(countdown);
+                txtElement.innerText = t.ready;
+                timerBanner.style.background = "rgba(16, 185, 129, 0.9)";
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
