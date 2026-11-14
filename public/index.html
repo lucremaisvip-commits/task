@@ -251,6 +251,31 @@
     transform: scale(0.36);
     transform-origin: center;
   }
+
+  /* 🎯 ESTILIZAÇÃO DA SEÇÃO DE BANNERS ENTRE CARDS (728x90) */
+  .in-feed-ad-section {
+    width: 100%;
+    margin: 20px 0;
+    padding: 10px;
+    background: #111813;
+    border: 1px solid #1e3a24;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  /* Ajuste responsivo para telas menores (Telegram Mini App) */
+  @media (max-width: 768px) {
+    .in-feed-ad-section {
+      transform: scale(0.48);
+      transform-origin: center;
+      height: 55px;
+      margin: -25px 0;
+    }
+  }
     
 </style>
   <meta name="adbytes-site-verification" content="548bfaea3bbff7dd577e94cba8177cd815df429aa36dc910c0f1cede48c37f10" />
@@ -273,6 +298,10 @@
     <div class="xp-bar-container"><div id="barXp" class="xp-bar-fill"></div></div>
   </div>
   <p id="txtDegradacaoAviso" style="font-size: 11px; color: #38bdf8; margin-top: 15px; text-align: center; font-weight: 500;">💡 Dica: Complete pelo menos uma tarefa por dia para manter sua sequência ativa e evitar a perda de XP.</p>
+</div>
+
+<div class="in-feed-ad-section">
+  <iframe src="https://zerads.com/ad/ad.php?width=728&ref=11571" marginwidth="0" marginheight="0" width="728" height="90" scrolling="no" border="0" frameborder="0"></iframe>
 </div>
 
 <div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
@@ -355,10 +384,27 @@
   <button class="btn-bau" id="btnAbrirBau" onclick="abrirBau()" style="display: none;">Abrir Baú</button>
 </div>
   
+<div class="in-feed-ad-section">
+  <script>
+    atOptions = {
+      'key' : '460292fc0fd30fa71f16fa1385e89f32',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
+</div>
+
 <div class="checklist-card" style="border: 2px solid #2a8f43; background: #1e293b;">
   <h2 id="txtLuckyTitle" style="color: #34d399; margin-bottom: 10px;">🎡 Roleta da Sorte</h2>
   <p id="txtLuckyDesc" style="font-size: 14px; color: #d1fae5; margin-bottom: 15px;">Teste sua sorte e transforme seus pontos em prêmios instantâneos! Gire agora e ganhe!</p>
   <button id="btnLuckyGo" onclick="location.href='roleta.html'" style="background: #2a8f43; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 100%;">🎰 Gire e ganhe</button>
+</div>
+
+<div class="in-feed-ad-section">
+  <a href="https://ltcscrapper.com/?ref=dccd43"><img src="https://cdn.jsdelivr.net/gh/affiliateproteam/zergirls-assets@main/ltcscrapper-banner-728x90.gif" width="728" height="90" alt="LtcScrapper — idle-mine LTC & collect mining rigs"></a>
 </div>
 
 <div class="checklist-card" style="border: 2px solid #f59e0b; background: #1e293b;">
