@@ -5,6 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463" content="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463">
+  
+  <!-- HilltopAds Referrer Meta Tag -->
+  <meta name="referrer" content="no-referrer-when-downgrade" />
 
   <title>Instant Crypto Rewards & FaucetPay Bot - LucreMais</title>
 
@@ -37,14 +40,18 @@
     })(window, document, "clarity", "script", "wvaap53gz0");
   </script>
 
-  <!-- 🎨 STYLE OPTIMIZED FOR FAUCET / PTC USERS -->
+  <!-- 🎨 STYLE RESPONSIVO E OTIMIZADO PARA 3 COLUNAS -->
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: #090d0a;
       color: #f1f5f9;
       text-align: center;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     header {
@@ -57,8 +64,77 @@
       letter-spacing: 1px;
     }
 
+    /* Layout Principal de 3 Colunas (Desktop) */
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr 320px;
+      gap: 20px;
+      max-width: 1450px;
+      margin: 20px auto;
+      padding: 0 15px;
+      width: 100%;
+    }
+
+    /* Celular / Telas Pequenas: Oculta colunas laterais e expande o centro */
+    @media (max-width: 1024px) {
+      .layout-grid {
+        grid-template-columns: 1fr;
+      }
+      .side-column {
+        display: none !important;
+      }
+    }
+
+    /* Colunas Laterais */
+    .side-column {
+      background: #0c140e;
+      border: 1px solid #1e3a24;
+      border-radius: 12px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+      height: fit-content;
+    }
+    .side-column h3 {
+      font-size: 0.85rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0;
+    }
+    .side-ad-box {
+      width: 300px;
+      height: 250px;
+      background: #111813;
+      border-radius: 10px;
+      border: 1px solid #1e3a24;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Conteúdo Central */
+    .main-center {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+    }
+
+    .banner-top-container {
+      margin: 15px 0;
+      display: flex;
+      justify-content: center;
+    }
+
     .hero {
       padding: 25px 15px;
+      background: #111813;
+      border: 1px solid #1e3a24;
+      border-radius: 12px;
     }
 
     .hero h1 {
@@ -71,18 +147,6 @@
       color: #94a3b8;
       font-size: 1rem;
       margin-bottom: 25px;
-    }
-
-    .hero img {
-      width: 100%;
-      max-width: 600px;
-      border-radius: 12px;
-      box-shadow: 0 0 25px rgba(0, 255, 136, 0.25);
-      border: 1px solid #1e3a24;
-    }
-
-    .cta {
-      margin-top: 25px;
     }
 
     .cta button {
@@ -111,9 +175,7 @@
       justify-content: center;
       flex-wrap: wrap;
       gap: 15px;
-      margin: 30px auto;
-      max-width: 800px;
-      padding: 0 10px;
+      margin: 20px 0;
     }
 
     .stat {
@@ -134,14 +196,12 @@
     }
 
     .section {
-      padding: 40px 20px;
-      max-width: 900px;
-      margin: auto;
+      padding: 20px 0;
     }
 
     .section h2 {
       font-size: 1.5rem;
-      margin-bottom: 25px;
+      margin-bottom: 20px;
       color: #f1f5f9;
     }
 
@@ -172,10 +232,9 @@
       margin: 0;
     }
 
-    /* 🎯 ESTILIZAÇÃO DA ÁREA DE ANÚNCIOS PATROCINADOS */
+    /* 🎯 SEÇÃO DE ANÚNCIOS PATROCINADOS CENTRAIS */
     .ad-grid-section {
-      max-width: 950px;
-      margin: 40px auto;
+      margin: 20px 0;
       padding: 20px 10px;
       background: #0c140e;
       border: 1px solid #1e3a24;
@@ -220,9 +279,10 @@
 
     .cta-final {
       background: linear-gradient(180deg, #090d0a, #0f1f14);
-      border-top: 1px solid #1e3a24;
-      padding: 50px 20px;
-      margin-top: 30px;
+      border: 1px solid #1e3a24;
+      border-radius: 12px;
+      padding: 30px 20px;
+      margin-top: 20px;
     }
 
     .cta-final button {
@@ -243,119 +303,24 @@
       color: #64748b;
       font-size: 0.85rem;
       border-top: 1px solid #111813;
-    }
-
-    /* Modal Styling */
-    .modal-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 99999;
-      backdrop-filter: blur(4px);
-    }
-    .modal-box {
-      background: #111813;
-      border: 2px solid #00ff88;
-      border-radius: 14px;
-      padding: 25px;
-      max-width: 380px;
-      width: 90%;
-      text-align: center;
-      box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
-    }
-    .modal-box h3 {
-      color: #00ff88;
-      margin-top: 0;
-    }
-    .modal-box p {
-      color: #cbd5e1;
-      font-size: 0.95rem;
-      line-height: 1.4;
-    }
-    .modal-box button {
-      background: #00ff88;
-      color: #000;
-      border: none;
-      padding: 12px 20px;
-      font-weight: bold;
-      border-radius: 8px;
-      width: 100%;
-      margin-top: 15px;
-      cursor: pointer;
+      margin-top: auto;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- ⚠️ POPUP DE CONVERSÃO RÁPIDA 
-  <div id="pop-erro-zerads" class="modal-overlay">
-    <div class="modal-box">
-      <span onclick="fecharIsca()" style="float:right;cursor:pointer;color:#94a3b8;font-size:1.2rem;">×</span>
-      <h3 style="color:#00ff88;">⚡ CLAIM YOUR BONUS</h3>
-      <p>Click below to verify your session, unlock instant tasks, and start earning straight to your <b>FaucetPay</b>!</p>
-      <button onclick="fecharIsca()">🚀 Continue to Bot</button>
-    </div>
-  </div> -->
-
   <!-- HEADER -->
   <header>💰 LUCREMAIS BOT</header>
 
-  <!-- HERO -->
-  <section class="hero">
-    <h1>Earn Crypto & Cash Daily via Telegram</h1>
-    <p class="subtitle">Complete short tasks, view sponsor links, spin the wheel & get paid instantly!</p>
-    
-    <div class="cta">
-      <button onclick="abrirBot()">🚀 LAUNCH TELEGRAM BOT</button>
-    </div>
+  <!-- GRID PRINCIPAL DE 3 COLUNAS (DESKTOP) / 1 COLUNA (MOBILE) -->
+  <div class="layout-grid">
 
-    <p class="urgency">🔥 Over 1,450+ active earners joined today!</p>
-  </section>
-
-  <!-- STATS -->
-  <section class="stats">
-    <div class="stat">Active Users<span>24/7 Online</span></div>
-    <div class="stat">Payout Method<span>FaucetPay & Pix</span></div>
-    <div class="stat">Task Payouts<span>Instant Credit</span></div>
-  </section>
-
-  <!-- BENEFITS -->
-  <section class="section">
-    <h2>🌟 Why Choose LucreMais Bot?</h2>
-    <div class="grid">
-      <div class="card">
-        <h3>💸 Multiple Tasks</h3>
-        <p>Shortlinks, external offerwalls, check-ins, and direct sponsor views.</p>
-      </div>
-      <div class="card">
-        <h3>⚡ Instant Payouts</h3>
-        <p>Request your withdrawal securely and receive it fast without hassle.</p>
-      </div>
-      <div class="card">
-        <h3>🛡️ Anti-Cheat System</h3>
-        <p>Fair gameplay and secure web sessions protected via Telegram WebApp data.</p>
-      </div>
-      <div class="card">
-        <h3>👥 Referral Program</h3>
-        <p>Invite friends and earn passive percentages from their completed tasks.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- 🚀 SEÇÃO DE ANÚNCIOS PATROCINADOS (ENTRE BENEFÍCIOS E CTA FINAL) -->
-  <section class="ad-grid-section">
-    <div class="ad-grid-title">📢 Sponsored Partners</div>
-    <div class="ad-container-flex">
-      
-      <!-- BANNER ADSTERRA -->
-      <div class="ad-box">
+    <!-- 👈 COLUNA LATERAL ESQUERDA (Exibe 300x250 em telas grandes, some no celular) -->
+    <aside class="side-column">
+      <h3>Destaques</h3>
+      <div class="side-ad-box">
+        <!-- Adsterra 300x250 Lateral Esquerda -->
         <script>
           atOptions = {
             'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
@@ -367,63 +332,235 @@
         </script>
         <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
       </div>
+      <div class="side-ad-box">
+        <!-- ZerAds 300x250 Lateral Esquerda -->
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11571&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_L"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'inline-block';
+                if(data.includes("*BLANK*") == false) {
+                data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                element.querySelector('iframe').srcdoc = data;
+                } else {
+                element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 30px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+        <div id="ZerAds300_L" style="display: none;"></div>
+      </div>
+    </aside>
 
-      <!-- BANNER ZERADS -->
-      <div class="ad-box">
-        <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11571" marginwidth="0" marginheight="0" width="300" height="250" scrolling="no" border="0" frameborder="0"></iframe>
+    <!-- 🎯 COLUNA CENTRAL (Conteúdo principal + Banners centrais) -->
+    <main class="main-center">
+
+      <!-- BANNER 728x90 TOPO (Adsterra) -->
+      <div class="banner-top-container">
+        <script>
+          atOptions = {
+            'key' : '460292fc0fd30fa71f16fa1385e89f32',
+            'format' : 'iframe',
+            'height' : 90,
+            'width' : 728,
+            'params' : {}
+          };
+        </script>
+        <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
       </div>
 
-      <!-- BANNER A-ADS -->
-      <div class="ad-box" style="background: #0f172a;">
-        <div id="frame" style="width: 100%; margin: auto; position: relative; z-index: 99998;">
-          <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive' style='border:0; padding:0; width:100%; height:auto; min-height:90px; overflow:hidden; display:block; margin:auto;'></iframe>
+      <!-- HERO -->
+      <section class="hero">
+        <h1>Earn Crypto & Cash Daily via Telegram</h1>
+        <p class="subtitle">Complete short tasks, view sponsor links, spin the wheel & get paid instantly!</p>
+        
+        <div class="cta">
+          <button onclick="abrirBot()">🚀 LAUNCH TELEGRAM BOT</button>
         </div>
+
+        <p class="urgency">🔥 Over 1,450+ active earners joined today!</p>
+      </section>
+
+      <!-- STATS -->
+      <section class="stats">
+        <div class="stat">Active Users<span>24/7 Online</span></div>
+        <div class="stat">Payout Method<span>FaucetPay & Pix</span></div>
+        <div class="stat">Task Payouts<span>Instant Credit</span></div>
+      </section>
+
+      <!-- BENEFITS -->
+      <section class="section">
+        <h2>🌟 Why Choose LucreMais Bot?</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>💸 Multiple Tasks</h3>
+            <p>Shortlinks, external offerwalls, check-ins, and direct sponsor views.</p>
+          </div>
+          <div class="card">
+            <h3>⚡ Instant Payouts</h3>
+            <p>Request your withdrawal securely and receive it fast without hassle.</p>
+          </div>
+          <div class="card">
+            <h3>🛡️ Anti-Cheat System</h3>
+            <p>Fair gameplay and secure web sessions protected via Telegram WebApp data.</p>
+          </div>
+          <div class="card">
+            <h3>👥 Referral Program</h3>
+            <p>Invite friends and earn passive percentages from their completed tasks.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SEÇÃO DE ANÚNCIOS PATROCINADOS CENTRAIS -->
+      <section class="ad-grid-section">
+        <div class="ad-grid-title">📢 Sponsored Partners</div>
+        <div class="ad-container-flex">
+          
+          <!-- HilltopAds 300x250 -->
+          <div class="ad-box">
+            <script>
+            (function(vwtog){
+            var d = document,
+                s = d.createElement('script'),
+                l = d.currentScript || d.scripts[d.scripts.length - 1];
+            s.settings = vwtog || {};
+            s.src = "\/\/quarrelsomebitter.com\/b_XwVwsRd.GElj0\/YcWhcB\/besmI9mupZEUul\/kuPFTCcx2IMaj\/Uwy\/MnDcUVtbNtzyYOy\/NQTKIywTOJQi";
+            s.async = true;
+            s.referrerPolicy = 'no-referrer-when-downgrade';
+            l.parentNode.insertBefore(s, l);
+            })({})
+            </script>
+          </div>
+
+          <!-- ZerAds 300x250 Central -->
+          <div class="ad-box">
+            <script>
+            fetch('https://zerads.com/ad/ad.php?ref=11571&width=300')
+              .then(response => response.text())
+              .then(data => {
+                const elements = document.querySelectorAll('[id="ZerAds300_C"]');
+                for (const element of elements) {
+                    if (element.style.display === 'none') {
+                    element.style.display = 'inline-block';
+                    if(data.includes("*BLANK*") == false) {
+                    data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                    element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                    element.querySelector('iframe').srcdoc = data;
+                    } else {
+                    element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 30px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                    }
+                    break;
+                    }
+                }
+              });
+            </script>
+            <div id="ZerAds300_C" style="display: none;"></div>
+          </div>
+
+          <!-- A-ADS Adaptativo -->
+          <div class="ad-box" style="background: #0f172a;">
+            <div style="width: 100%; margin: auto; position: relative; z-index: 99998;">
+              <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive' style='border:0; padding:0; width:100%; height:auto; min-height:90px; overflow:hidden; display:block; margin:auto;'></iframe>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ZERADS 728x90 CENTRAL -->
+        <div style="margin-top: 25px; display: flex; justify-content: center;">
+          <script>
+          fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+            .then(response => response.text())
+            .then(data => {
+              const elements = document.querySelectorAll('[id="ZerAds728"]');
+              for (const element of elements) {
+                  if (element.style.display === 'none') {
+                  element.style.display = 'inline-block';
+                  if(data.includes("*BLANK*") == false) {
+                  data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                  element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+                  element.querySelector('iframe').srcdoc = data;
+                  } else {
+                  element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                  }
+                  break;
+                  }
+              }
+            });
+          </script>
+          <div id="ZerAds728" style="display: none;"></div>
+        </div>
+      </section>
+
+      <!-- CTA FINAL -->
+      <section class="cta-final">
+        <h2>Ready to start stacking your rewards?</h2>
+        <div style="margin-top: 20px;">
+          <button onclick="abrirBot()">📲 OPEN BOT NOW</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 👉 COLUNA LATERAL DIREITA (Espelho da esquerda para Desktop) -->
+    <aside class="side-column">
+      <h3>Patrocinados</h3>
+      <div class="side-ad-box">
+        <!-- Adsterra 300x250 Lateral Direita -->
+        <script>
+          atOptions = {
+            'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
+            'format' : 'iframe',
+            'height' : 250,
+            'width' : 300,
+            'params' : {}
+          };
+        </script>
+        <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
       </div>
+      <div class="side-ad-box">
+        <!-- ZerAds 300x250 Lateral Direita -->
+        <script>
+        fetch('https://zerads.com/ad/ad.php?ref=11571&width=300')
+          .then(response => response.text())
+          .then(data => {
+            const elements = document.querySelectorAll('[id="ZerAds300_R"]');
+            for (const element of elements) {
+                if (element.style.display === 'none') {
+                element.style.display = 'inline-block';
+                if(data.includes("*BLANK*") == false) {
+                data = data.replace('<meta http-equiv="refresh" content="280">', '');
+                element.innerHTML = "<iframe style='border:none;' width='300' height='250'></iframe>";
+                element.querySelector('iframe').srcdoc = data;
+                } else {
+                element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 300px; height: 250px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 30px; top: 37%; left: 17%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+                }
+                break;
+                }
+            }
+          });
+        </script>
+        <div id="ZerAds300_R" style="display: none;"></div>
+      </div>
+    </aside>
 
-    </div>
- <h3> </h3>
-<script>
-fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
-  .then(response => response.text())
-  .then(data => {
-    const elements = document.querySelectorAll('[id="ZerAds728"]');
-    for (const element of elements) {
-        if (element.style.display === 'none') {
-        element.style.display = 'inline-block';
-        if(data.includes("*BLANK*") == false) {
-        data = data.replace('<meta http-equiv="refresh" content="280">', '');
-        element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
-        element.querySelector('iframe').srcdoc = data;
-        } else {
-        element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
-        }
-        break;
-        }
-    }
-  });
-</script>
-<div id="ZerAds728" style="display: none;"></div>
+  </div>
 
-    
-  </section>
-
-  <!-- CTA FINAL -->
-  <section class="cta-final">
-    <h2>Ready to start stacking your rewards?</h2>
-    <div style="margin-top: 20px;">
-      <button onclick="abrirBot()">📲 OPEN BOT NOW</button>
-    </div>
-  </section>
+  <!-- VÍDEO VAST 3.0 (HilltopAds) COMO TESTE NO FINAL DA PÁGINA -->
+  <div style="max-width: 600px; margin: 20px auto; padding: 0 10px;">
+    <script src="https://crookedagreement.com/dIm-F.zodcGwNavsZEG-UQ/heem/9NuuZsUBlIkAPHTZcz2ZMujGU/yiM/jpEotjNgzLYUyvNBT/I/yuNqQg" async></script>
+  </div>
 
   <footer>© 2026 LucreMais Task Bot. All rights reserved.</footer>
 
-  <!-- SCRIPTS -->
+  <!-- SCRIPTS DE LOG E EVENTOS -->
   <script>
-    function fecharIsca() {
-      document.getElementById("pop-erro-zerads").style.display = "none";
-      setTimeout(function() { try { document.body.click(); } catch(e) {} }, 100);
-    }
-
     async function abrirBot() {
       await registrarLog(true);
       window.open("https://t.me/lucremais_test_bot?start=1677694125", "_blank");
