@@ -252,10 +252,10 @@
     transform-origin: center;
   }
 
-/* 🎯 ESTILIZAÇÃO DA SEÇÃO DE BANNERS ENTRE CARDS (728x90) AJUSTADA */
+/* 🎯 ESTILIZAÇÃO DA SEÇÃO DE BANNERS ENTRE CARDS (728x90) PERFEITA */
   .in-feed-ad-section {
     width: 100%;
-    margin: 20px auto;
+    margin: 25px auto;
     padding: 0;
     background: #111813;
     border: 1px solid #1e3a24;
@@ -266,10 +266,10 @@
     overflow: hidden;
     box-sizing: border-box;
     position: relative;
-    height: 90px; /* Altura fixa padrão do formato 728x90 */
+    z-index: 5;
+    height: 90px;
   }
 
-  /* Para computadores e telas grandes */
   .in-feed-ad-section iframe, 
   .in-feed-ad-section img {
     border: none;
@@ -281,18 +281,20 @@
   /* Ajuste responsivo para celulares (Telegram Mini App) */
   @media (max-width: 768px) {
     .in-feed-ad-section {
-      height: 52px; /* Altura proporcional para mobile */
+      height: 52px;
       margin: 15px 0;
     }
     .in-feed-ad-section iframe, 
     .in-feed-ad-section img {
-      width: 728px; /* Força a largura original do banner 728x90 */
+      width: 728px;
       height: 90px;
+      transform: scale(0.53);
       transform-origin: center;
       margin: auto;
     }
-  }    
-</style>
+  }
+  
+  </style>
   <meta name="adbytes-site-verification" content="548bfaea3bbff7dd577e94cba8177cd815df429aa36dc910c0f1cede48c37f10" />
 </head>
 <body>
@@ -316,7 +318,27 @@
 </div>
 
 <div class="in-feed-ad-section">
-  <iframe src="https://zerads.com/ad/ad.php?width=728&ref=11571" marginwidth="0" marginheight="0" width="728" height="90" scrolling="no" border="0" frameborder="0"></iframe>
+  <script>
+  fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+    .then(response => response.text())
+    .then(data => {
+      const elements = document.querySelectorAll('[id="ZerAds728"]');
+      for (const element of elements) {
+          if (element.style.display === 'none') {
+          element.style.display = 'inline-block';
+          if(data.includes("*BLANK*") == false) {
+          data = data.replace('<meta http-equiv="refresh" content="280">', '');
+          element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+          element.querySelector('iframe').srcdoc = data;
+          } else {
+          element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+          }
+          break;
+          }
+      }
+    });
+  </script>
+  <div id="ZerAds728" style="display: none;"></div>
 </div>
 
 <div id="modalAviso" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
