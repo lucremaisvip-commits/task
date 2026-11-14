@@ -26,9 +26,47 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
 
 #status { margin-top: 15px; font-size: 15px; font-weight: bold; color: #1e293b; }
 
-.grid-banners { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 20px; justify-items: center; }
-.ad-item { width: 300px; height: 250px; overflow: hidden; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.ad-item iframe, .ad-item img { width: 300px !important; height: 250px !important; object-fit: cover; border: none; }
+/* 🎯 SEÇÃO DE BANNERS IN-FEED (728x90) OTIMIZADA PARA MOBILE */
+.in-feed-ad-section {
+  width: 100%;
+  max-width: 400px;
+  margin: 12px auto;
+  padding: 0;
+  background: #111813;
+  border: 1px solid #1e3a24;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 5;
+  height: 90px;
+}
+
+.in-feed-ad-section iframe, 
+.in-feed-ad-section img {
+  border: none;
+  display: block;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+@media (max-width: 768px) {
+  .in-feed-ad-section {
+    height: 52px;
+    margin: 10px auto;
+  }
+  .in-feed-ad-section iframe, 
+  .in-feed-ad-section img {
+    width: 728px;
+    height: 90px;
+    transform: scale(0.53);
+    transform-origin: center;
+    margin: auto;
+  }
+}
 </style>
 </head>
 
@@ -48,26 +86,97 @@ button.ativo { background: #2a8f43; color: #fff; cursor: pointer; box-shadow: 0 
     </button>
 </div>  
 
-<div class="grid-banners">
-    <div class="ad-item">
-        <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy"></iframe>
-    </div>
-    
-    <!-- BEGIN AADS AD UNIT 2460609 (Substituindo o FaucetPay) -->
-    <div class="ad-item" style="background: #0f172a; display: flex; align-items: center; justify-content: center;">
-        <div id="frame" style="width: 100%; margin: auto; position: relative; z-index: 10;">
-            <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive'
-                    style='border:0; padding:0; width:100%; height:auto; min-height:90px; overflow:hidden; display:block; margin:auto;'></iframe>
-        </div>
-    </div>
-    <!-- END AADS AD UNIT 2460609 -->
+<!-- 🚀 SUPER ROTAÇÃO DE 6 BANNERS COMPACTOS 728x90 -->
 
-    <div class="ad-item">
-        <a href="https://www.easyhits4u.com/?ref=chensonbh763" target="_blank">
-            <img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" alt="EasyHits4U" style="width: 300px !important; height: 250px !important; object-fit: contain; background: #fff;" />
-        </a>
-    </div>
+<!-- 1. Adsterra 1 -->
+<div class="in-feed-ad-section">
+  <script>
+    atOptions = {
+      'key' : '460292fc0fd30fa71f16fa1385e89f32',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
 </div>
+
+<!-- 2. ZerAds 1 -->
+<div class="in-feed-ad-section">
+  <script>
+  fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+    .then(response => response.text())
+    .then(data => {
+      const elements = document.querySelectorAll('[id="ZerAds728_1"]');
+      for (const element of elements) {
+          if (element.style.display === 'none') {
+          element.style.display = 'inline-block';
+          if(data.includes("*BLANK*") == false) {
+          data = data.replace('<meta http-equiv="refresh" content="280">', '');
+          element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+          element.querySelector('iframe').srcdoc = data;
+          } else {
+          element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+          }
+          break;
+          }
+      }
+    });
+  </script>
+  <div id="ZerAds728_1" style="display: none;"></div>
+</div>
+
+<!-- 3. A-Ads 1 -->
+<div class="in-feed-ad-section">
+  <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=728x90' style='border:0; padding:0; width:728px; height:90px; overflow:hidden; display:block; margin:auto;'></iframe>
+</div>
+
+<!-- 4. Adsterra 2 -->
+<div class="in-feed-ad-section">
+  <script>
+    atOptions = {
+      'key' : '460292fc0fd30fa71f16fa1385e89f32',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
+</div>
+
+<!-- 5. ZerAds 2 -->
+<div class="in-feed-ad-section">
+  <script>
+  fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+    .then(response => response.text())
+    .then(data => {
+      const elements = document.querySelectorAll('[id="ZerAds728_2"]');
+      for (const element of elements) {
+          if (element.style.display === 'none') {
+          element.style.display = 'inline-block';
+          if(data.includes("*BLANK*") == false) {
+          data = data.replace('<meta http-equiv="refresh" content="280">', '');
+          element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+          element.querySelector('iframe').srcdoc = data;
+          } else {
+          element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+          }
+          break;
+          }
+      }
+    });
+  </script>
+  <div id="ZerAds728_2" style="display: none;"></div>
+</div>
+
+<!-- 6. A-Ads 2 -->
+<div class="in-feed-ad-section">
+  <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=728x90' style='border:0; padding:0; width:728px; height:90px; overflow:hidden; display:block; margin:auto;'></iframe>
+</div>
+
+<!-- FIM DA ROTAÇÃO DE BANNERS -->
 
 <button id="btnAbrir" disabled>⏳ Aguarde...</button>
 <div id="status"></div>
