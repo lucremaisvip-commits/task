@@ -147,6 +147,48 @@
     color: #f1f5f9; 
     margin-top: 20px; 
   }
+
+  /* 🎯 SEÇÃO DE BANNERS IN-FEED (728x90) */
+  .in-feed-ad-section {
+    width: 100%;
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 0;
+    background: #111813;
+    border: 1px solid #1e3a24;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 5;
+    height: 90px;
+  }
+
+  .in-feed-ad-section iframe, 
+  .in-feed-ad-section img {
+    border: none;
+    display: block;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  @media (max-width: 768px) {
+    .in-feed-ad-section {
+      height: 52px;
+      margin: 15px auto;
+    }
+    .in-feed-ad-section iframe, 
+    .in-feed-ad-section img {
+      width: 728px;
+      height: 90px;
+      transform: scale(0.53);
+      transform-origin: center;
+      margin: auto;
+    }
+  }
 </style>
 </head>
 
@@ -174,7 +216,21 @@
   </button>
 </div>
 
-<!-- 🚀 NOVO CARD: CRIAR TAREFA COM PONTOS -->
+<!-- 📢 BANNER 1: ADSTERRA 728x90 (Acima da criação de tarefas) -->
+<div class="in-feed-ad-section">
+  <script>
+    atOptions = {
+      'key' : '460292fc0fd30fa71f16fa1385e89f32',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
+</div>
+
+<!-- 🚀 CARD: CRIAR TAREFA COM PONTOS -->
 <div class="card" style="border: 1px dashed #00ff88; max-width: 400px; margin: 20px auto; text-align: left;">
   <h3 id="createTaskHeader" style="margin-top: 0; color: #00ff88; text-align: center;">📢 Create Your Task</h3>
   <p id="createTaskDesc" style="font-size: 13px; color: #94a3b8; margin-bottom: 15px; text-align: center;">
@@ -200,9 +256,42 @@
   <div id="statusCriacao" style="margin-top: 10px; font-size: 12px; text-align: center; font-weight: bold;"></div>
 </div>
 
+<!-- 📢 BANNER 2: ZERADS 728x90 (Abaixo da criação de tarefas) -->
+<div class="in-feed-ad-section">
+  <script>
+  fetch('https://zerads.com/ad/ad.php?ref=11571&width=728')
+    .then(response => response.text())
+    .then(data => {
+      const elements = document.querySelectorAll('[id="ZerAds728"]');
+      for (const element of elements) {
+          if (element.style.display === 'none') {
+          element.style.display = 'inline-block';
+          if(data.includes("*BLANK*") == false) {
+          data = data.replace('<meta http-equiv="refresh" content="280">', '');
+          element.innerHTML = "<iframe style='border:none;' width='728' height='90'></iframe>";
+          element.querySelector('iframe').srcdoc = data;
+          } else {
+          element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 728px; height: 90px; background-color: rgba(200, 200, 200, 0.1); position: relative;'><div style='position: absolute; color: #999; font-size: 48px; top: 20%; left: 27%; font-family: Arial; '><i>Advertise Here</i></div></div></a>";
+          }
+          break;
+          }
+      }
+    });
+  </script>
+  <div id="ZerAds728" style="display: none;"></div>
+</div>
+
+<!-- 📢 BANNER 3: A-ADS (Abaixo do ZerAds) -->
+<div class="card" style="max-width: 400px; margin: 20px auto; padding: 10px; text-align: center;">
+  <div id="frame" style="width: 100%; margin: auto; position: relative; z-index: 5;">
+    <iframe data-aa='2460609' src='//acceptable.a-ads.com/2460609/?size=Adaptive'
+            style='border:0; padding:0; width:100%; height:auto; overflow:hidden; display: block; margin: auto'></iframe>
+  </div>
+</div>
+
 </body>
 </html>
-  
+
 <script>
 let telegram_id = "";
 let userLang = "en";
@@ -571,6 +660,6 @@ async function criarCampanhaUsuario() {
     statusEl.innerText = "❌ Connection error.";
   }
 }
-</script>  
+</script>
 </body>
 </html>
