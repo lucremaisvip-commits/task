@@ -111,6 +111,47 @@
     opacity: 0.9;
   }
 
+  /* 🎯 SEÇÃO DE BANNERS IN-FEED (728x90) PADRONIZADA */
+  .in-feed-ad-section {
+    width: 100%;
+    margin: 20px auto;
+    padding: 0;
+    background: #111813;
+    border: 1px solid #1e3a24;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 5;
+    height: 90px;
+  }
+
+  .in-feed-ad-section iframe, 
+  .in-feed-ad-section img {
+    border: none;
+    display: block;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  @media (max-width: 768px) {
+    .in-feed-ad-section {
+      height: 52px;
+      margin: 15px 0;
+    }
+    .in-feed-ad-section iframe, 
+    .in-feed-ad-section img {
+      width: 728px;
+      height: 90px;
+      transform: scale(0.53);
+      transform-origin: center;
+      margin: auto;
+    }
+  }
+
   /* 📢 BLOCO DE PATROCÍNIO PADRONIZADO */
   .sponsorship-container {
     display: flex;
@@ -118,7 +159,7 @@
     align-items: center;
     gap: 10px;
     margin-top: 15px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .ad-card {
@@ -170,6 +211,20 @@
   </div>
 </div>
 
+<!-- 📢 Banner In-Feed Adsterra 728x90 (Logo abaixo da seleção de tarefas) -->
+<div class="in-feed-ad-section">
+  <script>
+    atOptions = {
+      'key' : '460292fc0fd30fa71f16fa1385e89f32',
+      'format' : 'iframe',
+      'height' : 90,
+      'width' : 728,
+      'params' : {}
+    };
+  </script>
+  <script src="https://bauval.org/22/460292fc0fd30fa71f16fa1385e89f32"></script>
+</div>
+
 <!-- Container único para os iframes -->
 <div class="card" id="offersCard" style="display: none; padding: 5px;">
   <iframe class="iframe-container" id="cpalead-frame" src="" style="width:100%; height:500px;"></iframe>
@@ -179,6 +234,7 @@
   <p style="text-align:center; font-size:14px; color:#aaa;" id="autoPayoutNote">
     💰 Complete and Earn: Points and XP credited automatically within 5 minutes. The more you interact, the more you level up!
   </p>
+
 <!-- 🌟 BANNER PRINCIPAL DO CASH RAIN (CROSS-PROMOTION) -->
 <div class="card" style="padding: 10px; background: #0f172a; border: 1px solid #10b981;">
   <a href="https://cash-tzgk.onrender.com/?utm_source=lucremaistask&utm_medium=banner&utm_campaign=cross_promo" target="_blank" style="display: block; width: 100%;">
@@ -194,26 +250,46 @@
     
     <!-- Banner 1: easyhits4u -->
     <div class="ad-card">
-<a href="https://www.easyhits4u.com/?ref=chensonbh763"><img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="Traffic Exchange with 2,325,000+ members" border="0"/></a>
+      <a href="https://www.easyhits4u.com/?ref=chensonbh763"><img src="https://www.easyhits4u.com/img/banners/125x125_1.gif" width="125" height="125" alt="Traffic Exchange" border="0"/></a>
     </div>
 
-    <!-- Banner 2: ZerAds -->
-    <div class="ad-card">
-      <iframe src="https://zerads.com/ad/ad.php?width=300&ref=11354" loading="lazy" scrolling="no"></iframe>
+    <!-- Banner 2: ZerAds (Com script dinâmico correto) -->
+    <div class="ad-card" style="width: 300px; height: 90px;">
+      <script>
+      fetch('https://zerads.com/ad/ad.php?ref=11571&width=300')
+        .then(response => response.text())
+        .then(data => {
+          const elements = document.querySelectorAll('[id="ZerAdsCardOffer"]');
+          for (const element of elements) {
+              if (element.style.display === 'none') {
+              element.style.display = 'inline-block';
+              if(data.includes("*BLANK*") == false) {
+              data = data.replace('<meta http-equiv="refresh" content="280">', '');
+              element.innerHTML = "<iframe style='border:none;' width='300' height='90'></iframe>";
+              element.querySelector('iframe').srcdoc = data;
+              } else {
+              element.innerHTML = "<a href='https://zerads.com/index.php?view=site&id=11571' target='_blank'><div style='width: 300px; height: 90px; background: #0f172a;'></div></a>";
+              }
+              break;
+              }
+          }
+        });
+      </script>
+      <div id="ZerAdsCardOffer" style="display: none;"></div>
     </div>
 
-    <!-- Banner 3: ads terra 32026112  -->
+    <!-- Banner 3: Adsterra 300x250 -->
     <div class="ad-card">
-<script>
-  atOptions = {
-    'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
-    'format' : 'iframe',
-    'height' : 250,
-    'width' : 300,
-    'params' : {}
-  };
-</script>
-<script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
+      <script>
+        atOptions = {
+          'key' : '54d68aa4e47f279a43d25cdc7d3d53fa',
+          'format' : 'iframe',
+          'height' : 250,
+          'width' : 300,
+          'params' : {}
+        };
+      </script>
+      <script src="https://bauval.org/22/54d68aa4e47f279a43d25cdc7d3d53fa"></script>
     </div>
 
   </div>
