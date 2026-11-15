@@ -559,11 +559,26 @@
 
   <footer>© 2026 LucreMais Task Bot. All rights reserved.</footer>
 
+
   <!-- SCRIPTS DE LOG E EVENTOS -->
   <script>
     async function abrirBot() {
+      // 1. Registra a conversão no banco via API
       await registrarLog(true);
-      window.open("https://t.me/lucremais_test_bot?start=1677694125", "_blank");
+
+      // 2. Captura as UTMs atuais da página
+      const params = new URLSearchParams(window.location.search);
+      const source = params.get('utm_source') || 'direct';
+      const medium = params.get('utm_medium') || 'none';
+      const campaign = params.get('utm_campaign') || 'none';
+
+      // 3. Monta o payload do start codificado para o Telegram
+      // Exemplo de formato no start: source_medium_campaign (ou um ID único mapeado)
+      const payloadStart = `${source}_${medium}_${campaign}`;
+
+      // 4. Abre o bot do Telegram passando a origem no start
+      const urlBot = `https://t.me/lucremais_test_bot?start=${encodeURIComponent(payloadStart)}`;
+      window.open(urlBot, "_blank");
     }
 
     async function registrarLog(converteu) {
@@ -588,6 +603,5 @@
 
     window.onload = () => registrarLog(false);
   </script>
-
 </body>
 </html>
