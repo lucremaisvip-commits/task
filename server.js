@@ -3484,37 +3484,62 @@ app.post('/api/admin/financeiro/parceiros', verificarAdminKey, async (req, res) 
 });
 
 // =========================================================================
-// 🔹 10. Telegram Bot Core (Estrutura Otimizada com Telegraf)
+// 🔹 10. Telegram Bot Core (Com Captura de UTM via Start)
 // =========================================================================
 bot.start(async (ctx) => {
   const textoMatch = ctx.message.text.split(' ');
-  const indicadorId = textoMatch[1] ? textoMatch[1] : "0";
+  const paramStart = textoMatch[1] ? textoMatch[1] : "0";
+
+  // Se o start contiver o padrão de UTM (ex: zerads_ptc_banner_01), podemos separar
+  let utmSource = "direct";
+  let utmMedium = "none";
+  let utmCampaign = "none";
+  let indicadorId = "0";
+
+  if (paramStart.includes('_')) {
+    const partes = paramStart.split('_');
+    // Se não for um ID numérico simples de indicação, tratamos como UTM estruturada
+    if (isNaN(paramStart)) {
+      utmSource = partes[0] || 'direct';
+      utmMedium = partes[1] || 'none';
+      utmCampaign = partes.slice(2).join('_') || 'none';
+    } else {
+      indicadorId = paramStart; // Caso seja indicação de outro usuário
+    }
+  }
+
+  // Salvamos temporariamente no contexto ou passamos para o fluxo de idioma
+  ctx.session = ctx.session || {};
+  ctx.session.utmData = { utmSource, utmMedium, utmCampaign, indicadorId };
 
   const keyboard = {
     inline_keyboard: [
-      [{ text: "🇧🇷 Português", callback_data: `lang_pt_${indicadorId}` }],
-      [{ text: "🇺🇸 English", callback_data: `lang_en_${indicadorId}` }]
+      [{ text: "🇧🇷 Português", callback_data: `lang_pt` }],
+      [{ text: "🇺🇸 English", callback_data: `lang_en` }]
     ]
   };
 
   await ctx.reply("Escolha seu idioma / Choose your language:", { reply_markup: keyboard });
 });
 
-bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
+bot.action(/^lang_(pt|en)$/, async (ctx) => {
   const lang = ctx.match[1];
-  const indicadorId = ctx.match[2];
-  
   const indicadoId = ctx.from.id;
   const nome = ctx.from.first_name;
+  
+  // Recupera as UTMs salvas na sessão do usuário
+  const utmData = ctx.session?.utmData || { utmSource: 'direct', utmMedium: 'none', utmCampaign: 'none', indicadorId: '0' };
 
   try {
     await pool.query('BEGIN');
 
+    // Salvando o usuário junto com a origem exata da campanha na tabela de usuários
     await pool.query(
-      `INSERT INTO usuarios (telegram_id, nome, lang, data_registro)
-       VALUES ($1, $2, $3, NOW())
-       ON CONFLICT (telegram_id) DO UPDATE SET lang = EXCLUDED.lang`,
-      [indicadoId, nome, lang]
+      `INSERT INTO usuarios (telegram_id, nome, lang, utm_source, utm_medium, utm_campaign, data_registro)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (telegram_id) DO UPDATE 
+       SET lang = EXCLUDED.lang`,
+      [indicadoId, nome, lang, utmData.utmSource, utmData.utmMedium, utmData.utmCampaign]
     );
 
     await pool.query(
@@ -3524,20 +3549,23 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
       [indicadoId]
     );
 
-    const check = await pool.query("SELECT id FROM indicacoes WHERE id_indicado = $1", [indicadoId]);
-    if (check.rowCount === 0) {
-      await pool.query(
-        `INSERT INTO indicacoes (id_indicador, id_indicado, data_registro, pontos_ativados)
-         VALUES ($1, $2, NOW(), false)`,
-        [indicadorId, indicadoId]
-      );
+    // Se houver um indicador válido por ID numérico
+    if (utmData.indicadorId && utmData.indicadorId !== "0") {
+      const check = await pool.query("SELECT id FROM indicacoes WHERE id_indicado = $1", [indicadoId]);
+      if (check.rowCount === 0) {
+        await pool.query(
+          `INSERT INTO indicacoes (id_indicador, id_indicado, data_registro, pontos_ativados)
+           VALUES ($1, $2, NOW(), false)`,
+          [utmData.indicadorId, indicadoId]
+        );
+      }
     }
 
     await pool.query('COMMIT');
 
     const saldo = await getSaldoUsuario(indicadoId);
-    let texto = (saldo === 0 && check.rowCount === 0) 
-      ? dicionario[lang].boas_vindas_novo 
+    let texto = (saldo === 0)  
+      ? dicionario[lang].boas_vindas_novo  
       : dicionario[lang].boas_vindas_recorrente.replace("{saldo}", saldo);
 
     await ctx.editMessageText(texto, {
@@ -3552,6 +3580,7 @@ bot.action(/^lang_(pt|en)_(.+)$/, async (ctx) => {
     });
 
   } catch (err) {
+    await pool.query('ROLLBACK');
     console.error("Erro no processamento do idioma:", err);
     await ctx.reply(dicionario[lang || 'en'].erro);
   }
