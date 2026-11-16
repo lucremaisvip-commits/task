@@ -65,6 +65,13 @@
       flex-direction: column;
       gap: 5px;
     }
+    ul li code {
+      background: #f8f9fa;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+      word-break: break-word;
+    }
     ul li button {
       align-self: flex-start;
       background: #007bff;
@@ -120,32 +127,32 @@
     <li>
       <span>-- Ver campanhas de usuários pendentes de moderação:</span>
       <code>SELECT id, telegram_id, titulo, link, cliques_totais, custo_total_pontos, status, data_criacao FROM campanhas_usuarios WHERE status = 'pendente' ORDER BY data_criacao DESC;</code>
-      <button onclick="executarQueryDireta(`SELECT id, telegram_id, titulo, link, cliques_totais, custo_total_pontos, status, data_criacao FROM campanhas_usuarios WHERE status = 'pendente' ORDER BY data_criacao DESC;`)">▶️ Executar</button>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
     <li>
-      <span>-- Query para saber qual campanha converte melhor:</span>
-      <code>SELECT utm_source, COUNT(*) as total_visitas, SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) as total_conversoes, ROUND(100.0 * SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) / COUNT(*), 2) as taxa_conversao_pct FROM traffic_logs GROUP BY utm_source ORDER BY taxa_conversao_pct DESC;</code>
-      <button onclick="executarQueryDireta(`SELECT utm_source, COUNT(*) as total_visitas, SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) as total_conversoes, ROUND(100.0 * SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) / COUNT(*), 2) as taxa_conversao_pct FROM traffic_logs GROUP BY utm_source ORDER BY taxa_conversao_pct DESC;`)">▶️ Executar</button>
+      <span>-- Funil real por campanha (Visitas, Cliques, Cadastros Reais, Tarefas e Indicações):</span>
+      <code>WITH logs_por_campanha AS (SELECT COALESCE(utm_source, 'direct') AS utm_source, COALESCE(utm_medium, 'none') AS utm_medium, COALESCE(utm_campaign, 'none') AS utm_campaign, COUNT(*) AS total_visitas, SUM(CASE WHEN is_converted = true THEN 1 ELSE 0 END) AS cliques_botao_telegram FROM traffic_logs GROUP BY 1, 2, 3), usuarios_por_campanha AS (SELECT COALESCE(utm_source, 'direct') AS utm_source, COALESCE(utm_medium, 'none') AS utm_medium, COALESCE(utm_campaign, 'none') AS utm_campaign, COUNT(*) AS usuarios_cadastrados, SUM(CASE WHEN status_conta = 'ativo' THEN 1 ELSE 0 END) AS contas_ativas, SUM(CASE WHEN tarefas_feitas > 0 THEN 1 ELSE 0 END) AS usuarios_fizeram_tarefa, COALESCE(SUM(tarefas_feitas), 0) AS total_tarefas_concluidas, COALESCE(SUM(indicacoes), 0) AS total_indicacoes FROM usuarios GROUP BY 1, 2, 3) SELECT COALESCE(l.utm_source, u.utm_source) AS utm_source, COALESCE(l.utm_medium, u.utm_medium) AS utm_medium, COALESCE(l.utm_campaign, u.utm_campaign) AS utm_campaign, COALESCE(l.total_visitas, 0) AS total_visitas, COALESCE(l.cliques_botao_telegram, 0) AS cliques_convertidos_log, COALESCE(u.usuarios_cadastrados, 0) AS usuarios_reais_cadastrados, ROUND(COALESCE(u.usuarios_cadastrados, 0) * 100.0 / NULLIF(l.total_visitas, 0), 2) AS conv_visita_para_cadastro_pct, COALESCE(u.usuarios_fizeram_tarefa, 0) AS usuarios_engajados_tarefa, ROUND(COALESCE(u.usuarios_fizeram_tarefa, 0) * 100.0 / NULLIF(u.usuarios_cadastrados, 0), 2) AS conv_cadastro_para_tarefa_pct, COALESCE(u.total_tarefas_concluidas, 0) AS total_tarefas_feitas, COALESCE(u.total_indicacoes, 0) AS total_indicacoes FROM logs_por_campanha l FULL OUTER JOIN usuarios_por_campanha u ON l.utm_source = u.utm_source AND l.utm_medium = u.utm_medium AND l.utm_campaign = u.utm_campaign ORDER BY usuarios_reais_cadastrados DESC, total_visitas DESC;</code>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
     <li>
       <span>-- Ver ações de um usuário específico:</span>
       <code>SELECT origem, COUNT(*) as total_acoes, SUM(pontos) as total_pontos FROM historico_ganhos WHERE telegram_id = '8513185549' GROUP BY origem ORDER BY total_acoes DESC;</code>
-      <button onclick="executarQueryDireta(`SELECT origem, COUNT(*) as total_acoes, SUM(pontos) as total_pontos FROM historico_ganhos WHERE telegram_id = '8513185549' GROUP BY origem ORDER BY total_acoes DESC;`)">▶️ Executar</button>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
     <li>
       <span>-- Top 5 usuários por tarefas:</span>
       <code>SELECT nome, telegram_id, tarefas_feitas FROM usuarios ORDER BY tarefas_feitas DESC LIMIT 5;</code>
-      <button onclick="executarQueryDireta(`SELECT nome, telegram_id, tarefas_feitas FROM usuarios ORDER BY tarefas_feitas DESC LIMIT 5;`)">▶️ Executar</button>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
     <li>
       <span>-- Top 5 usuários por indicações:</span>
       <code>SELECT nome, telegram_id, indicacoes FROM usuarios ORDER BY indicacoes DESC LIMIT 5;</code>
-      <button onclick="executarQueryDireta(`SELECT nome, telegram_id, indicacoes FROM usuarios ORDER BY indicacoes DESC LIMIT 5;`)">▶️ Executar</button>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
     <li>
       <span>-- Diagnóstico de Bloqueios e Retenção (Novas colunas):</span>
       <code>SELECT COUNT(*) AS total_usuarios, SUM(CASE WHEN status_conta = 'bloqueado' THEN 1 ELSE 0 END) AS total_bloqueados, SUM(CASE WHEN status_conta = 'ativo' OR status_conta IS NULL THEN 1 ELSE 0 END) AS total_ativos, ROUND(AVG(tarefas_feitas), 2) AS media_tarefas_por_usuario, ROUND((SUM(CASE WHEN status_conta = 'bloqueado' THEN 1 ELSE 0 END)::decimal / NULLIF(COUNT(*), 0)) * 100, 2) AS taxa_bloqueio_percentual FROM usuarios;</code>
-      <button onclick="executarQueryDireta(`SELECT COUNT(*) AS total_usuarios, SUM(CASE WHEN status_conta = 'bloqueado' THEN 1 ELSE 0 END) AS total_bloqueados, SUM(CASE WHEN status_conta = 'ativo' OR status_conta IS NULL THEN 1 ELSE 0 END) AS total_ativos, ROUND(AVG(tarefas_feitas), 2) AS media_tarefas_por_usuario, ROUND((SUM(CASE WHEN status_conta = 'bloqueado' THEN 1 ELSE 0 END)::decimal / NULLIF(COUNT(*), 0)) * 100, 2) AS taxa_bloqueio_percentual FROM usuarios;`)">▶️ Executar</button>
+      <button onclick="executarDoCodigo(this)">▶️ Executar</button>
     </li>
   </ul>
 
@@ -189,7 +196,8 @@ async function enviarSQL(sql) {
   }
 }
 
-function executarQueryDireta(sql) {
+function executarDoCodigo(botao) {
+  const sql = botao.previousElementSibling.textContent.trim();
   document.getElementById("campoSQL").value = sql;
   enviarSQL(sql);
 }
