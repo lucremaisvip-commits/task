@@ -60,10 +60,9 @@ const saqueLimiter = rateLimitLib({
   message: "Muitas tentativas. Tente novamente mais tarde."
 });
 
-// 🔒 4. Limite de JSON (anti ataque)
-app.use(express.json({
-  limit: "10kb"
-}));
+// 🔒 4. Limite de JSON (equilíbrio entre funcionalidade e proteção)
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ limit: "5mb", extended: true }));
 
 const crypto = require("crypto");
 
