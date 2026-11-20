@@ -5,11 +5,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463" content="bdc327f0d0fda7b4d1b57ced40ad6b2ec7c1b463">
-  
+
   <!-- HilltopAds Referrer Meta Tag -->
   <meta name="referrer" content="no-referrer-when-downgrade" />
 
   <title>Instant Crypto Rewards & FaucetPay Bot - LucreMais</title>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-K8T1NL1RJR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-K8T1NL1RJR');
+  </script>
 
   <!-- ⚡ Preconnect -->
   <link rel="preconnect" href="https://www.highperformanceformat.com" crossorigin>
@@ -379,7 +388,7 @@
       <section class="hero">
         <h1>Earn Crypto & Cash Daily via Telegram</h1>
         <p class="subtitle">Complete short tasks, view sponsor links, spin the wheel & get paid instantly!</p>
-        
+
         <div class="cta">
           <button onclick="abrirBot()">🚀 LAUNCH TELEGRAM BOT</button>
         </div>
@@ -421,7 +430,7 @@
       <section class="ad-grid-section">
         <div class="ad-grid-title">📢 Sponsored Partners</div>
         <div class="ad-container-flex">
-          
+
           <!-- HilltopAds 300x250 -->
           <div class="ad-box">
             <script>
@@ -562,31 +571,55 @@
 
   <!-- SCRIPTS DE LOG E EVENTOS -->
   <script>
+    const paramsAtuais = new URLSearchParams(window.location.search);
+    const utmSourceSalvo = paramsAtuais.get('utm_source') || localStorage.getItem('lucremais_utm_source') || 'direct';
+    const utmMediumSalvo = paramsAtuais.get('utm_medium') || localStorage.getItem('lucremais_utm_medium') || 'none';
+    const utmCampaignSalvo = paramsAtuais.get('utm_campaign') || localStorage.getItem('lucremais_utm_campaign') || 'none';
+
+    if (paramsAtuais.get('utm_source')) localStorage.setItem('lucremais_utm_source', paramsAtuais.get('utm_source'));
+    if (paramsAtuais.get('utm_medium')) localStorage.setItem('lucremais_utm_medium', paramsAtuais.get('utm_medium'));
+    if (paramsAtuais.get('utm_campaign')) localStorage.setItem('lucremais_utm_campaign', paramsAtuais.get('utm_campaign'));
+
+    function dispararEventoGA4(nomeEvento, dadosExtras = {}) {
+      if (typeof gtag === 'function') {
+        gtag('event', nomeEvento, {
+          source: utmSourceSalvo,
+          medium: utmMediumSalvo,
+          campaign: utmCampaignSalvo,
+          ...dadosExtras
+        });
+      }
+    }
+
     async function abrirBot() {
-      // 1. Registra a conversão no banco via API
-      await registrarLog(true);
-
-      // 2. Captura as UTMs atuais da página
+      // 1. Captura as UTMs atuais da página (com fallback no localStorage)
       const params = new URLSearchParams(window.location.search);
-      const source = params.get('utm_source') || 'direct';
-      const medium = params.get('utm_medium') || 'none';
-      const campaign = params.get('utm_campaign') || 'none';
+      const source = params.get('utm_source') || utmSourceSalvo || 'direct';
+      const medium = params.get('utm_medium') || utmMediumSalvo || 'none';
+      const campaign = params.get('utm_campaign') || utmCampaignSalvo || 'none';
 
-      // 3. Monta o payload do start codificado para o Telegram
-      // Exemplo de formato no start: source_medium_campaign (ou um ID único mapeado)
+      // 2. Monta o payload do start codificado para o Telegram
       const payloadStart = `${source}_${medium}_${campaign}`;
-
-      // 4. Abre o bot do Telegram passando a origem no start
       const urlBot = `https://t.me/lucremais_test_bot?start=${encodeURIComponent(payloadStart)}`;
+
+      // 3. Dispara evento no GA4 ao clicar para abrir o bot
+      dispararEventoGA4('select_promotion', {
+        promotion_name: 'lucremais_telegram_bot',
+        creative_name: 'launch_bot_cta',
+        bot_payload: payloadStart
+      });
+
+      // 4. Registra a conversão no banco via API e abre o bot
+      await registrarLog(true);
       window.open(urlBot, "_blank");
     }
 
     async function registrarLog(converteu) {
       const params = new URLSearchParams(window.location.search);
       const logData = {
-        utm_source: params.get('utm_source') || 'direct',
-        utm_medium: params.get('utm_medium') || 'none',
-        utm_campaign: params.get('utm_campaign') || 'none',
+        utm_source: params.get('utm_source') || utmSourceSalvo || 'direct',
+        utm_medium: params.get('utm_medium') || utmMediumSalvo || 'none',
+        utm_campaign: params.get('utm_campaign') || utmCampaignSalvo || 'none',
         is_converted: converteu
       };
 
